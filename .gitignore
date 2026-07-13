@@ -1,0 +1,17 @@
+.state-memory-mcp
+node_modules/
+dist/
+data/
+.env
+viewer.html
+*.zip
+*.tar.gz
+*.log
+plans/
+# vision-memory-mcp local database
+.vision-memory/
+.env
+
+# vision-memory-mcp local database
+.vision-memory-mcp/
+.env

@@ -1,0 +1,73 @@
+import { config } from '../config.js';
+import { logger } from '../logger.js';
+
+/**
+ * Interface for the vision model analyzer.
+ */
+export async function analyzeScreenshotWithLLM(
+  base64Image: string
+): Promise<string> {
+  if (!config.VISION_MODEL_ENABLED) {
+    logger.debug('Vision model analyzer is disabled. Skipping LLM analysis.');
+    return 'Vision model disabled.';
+  }
+
+  // Ensure base64 prefix
+  const formattedBase64 = base64Image.startsWith('data:')
+    ? base64Image
+    : `data:image/webp;base64,${base64Image}`;
+
+  const endpoint = config.VISION_MODEL_ENDPOINT.endsWith('/')
+    ? `${config.VISION_MODEL_ENDPOINT}chat/completions`
+    : `${config.VISION_MODEL_ENDPOINT}/chat/completions`;
+
+  logger.info(`Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY || 'no-key'}`,
+      },
+      body: JSON.stringify({
+        model: config.VISION_MODEL_NAME,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze this screenshot of a user interface. Provide a concise, clear description of what this screen is, its key input fields, status, and any active error warnings or alert messages. Focus on details a reasoning agent needs to navigate it.',
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: formattedBase64,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: config.VISION_MODEL_MAX_TOKENS,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Vision model request failed with status ${response.status}: ${errorText}`);
+    }
+
+    const data = (await response.json()) as any;
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('Empty response content received from vision model.');
+    }
+
+    return content.trim();
+  } catch (error) {
+    logger.error('Error in vision LLM analysis:', error);
+    throw error;
+  }
+}

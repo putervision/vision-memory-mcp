@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "STATE_MEMORY_MCP_PROJECT": "vision-memory-mcp"
+      }
+    },
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "LANCEDB_PATH": "./.vision-memory"
+      }
+    }
+  }
+}
