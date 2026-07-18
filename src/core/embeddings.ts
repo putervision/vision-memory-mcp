@@ -1,5 +1,6 @@
 import { 
   AutoProcessor, 
+  AutoTokenizer,
   CLIPVisionModelWithProjection, 
   CLIPTextModelWithProjection,
   RawImage
@@ -9,6 +10,7 @@ import { logger } from '../logger.js';
 
 export class EmbeddingsManager {
   private processor: any = null;
+  private tokenizer: any = null;
   private visionModel: any = null;
   private textModel: any = null;
   private initialized = false;
@@ -26,8 +28,9 @@ export class EmbeddingsManager {
           quantized: false, 
         };
 
-        // Load processor and both CLIP models
+        // Load processor, tokenizer and both CLIP models
         this.processor = await AutoProcessor.from_pretrained(config.CLIP_MODEL);
+        this.tokenizer = await AutoTokenizer.from_pretrained(config.CLIP_MODEL);
         this.visionModel = await CLIPVisionModelWithProjection.from_pretrained(config.CLIP_MODEL, modelOpts as any);
         this.textModel = await CLIPTextModelWithProjection.from_pretrained(config.CLIP_MODEL, modelOpts as any);
 
@@ -78,7 +81,7 @@ export class EmbeddingsManager {
 
     try {
       // Process text
-      const textInputs = await this.processor([text]);
+      const textInputs = await this.tokenizer([text], { padding: true, truncation: true });
 
       // Run inference
       const textOutputs = await this.textModel(textInputs);

@@ -156,4 +156,17 @@ describe('Graph Navigation and Transitions', () => {
     expect(topPath.steps[1].state_id).toBe('state-b');
     expect(topPath.steps[1].action).toBe('click billing link');
   });
+
+  it('should store traceId in metadata when recording transition', async () => {
+    const t = await recordTransition({
+      fromStateId: 'state-a',
+      toStateId: 'state-b',
+      action: 'click profile',
+      success: true,
+      traceId: 'session-xyz',
+    });
+
+    const parsedMetadata = JSON.parse(t.metadata);
+    expect(parsedMetadata.trace_id).toBe('session-xyz');
+  });
 });

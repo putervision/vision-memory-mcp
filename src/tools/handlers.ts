@@ -42,6 +42,7 @@ export function registerAllTools(server: McpServer): void {
         tags: z.array(z.string()).optional().describe('Optional classification tags'),
         force_refresh: z.boolean().optional().describe('Bypass L1/L2 cache and force new ingestion'),
         git_branch: z.string().optional().describe('Override the active git branch'),
+        trace_id: z.string().optional().describe('Optional session_id or trace_id for correlation with state-memory-mcp'),
       }),
     },
     async (params) => {
@@ -103,7 +104,7 @@ export function registerAllTools(server: McpServer): void {
           original_dimensions: JSON.stringify({ width: processed.originalWidth, height: processed.originalHeight }),
           source_url: params.source_url ?? '',
           source_agent: 'agent',
-          trace_id: '',
+          trace_id: params.trace_id ?? '',
           git_branch: branch,
           tags: JSON.stringify(params.tags ?? []),
           importance_score: 0.5,
@@ -245,6 +246,7 @@ export function registerAllTools(server: McpServer): void {
         success: z.boolean().describe('Outcome of action'),
         duration_ms: z.number().optional().describe('Action execution time in ms'),
         notes: z.string().optional().describe('Execution notes or error logs'),
+        trace_id: z.string().optional().describe('Optional session_id or trace_id for correlation with state-memory-mcp'),
       }),
     },
     async (params) => {
@@ -274,6 +276,7 @@ export function registerAllTools(server: McpServer): void {
           success: params.success,
           durationMs: params.duration_ms,
           notes: params.notes,
+          traceId: params.trace_id,
         });
 
         const fromState = await storage.getState(params.from_state_id);
@@ -609,6 +612,61 @@ export function registerAllTools(server: McpServer): void {
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to undo mutation: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 10. Tool: create_visual_blocker
+  server.registerTool(
+    'create_visual_blocker',
+    {
+      description: 'Generates a structured visual blocker payload. The calling agent should use the output to call state-memory-mcp:add_node to log a blocker.',
+      inputSchema: z.object({
+        visual_state_id: z.string().describe('ID of the visual state where the blocker occurred'),
+        description: z.string().describe('Description of the visual bug/blocker'),
+        project: z.string().optional().describe('The state-memory-mcp project name (defaults to the current folder name)'),
+      }),
+    },
+    async (params) => {
+      try {
+        const state = await storage.getState(params.visual_state_id);
+        if (!state) {
+          throw new Error(`Visual state with ID ${params.visual_state_id} not found.`);
+        }
+
+        const project = params.project ?? '';
+        const title = `Visual Blocker: ${params.description.slice(0, 80)}`;
+        const result = {
+          instruction: 'Please execute the state-memory-mcp:add_node tool with the following parameters to log this blocker.',
+          mcp_tool_call: {
+            server: 'state-memory-mcp',
+            tool: 'add_node',
+            arguments: {
+              project: project || undefined,
+              type: 'blocker',
+              title,
+              status: 'active',
+              metadata: {
+                vision_state_id: state.id,
+                vision_description: state.description,
+                source_url: state.source_url,
+                git_branch: state.git_branch,
+                bug_details: params.description,
+              },
+              tags: ['visual-regression', 'ui-bug']
+            }
+          }
+        };
+
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error: any) {
+        logger.error('Error in create_visual_blocker tool:', error);
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to create visual blocker: ${error.message}` }],
         };
       }
     }

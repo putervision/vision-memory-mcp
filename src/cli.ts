@@ -283,6 +283,7 @@ VISION_MODEL_ENABLED=false
 VISION_MODEL_ENDPOINT=http://localhost:1234/v1
 VISION_MODEL_NAME=gpt-4o
 VISION_MODEL_MAX_TOKENS=500
+OPENAI_API_KEY=your-api-key-here
 
 # === Server ===
 LOG_LEVEL=info
@@ -1320,6 +1321,10 @@ async function runRestore(args: string[]) {
 
   console.log(`📦 Restoring database from "${inFile}" to "${dbParentDir}"...`);
   try {
+    if (fs.existsSync(dbPath)) {
+      logger.info(`Cleaning up existing database directory at: ${dbPath}`);
+      fs.rmSync(dbPath, { recursive: true, force: true });
+    }
     execSync(`tar -xzf "${inFile}" -C "${dbParentDir}"`);
     console.log('✅ Database restored successfully.');
   } catch (err: any) {

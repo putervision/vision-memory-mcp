@@ -113,7 +113,7 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (9 Available)
+## 🔌 MCP Tools (10 Available)
 
 | Tool | Purpose | Key Inputs |
 |------|---------|------------|
@@ -126,6 +126,7 @@ Ensure you allow:
 | `save_visual_snapshot` | Save checkpoint of visual memory states | `name` (req), `description` (opt) |
 | `diff_visual_snapshots` | Diff two checkpoints for visual drift | `snapshot_a_name` (req), `snapshot_b_name` (req) |
 | `undo_last_visual_mutation` | Revert the last state or edge mutation | `type` ('state' \| 'transition' \| 'any') |
+| `create_visual_blocker` | Generate structured visual blocker payload for `state-memory-mcp` | `visual_state_id` (req), `description` (req), `project` (opt) |
 
 ---
 
@@ -159,6 +160,7 @@ EMBEDDING_DIMENSIONS=512                # CLIP embedding output dimension
 VISION_MODEL_ENABLED=false              # Enable L4 vision fallback
 VISION_MODEL_ENDPOINT=http://localhost:1234/v1 # Vision model server URL
 VISION_MODEL_NAME=gpt-4o               # Vision model identifier
+OPENAI_API_KEY=your-api-key-here        # Required if using OpenAI endpoints for L4 fallback
 LOG_LEVEL=info                          # log levels (debug, info, warn, error)
 TTL_DEFAULT_MS=604800000                # Eviction TTL (default: 7 days)
 ```

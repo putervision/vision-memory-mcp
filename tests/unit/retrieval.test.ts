@@ -98,4 +98,15 @@ describe('Tiered Retrieval Engine', () => {
     expect(result.is_known).toBe(false);
     expect(result.match_type).toBe('new');
   });
+
+  it('should search states using semantic text vector search (L3 search)', async () => {
+    const result = await retrieveState({
+      query: 'Solid Red Screen',
+      strategy: 'semantic',
+      gitBranch: 'main',
+    });
+
+    expect(result.state_id).toBe('state-red');
+    expect(result.match_type).toBe('vector_similar');
+  });
 });

@@ -14,6 +14,7 @@ export async function recordTransition(params: {
   success: boolean;
   durationMs?: number;
   notes?: string;
+  traceId?: string;
 }): Promise<StateTransition> {
   const branch = getCurrentBranch();
   const id = transitionKey(params.fromStateId, params.toStateId, params.action);
@@ -51,7 +52,10 @@ export async function recordTransition(params: {
     duration_ms: avgDuration,
     last_traversed: Date.now(),
     git_branch: branch,
-    metadata: JSON.stringify({ notes: params.notes ?? '' }),
+    metadata: JSON.stringify({
+      notes: params.notes ?? '',
+      trace_id: params.traceId ?? '',
+    }),
   };
 
   await storage.addTransition(transition);

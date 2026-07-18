@@ -183,6 +183,10 @@ export class StorageManager {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Deleting visual state: ${id}`);
     await this.statesTable.delete(`id = '${id}'`);
+    if (this.transitionsTable) {
+      logger.debug(`Cascading delete: removing transitions for state ${id}`);
+      await this.transitionsTable.delete(`from_state_id = '${id}' OR to_state_id = '${id}'`);
+    }
   }
 
   async listStates(filter?: string, limit: number = 50): Promise<VisualState[]> {

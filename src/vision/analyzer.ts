@@ -17,9 +17,12 @@ export async function analyzeScreenshotWithLLM(
     ? base64Image
     : `data:image/webp;base64,${base64Image}`;
 
-  const endpoint = config.VISION_MODEL_ENDPOINT.endsWith('/')
-    ? `${config.VISION_MODEL_ENDPOINT}chat/completions`
-    : `${config.VISION_MODEL_ENDPOINT}/chat/completions`;
+  let endpoint = config.VISION_MODEL_ENDPOINT;
+  if (!endpoint.includes('chat/completions')) {
+    endpoint = endpoint.endsWith('/')
+      ? `${endpoint}chat/completions`
+      : `${endpoint}/chat/completions`;
+  }
 
   logger.info(`Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`);
 
