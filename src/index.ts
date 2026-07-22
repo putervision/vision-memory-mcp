@@ -17,7 +17,7 @@ async function main() {
     // 2. Instantiate MCP Server
     const server = new McpServer({
       name: 'vision-memory-mcp',
-      version: '0.2.0',
+      version: '0.3.0',
     });
 
     // 3. Register Resource Templates
@@ -67,19 +67,27 @@ async function main() {
     logger.info('vision-memory-mcp server connected and running.');
 
     // 6. Handle Graceful Shutdown
-    const shutdown = async (signal: string) => {
-      logger.info(`Received ${signal}. Shutting down gracefully...`);
+    let isShuttingDown = false;
+    const shutdown = async (reason: string) => {
+      if (isShuttingDown) return;
+      isShuttingDown = true;
+      logger.info(`Shutting down gracefully (${reason})...`);
       try {
         await storage.optimize();
         logger.info('Database optimized and compacted.');
+        process.exit(0);
       } catch (err) {
         logger.error('Failed to optimize database during shutdown:', err);
+        process.exit(1);
       }
-      process.exit(0);
     };
 
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    process.stdin.on('close', () => void shutdown('stdin close'));
+    if (typeof (transport as any).onclose === 'function') {
+      (transport as any).onclose = () => void shutdown('transport close');
+    }
   } catch (error) {
     logger.error('Fatal error starting server:', error);
     process.exit(1);

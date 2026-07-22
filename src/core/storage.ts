@@ -30,7 +30,15 @@ function cleanupLockFiles(dir: string): void {
 }
 
 export function escapeSql(val: string): string {
-  return val.replace(/'/g, "''");
+  if (typeof val !== 'string') {
+    return '';
+  }
+  return val
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "''")
+    .replace(/"/g, '\\"')
+    .replace(/`/g, '\\`')
+    .replace(/\0/g, '\\0');
 }
 
 export class StorageManager {
@@ -99,7 +107,9 @@ export class StorageManager {
         [dummyState as any],
         { mode: 'overwrite' }
       );
-      await this.statesTable.delete("id = 'dummy-state-id'");
+      try {
+        await this.statesTable.delete("id = 'dummy-state-id'");
+      } catch {}
       logger.debug('Created and cleaned visual_states table.');
     }
 
@@ -128,7 +138,9 @@ export class StorageManager {
         [dummyTransition as any],
         { mode: 'overwrite' }
       );
-      await this.transitionsTable.delete("id = 'dummy-transition-id'");
+      try {
+        await this.transitionsTable.delete("id = 'dummy-transition-id'");
+      } catch {}
       logger.debug('Created and cleaned state_transitions table.');
     }
 
@@ -151,7 +163,9 @@ export class StorageManager {
         [dummySnapshot as any],
         { mode: 'overwrite' }
       );
-      await this.snapshotsTable.delete("id = 'dummy-snapshot-id'");
+      try {
+        await this.snapshotsTable.delete("id = 'dummy-snapshot-id'");
+      } catch {}
       logger.debug('Created and cleaned visual_snapshots table.');
     }
 

@@ -16,6 +16,11 @@ export async function saveSnapshot(
   const branch = getCurrentBranch();
   logger.info(`Saving visual snapshot: "${name}" on branch "${branch}"`);
 
+  const existing = await storage.getSnapshot(name);
+  if (existing) {
+    throw new Error(`Snapshot with name "${name}" already exists.`);
+  }
+
   // Fetch all visual states on the current branch
   const states = await storage.listStates(
     `git_branch = '${escapeSql(branch)}'`,

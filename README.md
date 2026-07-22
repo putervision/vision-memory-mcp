@@ -181,14 +181,172 @@ TTL_DEFAULT_MS=604800000                # Eviction TTL (default: 7 days)
 
 ---
 
+## 🔒 Local-First Privacy & Zero Telemetry Guarantee
+
+100% of data—including screenshots, perceptual hashes, vector embeddings, and transition graphs—remains stored locally on your machine in `.vision-memory-mcp/`. Zero telemetry, analytics, or external API calls are made unless you explicitly enable L4 LLM Vision fallback endpoints.
+
+---
+
+---
+
+## 🔌 Multi-IDE & Client Integration Guide
+
+### Quick 2-Step Setup
+
+#### 1. Bootstrap Workspace
+
+Run the initialization command in your repository root to create `.vision-memory-mcp/`, `.gitignore`, `.env`, and IDE rules:
+
+```bash
+npx -y @putervision/vision-memory-mcp init --yes
+```
+
+#### 2. Configure Your IDE / Client
+
+---
+
+### 1. Google Antigravity / Gemini CLI
+
+**Config Location**: `~/.gemini/config/mcp_config.json`
+
+```json
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"],
+      "env": {
+        "OPENAI_API_KEY": "sk-your-openai-key-optional"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 2. Cursor IDE
+
+**Config Location**: `.cursor/mcp.json` or `Cursor Settings` ➔ `Features` ➔ `MCP`
+
+```json
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}
+```
+
+---
+
+### 3. Roo Code / Cline / Continue (VS Code)
+
+**Config Location**: `.vscode/mcp.json` or `Global MCP Settings`
+
+```json
+{
+  "servers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}
+```
+
+---
+
+### 4. Windsurf IDE
+
+**Config Location**: `~/.codeium/windsurf/mcp_config.json`
+
+```json
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}
+```
+
+---
+
+### 5. Zed Editor
+
+**Config Location**: `~/.config/zed/settings.json`
+
+```json
+{
+  "context_servers": {
+    "vision-memory-mcp": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      }
+    }
+  }
+}
+```
+
+---
+
+### 6. Claude Desktop
+
+**Config Location**:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}
+```
+
+---
+
+### 🤖 Agent System Rules & Integration Prompt
+
+To ensure your AI agent automatically leverages `vision-memory-mcp` before sending raw screenshots to vision LLMs, add this rule to your project's `.cursorrules`, `.windsurfrules`, `AGENTS.md`, or system prompt:
+
+```markdown
+<!-- vision-memory-mcp:start -->
+
+# Visual Memory Rules
+
+This project uses vision-memory-mcp to cache visual UI states and prevent redundant LLM vision calls.
+
+## Mandatory Workflow
+
+1. **Before visual checks**: Call `analyze_screenshot` with base64 screenshots.
+2. **On Cache Hit (`is_known: true`)**: Do NOT query external vision models; reuse the cached `description`.
+3. **On Cache Miss (`is_known: false`)**: Query your vision model, then call `analyze_screenshot` with the image and new description to seed the cache.
+4. **Transition Tracking**: Call `record_outcome` after click/type/navigation steps.
+
+<!-- vision-memory-mcp:end -->
+```
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) guide for details on development setup, architecture, and submission guidelines.
 
 ---
 
-## 📄 License & Credits
+## 📄 License & Disclaimer
 
-Built by [PuterVision](https://putervision.com).
+© 2026 [PuterVision LLC](https://putervision.com). Released under the [MIT License](LICENSE).
 
-[MIT License](LICENSE) © 2026 PuterVision LLC
+> **Disclaimer**: This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git history modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.

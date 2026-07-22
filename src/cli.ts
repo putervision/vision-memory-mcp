@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { exec, execSync } from 'child_process';
+import { exec, execSync, execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -12,7 +12,7 @@ import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let pkgVersion = '0.2.0';
+let pkgVersion = '0.3.0';
 try {
   const pkgPath = path.resolve(__dirname, '../package.json');
   if (fs.existsSync(pkgPath)) {
@@ -30,7 +30,8 @@ Usage:
 
 Commands:
   run                Start the MCP server on stdio transport (Default)
-  init               Scaffold the workspace, .gitignore, .env, and Cursor rules
+  init [-y|--yes]    Scaffold the workspace, .gitignore, .env, and Cursor rules
+  doctor             Run environment health checks (LanceDB, sharp, git, Node)
   inspect            Display an ASCII table of stored visual states and tags
   metrics            Calculate and output cache hit rate, token savings, and ROI
   view               Launch the interactive HTML force-directed graph visualizer
@@ -80,7 +81,7 @@ async function runCli() {
       break;
 
     case 'init':
-      await runInit();
+      await runInit(args);
       break;
 
     case 'inspect':
@@ -92,7 +93,7 @@ async function runCli() {
       break;
 
     case 'view':
-      await runView();
+      await runView(args);
       break;
 
     case 'snapshot':
@@ -133,6 +134,12 @@ async function runCli() {
 
     case 'ingest':
       await runIngest(args);
+      break;
+
+    case 'doctor':
+    case 'health-check':
+      const { runDoctor } = await import('./cli/commands/doctor.js');
+      await runDoctor(args);
       break;
 
     default:
@@ -261,8 +268,15 @@ function mergeMcpConfig(
   }
 }
 
-async function runInit() {
+async function runInit(args: string[] = []) {
   console.log('🔧 Scaffolding vision-memory-mcp workspace...');
+  const skipConfirm =
+    args.includes('--yes') || args.includes('-y') || !process.stdin.isTTY;
+  if (!skipConfirm) {
+    console.log(
+      '  ℹ️  Notice: init configures local workspace & global user rules (~/). Pass --yes to confirm.'
+    );
+  }
   const root = process.cwd();
 
   // 1. Create data directory
@@ -668,7 +682,7 @@ Estimated value added by caching visual states:
 * **Estimated Token Savings**: **${tokensSaved.toLocaleString()} tokens**
   * Cached screens: **${totalStates} unique states** stored, avoiding repetitive ingestion.
 * **Estimated Financial Savings**: **$${dollarsSaved.toFixed(2)}** (based on $3.00/M input token baseline)
-* **Average Retrieval Latency**: **4.7ms** (L1/L2 fast-path) vs. **3,800ms** (L4 LLM fallback)
+* **Design Target Latency**: **~4.7ms** (L1/L2 fast-path lookup) vs. **~3,800ms** (L4 LLM fallback)
 
 ### 📈 Cache Health & Structure
 * **Total Stored States**: **${totalStates} visual states**
@@ -811,6 +825,15 @@ function buildHtmlVisualizer(
     }
     .badge-state { background: rgba(56, 189, 248, 0.2); color: #60a5fa; }
     .badge-transition { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
     
     .meta-item {
       display: flex;
@@ -1217,7 +1240,7 @@ function buildHtmlVisualizer(
 </html>`;
 }
 
-async function runView() {
+async function runView(args: string[] = []) {
   await storage.init();
   const branch = getCurrentBranch();
 
@@ -1274,7 +1297,17 @@ async function runView() {
 
   const htmlContent = buildHtmlVisualizer(branch, nodes, links);
 
-  const htmlPath = path.resolve(process.cwd(), './viewer.html');
+  const outIdx =
+    args.indexOf('--out') !== -1 ? args.indexOf('--out') : args.indexOf('-o');
+  let filename = 'viewer.html';
+  if (outIdx !== -1 && args[outIdx + 1]) {
+    filename = args[outIdx + 1];
+  } else if (fs.existsSync(path.resolve(process.cwd(), './viewer.html'))) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    filename = `viewer-${timestamp}.html`;
+  }
+
+  const htmlPath = path.resolve(process.cwd(), filename);
   fs.writeFileSync(htmlPath, htmlContent);
   console.log(`📊 Exported graph HTML to: ${htmlPath}`);
 
@@ -1411,9 +1444,7 @@ async function runUndo(args: string[]) {
     process.exit(1);
   }
 
-  console.log(
-    `✅ Undo completed. Reverted (${actionReverted}): ${revertedId}`
-  );
+  console.log(`✅ Undo completed. Reverted (${actionReverted}): ${revertedId}`);
 }
 
 async function runOptimize() {
@@ -1474,7 +1505,7 @@ async function runBackup(args: string[]) {
 
   console.log(`📦 Backing up LanceDB folder "${dbPath}" to "${outFile}"...`);
   try {
-    execSync(`tar -czf "${outFile}" -C "${dbParentDir}" "${dbDirName}"`);
+    execFileSync('tar', ['-czf', outFile, '-C', dbParentDir, dbDirName]);
     console.log(`✅ Backup completed successfully: ${outFile}`);
   } catch (err: any) {
     console.error('Failed to create backup:', err.message);
@@ -1503,7 +1534,7 @@ async function runRestore(args: string[]) {
       logger.info(`Cleaning up existing database directory at: ${dbPath}`);
       fs.rmSync(dbPath, { recursive: true, force: true });
     }
-    execSync(`tar -xzf "${inFile}" -C "${dbParentDir}"`);
+    execFileSync('tar', ['-xzf', inFile, '-C', dbParentDir]);
     console.log('✅ Database restored successfully.');
   } catch (err: any) {
     console.error('Failed to restore database:', err.message);

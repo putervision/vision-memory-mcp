@@ -28,6 +28,11 @@ function compareAccessTrees(tree1?: string, tree2?: string): boolean {
   }
 }
 
+function distanceToSimilarity(dist: number): number {
+  const similarity = 1 - dist / 2;
+  return Math.max(0, Math.min(1, similarity));
+}
+
 /**
  * Tiered Retrieval Engine implementation.
  */
@@ -86,12 +91,12 @@ export async function retrieveState(params: {
     const related = matches.map((m) => ({
       id: m.id,
       description: m.description,
-      similarity: 1 - ((m as any)._distance ?? 0),
+      similarity: distanceToSimilarity((m as any)._distance ?? 2),
     }));
 
     if (related.length > 0) {
       const topMatch = matches[0];
-      const similarity = 1 - ((topMatch as any)._distance ?? 0);
+      const similarity = distanceToSimilarity((topMatch as any)._distance ?? 2);
       return {
         state_id: topMatch.id,
         is_known: similarity >= 0.85,
@@ -208,8 +213,8 @@ export async function retrieveState(params: {
 
       if (vectorMatches.length > 0) {
         const topMatch = vectorMatches[0];
-        const distance = (topMatch as any)._distance ?? 1;
-        const similarity = 1 - distance;
+        const distance = (topMatch as any)._distance ?? 2;
+        const similarity = distanceToSimilarity(distance);
 
         logger.debug(
           `CLIP Search Top Match: id=${topMatch.id}, similarity=${similarity}`
@@ -218,7 +223,7 @@ export async function retrieveState(params: {
         const related = vectorMatches.map((m) => ({
           id: m.id,
           description: m.description,
-          similarity: 1 - ((m as any)._distance ?? 1),
+          similarity: distanceToSimilarity((m as any)._distance ?? 2),
         }));
 
         if (similarity >= 0.85 && !forceRefresh) {

@@ -122,8 +122,16 @@ export async function findNavigationPaths(params: {
     adj[t.from_state_id].push(t);
   }
 
-  // Fetch descriptions for states visited in paths (for UI output)
+  // Pre-populate state descriptions in batch to prevent N+1 database queries during BFS enrichment
   const stateCache = new Map<string, string>();
+  const branchStates = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    5000
+  );
+  for (const s of branchStates) {
+    stateCache.set(s.id, s.description);
+  }
+
   const getStateDesc = async (id: string): Promise<string> => {
     if (stateCache.has(id)) return stateCache.get(id)!;
     const s = await storage.getState(id);

@@ -24,6 +24,12 @@ export async function analyzeScreenshotWithLLM(
       : `${endpoint}/chat/completions`;
   }
 
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error(
+      'OPENAI_API_KEY environment variable is required for vision analysis.'
+    );
+  }
+
   logger.info(
     `Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`
   );
@@ -33,7 +39,7 @@ export async function analyzeScreenshotWithLLM(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY || 'no-key'}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
         model: config.VISION_MODEL_NAME,

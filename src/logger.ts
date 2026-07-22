@@ -20,8 +20,30 @@ function formatMessage(
   ...args: any[]
 ): string {
   const timestamp = new Date().toISOString();
+  if (process.env.LOG_FORMAT === 'json') {
+    const details = args.map((arg) => {
+      if (arg instanceof Error) {
+        return { name: arg.name, message: arg.message, stack: arg.stack };
+      }
+      return arg;
+    });
+    return (
+      JSON.stringify({
+        timestamp,
+        level,
+        message,
+        details: details.length > 0 ? details : undefined,
+      }) + '\n'
+    );
+  }
+
   const formattedArgs = args
-    .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : arg))
+    .map((arg) => {
+      if (arg instanceof Error) {
+        return arg.stack || `${arg.name}: ${arg.message}`;
+      }
+      return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+    })
     .join(' ');
 
   return `[${timestamp}] [${level.toUpperCase()}] ${message}${formattedArgs ? ' ' + formattedArgs : ''}\n`;

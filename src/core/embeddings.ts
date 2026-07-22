@@ -70,12 +70,15 @@ export class EmbeddingsManager {
   /**
    * Generates a 512-dimension vector embedding for an image buffer.
    */
-  async generateImageEmbedding(buffer: Buffer): Promise<number[]> {
+  async generateImageEmbedding(
+    buffer: Buffer,
+    mimeType: string = 'image/webp'
+  ): Promise<number[]> {
     await this.init();
 
     try {
-      // Convert buffer to Blob
-      const blob = new Blob([buffer], { type: 'image/webp' });
+      // Convert buffer to Blob using specified or default mimeType
+      const blob = new Blob([buffer], { type: mimeType });
       const image = await RawImage.fromBlob(blob);
 
       // Process image

@@ -91,7 +91,7 @@ describe('Tiered Retrieval Engine', () => {
   it('should invalidate cache hit if accessibility trees differ', async () => {
     const result = await retrieveState({
       screenshot: redBuffer,
-      strategy: 'fast',
+      strategy: 'thorough',
       gitBranch: 'main',
       accessibilityTree: '{"nodes": [{"id": 1}]}', // different AX tree
     });

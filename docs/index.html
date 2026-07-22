@@ -103,8 +103,10 @@
       <nav aria-label="Main Navigation">
         <ul class="nav-links">
           <li><a href="#features">Features</a></li>
+          <li><a href="#cli">CLI Commands</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="#multi-ide">IDE Setup</a></li>
           <li><a href="#calculator">ROI Calculator</a></li>
-          <li><a href="#spec">Spec Compliance</a></li>
           <li><a href="#quickstart">Quickstart</a></li>
         </ul>
       </nav>
@@ -113,11 +115,25 @@
         class="btn-github"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="GitHub Repository"
+        aria-label="Star on GitHub"
       >
         <svg
-          height="20"
-          width="20"
+          height="16"
+          width="16"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+          role="img"
+          style="color: #fbbf24"
+        >
+          <path
+            d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"
+          ></path>
+        </svg>
+        Star on
+        <svg
+          height="18"
+          width="18"
           viewBox="0 0 16 16"
           fill="currentColor"
           aria-hidden="true"
@@ -134,7 +150,7 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.2.0</span>
+        <span class="badge">Production Ready v0.3.0</span>
         <h1>Visual Memory MCP</h1>
         <p>
           A persistent visual cache and perceptual hashing server for developer
@@ -144,6 +160,7 @@
         </p>
         <div class="cta-group">
           <a href="#quickstart" class="btn-primary">Get Started</a>
+          <a href="#multi-ide" class="btn-secondary">IDE Configs</a>
           <a href="#calculator" class="btn-secondary">Calculate ROI</a>
         </div>
       </section>
@@ -154,7 +171,6 @@
         aria-label="Visual memory graph demonstration"
       >
         <div class="viewer-preview-container">
-          <!-- Mock representation of the visual graph -->
           <svg
             viewBox="0 0 1000 400"
             style="background: #0f111a; display: block; width: 100%"
@@ -341,7 +357,7 @@
             <rect
               x="300"
               y="145"
-              width="50"
+              width="70"
               height="18"
               rx="4"
               fill="#18181b"
@@ -349,7 +365,7 @@
               stroke-width="1"
             />
             <text
-              x="325"
+              x="335"
               y="158"
               fill="#a1a1aa"
               font-size="10"
@@ -362,7 +378,7 @@
             <rect
               x="655"
               y="235"
-              width="55"
+              width="75"
               height="18"
               rx="4"
               fill="#18181b"
@@ -370,7 +386,7 @@
               stroke-width="1"
             />
             <text
-              x="682"
+              x="692"
               y="248"
               fill="#34d399"
               font-size="10"
@@ -390,7 +406,7 @@
       <!-- Value Proposition Section -->
       <section id="features" class="features-section" style="padding: 3rem 0">
         <div class="section-title">
-          <h2>💡 Tiered Visual Verification</h2>
+          <h2>💡 Tiered Visual Verification & Tooling</h2>
           <p
             style="
               max-width: 700px;
@@ -417,7 +433,7 @@
           </article>
           <article class="card feature-card">
             <div class="feature-header">
-              <h3><span>🧠</span> L3 Semantic Nearest-Neighbor</h3>
+              <h3><span>🧠</span> L3 Local CLIP Vector Search</h3>
             </div>
             <p>
               Runs local vector similarity search against CLIP image embeddings
@@ -437,32 +453,459 @@
           </article>
           <article class="card feature-card">
             <div class="feature-header">
-              <h3><span>🤖</span> L4 Fallback Describer</h3>
+              <h3><span>🩺</span> System Health Checks</h3>
             </div>
             <p>
-              If cache misses, routes to your vision model to auto-ingest layout
-              features and seed the cache, so future loops are instant.
+              Use <code>vision-memory-mcp doctor</code> to diagnose LanceDB
+              write permissions, sharp image binary support, git environment,
+              and Node runtime.
             </p>
           </article>
           <article class="card feature-card">
             <div class="feature-header">
-              <h3><span>📉</span> Token Conservation</h3>
+              <h3><span>📉</span> Token & Cost Savings</h3>
             </div>
             <p>
               Screenshots consume thousands of context tokens. Recovers 95%+
-              input token space by replacing raw images with text state
+              input token space by replacing raw images with cached text state
               descriptions.
             </p>
           </article>
           <article class="card feature-card">
             <div class="feature-header">
-              <h3><span>⚡</span> Zero-Latency Transitions</h3>
+              <h3><span>📸</span> Visual Checkpoints & Diffing</h3>
             </div>
             <p>
-              Keeps dynamic layouts mapped. Allows parallel subagents to
-              traverse the web or UI flows without waiting on visual models.
+              Save snapshots of memory state and diff checkpoints using
+              <code>snapshot save</code> and <code>snapshot diff</code> to track
+              layout drift.
             </p>
           </article>
+        </div>
+      </section>
+
+      <!-- CLI Commands Showcase Section -->
+      <section id="cli" class="cli-section" style="padding: 3rem 0">
+        <div class="section-title">
+          <h2>💻 Powerful CLI Suite</h2>
+          <p>
+            Inspect states, compute ROI, run health checks, and manage visual
+            memory graph checkpoints.
+          </p>
+        </div>
+        <div
+          class="features-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
+        >
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem">
+              🩺 doctor
+            </h3>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.8rem;
+              "
+            >
+              Run environment health checks verifying LanceDB access, Sharp
+              native bindings, Git, and Node.
+            </p>
+            <code
+              style="
+                background: var(--bg-primary);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+              "
+              >vision-memory-mcp doctor</code
+            >
+          </div>
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-emerald); margin-bottom: 0.5rem">
+              📊 metrics
+            </h3>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.8rem;
+              "
+            >
+              Calculate cache hit rate, token savings, estimated cost reduction,
+              and database size.
+            </p>
+            <code
+              style="
+                background: var(--bg-primary);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+              "
+              >vision-memory-mcp metrics</code
+            >
+          </div>
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-blue); margin-bottom: 0.5rem">
+              🌐 view
+            </h3>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.8rem;
+              "
+            >
+              Launch an interactive HTML force-directed graph view of the memory
+              in your browser.
+            </p>
+            <code
+              style="
+                background: var(--bg-primary);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+              "
+              >vision-memory-mcp view</code
+            >
+          </div>
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-indigo); margin-bottom: 0.5rem">
+              📸 snapshot
+            </h3>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.8rem;
+              "
+            >
+              Save memory state checkpoints and diff two snapshots to catch
+              visual drift and layout shifts.
+            </p>
+            <code
+              style="
+                background: var(--bg-primary);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+              "
+              >vision-memory-mcp snapshot save baseline</code
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- Local-First Privacy Section -->
+      <section id="privacy" class="privacy-section" style="padding: 3rem 0">
+        <div
+          class="card"
+          style="
+            padding: 2.5rem;
+            background: linear-gradient(
+              135deg,
+              rgba(6, 182, 212, 0.05),
+              rgba(16, 185, 129, 0.05)
+            );
+            border: 1px solid rgba(6, 182, 212, 0.2);
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              margin-bottom: 1rem;
+            "
+          >
+            <span style="font-size: 2.5rem">🔒</span>
+            <div>
+              <h2 style="font-size: 1.8rem; color: var(--text-primary)">
+                Local-First Privacy & Zero Telemetry
+              </h2>
+              <p
+                style="
+                  color: var(--accent-cyan);
+                  font-size: 0.95rem;
+                  font-weight: 500;
+                "
+              >
+                100% On-Device Data Sovereignty
+              </p>
+            </div>
+          </div>
+          <p style="color: var(--text-secondary); line-height: 1.7">
+            All screenshots, perceptual hashes, vector embeddings, and
+            transition graphs are stored locally on your machine inside
+            <code>.vision-memory-mcp/</code> using embedded LanceDB. Zero
+            telemetry, tracking, or external API calls are made unless you
+            explicitly configure L4 LLM Vision fallback endpoints.
+          </p>
+        </div>
+      </section>
+
+      <!-- Multi-IDE Setup Guide Section -->
+      <section id="multi-ide" class="multi-ide-section" style="padding: 3rem 0">
+        <div class="section-title">
+          <h2>🔌 Client & IDE Integrations</h2>
+          <p>
+            Zero manual effort:
+            <code>vision-memory-mcp init</code> automatically scaffolds config
+            files for all supported IDEs.
+          </p>
+        </div>
+
+        <!-- Auto-Scaffold Highlight Card -->
+        <div
+          class="card"
+          style="
+            margin-bottom: 2rem;
+            border-color: rgba(6, 182, 212, 0.3);
+            background: rgba(6, 182, 212, 0.03);
+          "
+        >
+          <h3
+            style="
+              color: var(--accent-cyan);
+              font-size: 1.15rem;
+              margin-bottom: 0.5rem;
+            "
+          >
+            ⚡ Recommended: 1-Step Auto-Scaffolding
+          </h3>
+          <p
+            style="
+              color: var(--text-secondary);
+              font-size: 0.95rem;
+              margin-bottom: 1rem;
+            "
+          >
+            Run <code>vision-memory-mcp init --yes</code> inside your
+            repository. It automatically generates and updates configuration
+            files across all your installed agent environments, including
+            workspace agent rules (<code>.agents/AGENTS.md</code>) and database
+            paths.
+          </p>
+          <div class="code-container" style="max-width: 500px; margin: 0">
+            <span class="code-text">vision-memory-mcp init --yes</span>
+            <button
+              class="btn-copy"
+              onclick="copyCode('vision-memory-mcp init --yes', this)"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="spec-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
+        >
+          <!-- Antigravity Card -->
+          <div class="card">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem">
+              👽 Google Antigravity
+            </h3>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Global: <code>~/.gemini/config/mcp_config.json</code><br />
+              Workspace: <code>.agents/settings.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #10b981;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Claude Code Card -->
+          <div class="card">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem">
+              🤖 Claude Code & Desktop
+            </h3>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              One-line CLI:
+              <code
+                >claude mcp add vision-memory-mcp -- npx -y
+                @putervision/vision-memory-mcp run</code
+              ><br />
+              Desktop config: <code>claude_desktop_config.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #f59e0b;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Cursor & VS Code Card -->
+          <div class="card">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem">
+              🪄 Cursor & VS Code
+            </h3>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Cursor: <code>.cursor/mcp.json</code><br />
+              VS Code: <code>.vscode/mcp.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #818cf8;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Windsurf & Roo Code Card -->
+          <div class="card">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem">
+              🌊 Windsurf & Roo / Cline
+            </h3>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Windsurf: <code>~/.codeium/windsurf/mcp_config.json</code><br />
+              Roo Code / Cline: <code>.cline/mcp.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #06b6d4;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <!-- Agent Rules Card -->
+        <div class="card" style="padding: 2rem; margin-top: 2rem">
+          <h3 style="color: var(--accent-emerald); margin-bottom: 0.8rem">
+            🤖 Agent System Rules Prompt
+          </h3>
+          <p style="color: var(--text-secondary); margin-bottom: 1.2rem">
+            Add this rule to <code>AGENTS.md</code>, <code>.cursorrules</code>,
+            or <code>.windsurfrules</code> to instruct your AI agent to check
+            the visual cache automatically:
+          </p>
+          <div
+            class="code-container"
+            style="
+              background: var(--bg-primary);
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            "
+          >
+            <pre
+              style="
+                font-family: monospace;
+                color: var(--text-primary);
+                font-size: 0.82rem;
+                overflow-x: auto;
+              "
+            ><code><!-- vision-memory-mcp:start -->
+# Visual Memory Rules
+This project uses vision-memory-mcp to cache visual UI states.
+
+1. Call analyze_screenshot with base64 screenshots before visual checks.
+2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.
+3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.
+4. Call record_outcome after click/type/navigation actions.
+<!-- vision-memory-mcp:end --></code></pre>
+            <button
+              class="btn-copy"
+              onclick="
+                copyCode(
+                  '<!-- vision-memory-mcp:start -->\n# Visual Memory Rules\nThis project uses vision-memory-mcp to cache visual UI states.\n\n1. Call analyze_screenshot with base64 screenshots before visual checks.\n2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.\n3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.\n4. Call record_outcome after click/type/navigation actions.\n<!-- vision-memory-mcp:end -->',
+                  this
+                )
+              "
+              aria-label="Copy Agent Rules snippet"
+            >
+              Copy Rules
+            </button>
+          </div>
         </div>
       </section>
 
@@ -595,113 +1038,146 @@
         </div>
       </section>
 
-      <!-- Spec Compliance Section -->
-      <section id="spec" class="spec-section">
-        <div class="section-title">
-          <h2>🛠️ Architecture & Specifications</h2>
-          <p>Built explicitly for developers and agentic coding workflows.</p>
-        </div>
-        <div class="spec-grid">
-          <ul class="spec-list">
-            <li class="spec-item">
-              <h3>LanceDB Vector Database</h3>
-              <p>
-                Runs embedded in-process using LanceDB. Stores binary visual
-                embeddings and dhash scalars with indexation for sub-millisecond
-                retrieval.
-              </p>
-            </li>
-            <li class="spec-item">
-              <h3>Xenova CLIP Embedding Pipeline</h3>
-              <p>
-                Leverages Xenova/clip-vit-base-patch32 locally on the host to
-                compute 512-dimension visual features, requiring no external API
-                tokens.
-              </p>
-            </li>
-          </ul>
-          <ul class="spec-list">
-            <li class="spec-item">
-              <h3>AX-Tree (Accessibility) Validation</h3>
-              <p>
-                Saves semantic state context by compiling web DOM structure
-                accessibility trees to verify element interactions dynamically.
-              </p>
-            </li>
-            <li class="spec-item">
-              <h3>Transition Mapping & Graph Traversal</h3>
-              <p>
-                Builds dynamic maps linking visual states with actions, using
-                Dijkstra/BFS to auto-calculate high-probability navigational
-                routes.
-              </p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
       <!-- Quickstart Section -->
       <section id="quickstart" class="quickstart-section">
         <div class="section-title">
           <h2>🚀 Quickstart</h2>
-          <p>
-            Initialize vision-memory-mcp in your project root workspace in under
-            a minute.
-          </p>
+          <p>Get vision-memory-mcp configured globally in 10 seconds.</p>
         </div>
 
-        <div class="code-container">
-          <span class="code-text"
-            >npm install -g @putervision/vision-memory-mcp</span
-          >
-          <button
-            class="btn-copy"
-            id="btn-copy-install"
-            onclick="
-              copyCode('npm install -g @putervision/vision-memory-mcp', this)
+        <div style="max-width: 600px; margin: 0 auto">
+          <h3
+            style="
+              font-size: 1rem;
+              color: var(--text-primary);
+              margin-bottom: 0.5rem;
             "
-            aria-label="Copy install command"
           >
-            Copy
-          </button>
-        </div>
+            1. Install @putervision/vision-memory-mcp globally
+          </h3>
+          <div class="code-container">
+            <span class="code-text"
+              >npm install -g @putervision/vision-memory-mcp</span
+            >
+            <button
+              class="btn-copy"
+              id="btn-copy-install"
+              onclick="
+                copyCode('npm install -g @putervision/vision-memory-mcp', this)
+              "
+            >
+              Copy
+            </button>
+          </div>
 
-        <div class="code-container">
-          <span class="code-text">vision-memory-mcp init</span>
-          <button
-            class="btn-copy"
-            id="btn-copy-init"
-            onclick="copyCode('vision-memory-mcp init', this)"
-            aria-label="Copy init command"
+          <h3
+            style="
+              font-size: 1rem;
+              color: var(--text-primary);
+              margin-bottom: 0.5rem;
+              margin-top: 1.5rem;
+            "
           >
-            Copy
-          </button>
-        </div>
+            2. Initialize inside your project repository
+          </h3>
+          <div class="code-container">
+            <span class="code-text">vision-memory-mcp init --yes</span>
+            <button
+              class="btn-copy"
+              id="btn-copy-init"
+              onclick="copyCode('vision-memory-mcp init --yes', this)"
+            >
+              Copy
+            </button>
+          </div>
 
-        <div class="code-container" style="margin-bottom: 3rem">
-          <span class="code-text">vision-memory-mcp run</span>
-          <button
-            class="btn-copy"
-            id="btn-copy-run"
-            onclick="copyCode('vision-memory-mcp run', this)"
-            aria-label="Copy run command"
+          <h3
+            style="
+              font-size: 1rem;
+              color: var(--text-primary);
+              margin-bottom: 0.5rem;
+              margin-top: 1.5rem;
+            "
           >
-            Copy
-          </button>
+            3. Run environment health checks
+          </h3>
+          <div class="code-container">
+            <span class="code-text">vision-memory-mcp doctor</span>
+            <button
+              class="btn-copy"
+              id="btn-copy-doctor"
+              onclick="copyCode('vision-memory-mcp doctor', this)"
+            >
+              Copy
+            </button>
+          </div>
+
+          <h3
+            style="
+              font-size: 1rem;
+              color: var(--text-primary);
+              margin-bottom: 0.5rem;
+              margin-top: 1.5rem;
+            "
+          >
+            4. Display ROI and cache metrics from CLI
+          </h3>
+          <div class="code-container">
+            <span class="code-text">vision-memory-mcp metrics</span>
+            <button
+              class="btn-copy"
+              id="btn-copy-metrics"
+              onclick="copyCode('vision-memory-mcp metrics', this)"
+            >
+              Copy
+            </button>
+          </div>
         </div>
       </section>
     </main>
 
-    <footer>
-      <p>
-        vision-memory-mcp • MIT License • Built by
+    <footer
+      style="
+        text-align: center;
+        padding: 2.5rem 1rem;
+        border-top: 1px solid var(--border-color);
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        max-width: 900px;
+        margin: 0 auto;
+      "
+    >
+      <p style="margin-bottom: 0.8rem">
+        © 2026
         <a
           href="https://putervision.com"
           target="_blank"
           rel="noopener noreferrer"
           style="color: var(--accent-cyan); text-decoration: none"
           >PuterVision LLC</a
-        >
+        >. Released under the
+        <a
+          href="https://opensource.org/licenses/MIT"
+          target="_blank"
+          rel="noopener noreferrer"
+          style="color: var(--accent-cyan); text-decoration: none"
+          >MIT License</a
+        >.
+      </p>
+      <p
+        style="
+          font-size: 0.78rem;
+          line-height: 1.6;
+          color: var(--text-muted);
+          opacity: 0.85;
+        "
+      >
+        <strong>Disclaimer:</strong> This software is provided "as is", without
+        warranty of any kind, express or implied. Under no circumstances shall
+        the authors or contributors be liable for any database corruption, Git
+        history modification, data loss, or other issues resulting from
+        execution. Always backup your database files before performing
+        destructive operations.
       </p>
     </footer>
 

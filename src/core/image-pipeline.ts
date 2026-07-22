@@ -55,19 +55,25 @@ export async function processImage(
     throw new Error('Invalid image dimensions (width or height is zero).');
   }
 
-  // 3. Compute 512-aligned dimensions
-  // Align to nearest multiple of 512, minimum of 512
-  const width = Math.max(512, Math.round(originalWidth / 512) * 512);
-  const height = Math.max(512, Math.round(originalHeight / 512) * 512);
+  // 3. Compute normalized dimensions without forced upscaling
+  // For images larger than 512px, downscale preserving aspect ratio; retain small dimensions.
+  let width = originalWidth;
+  let height = originalHeight;
+
+  if (originalWidth > 512 || originalHeight > 512) {
+    const scale = Math.min(512 / originalWidth, 512 / originalHeight);
+    width = Math.max(1, Math.round(originalWidth * scale));
+    height = Math.max(1, Math.round(originalHeight * scale));
+  }
 
   logger.debug(
-    `Normalizing image from ${originalWidth}x${originalHeight} to 512-aligned ${width}x${height}`
+    `Normalizing image from ${originalWidth}x${originalHeight} to normalized ${width}x${height}`
   );
 
-  // 4. Resize and normalize image
+  // 4. Resize and normalize image without upscaling stretch
   const normalizedBuffer = await image
     .clone()
-    .resize(width, height, { fit: 'fill' }) // fill to ensure exact dimensions
+    .resize(width, height, { fit: 'inside', withoutEnlargement: true })
     .toFormat('webp')
     .toBuffer();
 

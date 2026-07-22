@@ -1,0 +1,34 @@
+name: Bug Report
+description: File a bug report to help us improve vision-memory-mcp
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a bug!
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Run 'vision-memory-mcp run'
+        2. Call analyze_screenshot with input...
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS version, Node.js version, IDE client
+      placeholder: Linux x64, Node v20.14.0, Google Antigravity / Cursor
+    validations:
+      required: false

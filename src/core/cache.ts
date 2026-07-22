@@ -23,12 +23,16 @@ export function getCurrentBranch(): string {
     })
       .toString()
       .trim();
-    cachedBranch = branch || 'main';
   } catch (error) {
+    if (cachedBranch !== 'main') {
+      logger.debug(
+        'Failed to resolve git branch via rev-parse; defaulting to "main".'
+      );
+    }
     cachedBranch = 'main';
   }
   lastBranchCheck = now;
-  return cachedBranch;
+  return cachedBranch ?? 'main';
 }
 
 interface CacheEntry {
@@ -56,9 +60,19 @@ export class MemoryCache {
    * Retrieves a VisualState from the in-memory cache.
    * Returns null if not found, expired, or branch does not match.
    */
-  get(id: string, branch: string = getCurrentBranch()): VisualState | null {
-    const key = this.makeKey(id, branch);
-    const entry = this.cache.get(key);
+  get(id: string, branch?: string): VisualState | null {
+    const targetBranch = branch || getCurrentBranch();
+    const key = this.makeKey(id, targetBranch);
+    let entry = this.cache.get(key);
+
+    if (!entry && !branch) {
+      for (const [k, e] of this.cache.entries()) {
+        if (k.endsWith(`:${id}`)) {
+          entry = e;
+          break;
+        }
+      }
+    }
 
     if (!entry) {
       return null;

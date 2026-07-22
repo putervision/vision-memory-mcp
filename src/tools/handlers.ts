@@ -50,6 +50,16 @@ export function registerAllTools(server: McpServer): void {
       inputSchema: z.object({
         screenshot: z
           .string()
+          .min(1, 'Screenshot parameter must not be empty')
+          .refine(
+            (val) => {
+              const cleaned = val
+                .replace(/^data:image\/[a-zA-Z]+;base64,/, '')
+                .trim();
+              return cleaned.length > 0 && /^[A-Za-z0-9+/=]+$/.test(cleaned);
+            },
+            { message: 'Invalid base64-encoded image payload' }
+          )
           .describe('Base64-encoded image string (required)'),
         description: z
           .string()
@@ -366,6 +376,13 @@ export function registerAllTools(server: McpServer): void {
     },
     async (params) => {
       try {
+        const fromState = await storage.getState(params.from_state_id);
+        if (!fromState) {
+          throw new Error(
+            `Starting state with ID "${params.from_state_id}" does not exist in storage.`
+          );
+        }
+
         let toStateId = params.to_state_id;
 
         // If to_screenshot is provided, resolve resulting state ID (auto-ingesting if cache miss)
@@ -446,7 +463,6 @@ export function registerAllTools(server: McpServer): void {
           traceId: params.trace_id,
         });
 
-        const fromState = await storage.getState(params.from_state_id);
         const toState = await storage.getState(toStateId);
 
         const totalAttempts =
@@ -567,6 +583,12 @@ export function registerAllTools(server: McpServer): void {
     },
     async (params) => {
       try {
+        if (params.state_a_id === params.state_b_id) {
+          throw new Error(
+            'state_a_id and state_b_id must be different visual states.'
+          );
+        }
+
         const stateA = await storage.getState(params.state_a_id);
         const stateB = await storage.getState(params.state_b_id);
 
