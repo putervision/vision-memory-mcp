@@ -1,362 +1,802 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vision-memory-mcp — Visual Cache & Perceptual Hashing MCP Server</title>
-  <meta name="description" content="Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.">
-  
-  <!-- Typography -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  
-  <div class="glow-backdrop"></div>
-  <div class="glow-backdrop-2"></div>
-  
-  <header>
-    <div class="logo">
-      vision-memory-mcp
-    </div>
-    <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#calculator">ROI Calculator</a></li>
-      <li><a href="#spec">Spec Compliance</a></li>
-      <li><a href="#quickstart">Quickstart</a></li>
-    </ul>
-    <a href="https://github.com/LucasArmstrong/vision-memory-mcp" class="btn-github" target="_blank" rel="noopener noreferrer">
-      <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-      </svg>
-      GitHub
-    </a>
-  </header>
-  
-  <main class="container">
-    
-    <!-- Hero Section -->
-    <section class="hero">
-      <span class="badge">Production Ready v0.1.2</span>
-      <h1>Visual Memory MCP</h1>
-      <p>A persistent visual cache and perceptual hashing server for developer agents. Caches webpage and app screenshots locally to optimize context windows, accelerate execution speed, and eliminate redundant LLM vision costs.</p>
-      <div class="cta-group">
-        <a href="#quickstart" class="btn-primary">Get Started</a>
-        <a href="#calculator" class="btn-secondary">Calculate ROI</a>
-      </div>
-    </section>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      vision-memory-mcp — Visual Cache & Perceptual Hashing MCP Server
+    </title>
+    <meta
+      name="description"
+      content="Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops."
+    />
+    <meta
+      name="keywords"
+      content="vision-memory-mcp, mcp, model context protocol, visual cache, perceptual hashing, lancedb, clip embeddings, llm vision, token optimization, agentic coding"
+    />
+    <meta name="author" content="PuterVision LLC" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0a0b10" />
 
-    <!-- Viewer Showcase Section -->
-    <section class="viewer-showcase">
-      <div class="viewer-preview-container">
-        <!-- Reusing a mock representation of the visual graph -->
-        <svg viewBox="0 0 1000 400" style="background:#0f111a; display:block; width:100%;">
-          <defs>
-            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15" />
-              <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
-            </radialGradient>
-          </defs>
-          <rect width="1000" height="400" fill="#0b0c13"/>
-          <circle cx="500" cy="200" r="180" fill="url(#glow)"/>
-          
-          <!-- Connections -->
-          <line x1="250" y1="200" x2="400" y2="120" stroke="#1e293b" stroke-width="3"/>
-          <line x1="250" y1="200" x2="400" y2="280" stroke="#1e293b" stroke-width="3"/>
-          <line x1="400" y1="120" x2="600" y2="120" stroke="#06b6d4" stroke-dasharray="5 5" stroke-width="2"/>
-          <line x1="400" y1="280" x2="600" y2="280" stroke="#1e293b" stroke-width="3"/>
-          <line x1="600" y1="120" x2="750" y2="200" stroke="#1e293b" stroke-width="3"/>
-          <line x1="600" y1="280" x2="750" y2="200" stroke="#10b981" stroke-width="3"/>
-          
-          <!-- Nodes -->
-          <!-- State 1 -->
-          <circle cx="250" cy="200" r="14" fill="#6366f1" stroke="#a5b4fc" stroke-width="2"/>
-          <text x="250" y="235" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">landing-page (stateA)</text>
-          
-          <!-- State 2 (Active) -->
-          <circle cx="400" cy="120" r="14" fill="#06b6d4" stroke="#22d3ee" stroke-width="2"/>
-          <text x="400" y="95" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">login-form (stateB)</text>
-          
-          <!-- State 3 -->
-          <circle cx="400" cy="280" r="14" fill="#3b82f6" stroke="#60a5fa" stroke-width="2"/>
-          <text x="400" y="315" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">pricing (stateC)</text>
-          
-          <!-- State 4 -->
-          <circle cx="600" cy="120" r="14" fill="#3b82f6" stroke="#60a5fa" stroke-width="2"/>
-          <text x="600" y="95" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">auth-error (stateD)</text>
-          
-          <!-- State 5 -->
-          <circle cx="600" cy="280" r="14" fill="#10b981" stroke="#34d399" stroke-width="2"/>
-          <text x="600" y="315" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">dashboard (stateE)</text>
-          
-          <!-- State 6 -->
-          <circle cx="750" cy="200" r="14" fill="#6366f1" stroke="#a5b4fc" stroke-width="2"/>
-          <text x="750" y="235" fill="#f3f4f6" font-size="12" font-family="monospace" text-anchor="middle">profile (stateF)</text>
-          
-          <!-- Edge labels -->
-          <rect x="300" y="145" width="50" height="18" rx="4" fill="#18181b" stroke="#3f3f46" stroke-width="1"/>
-          <text x="325" y="158" fill="#a1a1aa" font-size="10" font-family="sans-serif" text-anchor="middle">Click "Sign In"</text>
-          
-          <rect x="655" y="235" width="55" height="18" rx="4" fill="#18181b" stroke="#10b981" stroke-width="1"/>
-          <text x="682" y="248" fill="#34d399" font-size="10" font-family="sans-serif" text-anchor="middle">Success (100%)</text>
+    <!-- Canonical URL -->
+    <link
+      rel="canonical"
+      href="https://putervision.github.io/vision-memory-mcp/"
+    />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://putervision.github.io/vision-memory-mcp/"
+    />
+    <meta
+      property="og:title"
+      content="vision-memory-mcp — Visual Cache & Perceptual Hashing MCP Server"
+    />
+    <meta
+      property="og:description"
+      content="Persistent visual cache for developer agents. Caches screenshots locally using perceptual hashing (dhash), CLIP vector search, and accessibility trees to cut LLM token costs and speed up execution."
+    />
+    <meta property="og:site_name" content="vision-memory-mcp" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="vision-memory-mcp — Visual Cache & Perceptual Hashing MCP Server"
+    />
+    <meta
+      name="twitter:description"
+      content="Persistent visual cache for developer agents. Caches screenshots locally using perceptual hashing (dhash), CLIP vector search, and accessibility trees."
+    />
+
+    <!-- Favicon -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👁️</text></svg>"
+    />
+
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- JSON-LD Structured Data for Software Application -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "vision-memory-mcp",
+        "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
+        "applicationCategory": "DeveloperApplication",
+        "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce LLM tokens.",
+        "license": "https://opensource.org/licenses/MIT",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "programmingLanguage": "TypeScript",
+        "runtimePlatform": "Node.js >= 18",
+        "codeRepository": "https://github.com/putervision/vision-memory-mcp",
+        "author": {
+          "@type": "Organization",
+          "name": "PuterVision LLC",
+          "url": "https://putervision.com"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div class="glow-backdrop"></div>
+    <div class="glow-backdrop-2"></div>
+
+    <header>
+      <div class="logo">vision-memory-mcp</div>
+      <nav aria-label="Main Navigation">
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#calculator">ROI Calculator</a></li>
+          <li><a href="#spec">Spec Compliance</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+        </ul>
+      </nav>
+      <a
+        href="https://github.com/putervision/vision-memory-mcp"
+        class="btn-github"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="GitHub Repository"
+      >
+        <svg
+          height="20"
+          width="20"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+          role="img"
+        >
+          <path
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+          ></path>
         </svg>
-        <div class="viewer-caption">
-          <span>Interactive Visual Graph Map Visualizer</span>
-          <code>vision-memory-mcp view</code>
-        </div>
-      </div>
-    </section>
-    
-    <!-- Value Proposition Section -->
-    <section id="features" class="features-section" style="padding: 3rem 0;">
-      <div class="section-title">
-        <h2>💡 Tiered Visual Verification</h2>
-        <p style="max-width: 700px; margin: 0.5rem auto 0; color: var(--text-secondary);">Persists layout states locally. Eliminates redundant screenshot ingestion overhead for developers and agent blackboards.</p>
-      </div>
-      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
-        <div class="card feature-card">
-          <div class="feature-icon">👁️</div>
-          <h3>L1/L2 Exact Cache Hit</h3>
-          <p>Instantly matches screenshots using exact perceptual Difference Hashing (dhash) in less than 5ms, avoiding API calls entirely.</p>
-        </div>
-        <div class="card feature-card">
-          <h3>L3 Semantic Nearest-Neighbor</h3>
-          <p>Runs local vector similarity search against CLIP image embeddings using LanceDB, identifying layout templates even under minor CSS changes.</p>
-          <div class="feature-icon" style="margin-top: 1rem; margin-bottom: 0;">🧠</div>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🌳</div>
-          <h3>AX-Tree Validation</h3>
-          <p>Cross-references accessibility tree strings to detect structural shifts (e.g. content changes in forms), ensuring zero cache-hit false positives.</p>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🤖</div>
-          <h3>L4 Fallback describer</h3>
-          <p>If cache misses, routes to your vision model to auto-ingest layout features and seed the cache, so future loops are instant.</p>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon">📉</div>
-          <h3>Token Conservation</h3>
-          <p>Screenshots consume thousands of context tokens. Recovers 95%+ input token space by replacing raw images with text state descriptions.</p>
-        </div>
-        <div class="card feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3>Zero-latency transitions</h3>
-          <p>Keeps dynamic layouts mapped. Allows parallel subagents to traverse the web or UI flows without waiting on visual models.</p>
-        </div>
-      </div>
-    </section>
-    
-    <!-- ROI Calculator Section -->
-    <section id="calculator" class="calculator-section">
-      <div class="section-title">
-        <h2>📊 Visual Cache Value & ROI Estimator</h2>
-        <p>Estimate the API cost and developer time saved by caching visual states rather than re-evaluating raw images repeatedly.</p>
-      </div>
-      
-      <div class="card calc-grid">
-        <div class="calc-inputs">
-          
-          <div class="slider-group">
-            <div class="slider-header">
-              <span class="slider-label">Cached Screenshots (Avoided Requests)</span>
-              <span class="slider-value" id="val-screenshots">150</span>
-            </div>
-            <input type="range" id="input-screenshots" min="0" max="1000" value="150">
-          </div>
-          
-          <div class="slider-group">
-            <div class="slider-header">
-              <span class="slider-label">Avg Vision LLM Prompt Size (Tokens per Image)</span>
-              <span class="slider-value" id="val-promptsize">1,400</span>
-            </div>
-            <input type="range" id="input-promptsize" min="500" max="3000" step="100" value="1400">
-          </div>
-          
-          <div class="slider-group">
-            <div class="slider-header">
-              <span class="slider-label">Average Layout Cache-Hit Ratio</span>
-              <span class="slider-value" id="val-hitratio">75%</span>
-            </div>
-            <input type="range" id="input-hitratio" min="0" max="100" value="75">
-          </div>
-          
-          <div class="slider-group">
-            <div class="slider-header">
-              <span class="slider-label">Target Visual LLM Pricing</span>
-            </div>
-            <select id="select-model" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); font-family: var(--font-sans); outline: none;">
-              <option value="15.00">Claude 3 Opus / o1 Pro ($15.00 / M tokens)</option>
-              <option value="10.00">Claude 4.6 Opus ($10.00 / M tokens)</option>
-              <option value="3.00" selected>Claude 3.5 Sonnet ($3.00 / M tokens)</option>
-              <option value="2.50">GPT-4o / Gemini 1.5 Pro ($2.50 / M tokens)</option>
-              <option value="0.55">DeepSeek-R1 ($0.55 / M tokens)</option>
-              <option value="0.075">Gemini 1.5 Flash ($0.075 / M tokens)</option>
-            </select>
-          </div>
-          
-        </div>
-        
-        <div class="results-card card">
-          <div class="result-metric">
-            <div class="metric-label">Estimated API Cost Saved</div>
-            <div class="metric-value" id="res-cost">$0.47</div>
-          </div>
-          
-          <div class="result-metric">
-            <div class="metric-label">LLM Context Tokens Saved</div>
-            <div class="metric-value" id="res-tokens">157,500 <span>tokens</span></div>
-          </div>
-          
-          <div class="result-metric" style="margin-bottom: 1.5rem;">
-            <div class="metric-label">Visual Wait Time Saved</div>
-            <div class="metric-value" id="res-time">7.5 <span>minutes</span></div>
-          </div>
-          
-          <div class="badge-roi" id="res-tier">
-            Calculating ROI...
-          </div>
-        </div>
-      </div>
-    </section>
+        GitHub
+      </a>
+    </header>
 
-    <!-- Spec Compliance Section -->
-    <section id="spec" class="spec-section">
-      <div class="section-title">
-        <h2>🛠️ Architecture & Specifications</h2>
-        <p>Built explicitly for developers and agentic coding workflows.</p>
-      </div>
-      <div class="spec-grid">
-        <div class="spec-list">
-          <li class="spec-item">
-            <h4>LanceDB Vector Database</h4>
-            <p>Runs embedded in-process using LanceDB. Stores binary visual embeddings and dhash scalars with indexation for sub-millisecond retrieval.</p>
-          </li>
-          <li class="spec-item">
-            <h4>Xenova CLIP Embedding Pipeline</h4>
-            <p>Leverages Xenova/clip-vit-base-patch32 locally on the host to compute 512-dimension visual features, requiring no external API tokens.</p>
-          </li>
+    <main class="container">
+      <!-- Hero Section -->
+      <section class="hero">
+        <span class="badge">Production Ready v0.2.0</span>
+        <h1>Visual Memory MCP</h1>
+        <p>
+          A persistent visual cache and perceptual hashing server for developer
+          agents. Caches webpage and app screenshots locally to optimize context
+          windows, accelerate execution speed, and eliminate redundant LLM
+          vision costs.
+        </p>
+        <div class="cta-group">
+          <a href="#quickstart" class="btn-primary">Get Started</a>
+          <a href="#calculator" class="btn-secondary">Calculate ROI</a>
         </div>
-        <div class="spec-list">
-          <li class="spec-item">
-            <h4>AX-Tree (Accessibility) Validation</h4>
-            <p>Saves semantic state context by compiling web DOM structure accessibility trees to verify element interactions dynamically.</p>
-          </li>
-          <li class="spec-item">
-            <h4>Transition Mapping & Graph Traversal</h4>
-            <p>Builds dynamic maps linking visual states with actions, using Dijkstra/BFS to auto-calculate high-probability navigational routes.</p>
-          </li>
+      </section>
+
+      <!-- Viewer Showcase Section -->
+      <section
+        class="viewer-showcase"
+        aria-label="Visual memory graph demonstration"
+      >
+        <div class="viewer-preview-container">
+          <!-- Mock representation of the visual graph -->
+          <svg
+            viewBox="0 0 1000 400"
+            style="background: #0f111a; display: block; width: 100%"
+            role="img"
+            aria-label="Interactive Visual Graph Map Visualizer"
+          >
+            <title>Interactive Visual Graph Map Visualizer</title>
+            <defs>
+              <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.15" />
+                <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <rect width="1000" height="400" fill="#0b0c13" />
+            <circle cx="500" cy="200" r="180" fill="url(#glow)" />
+
+            <!-- Connections -->
+            <line
+              x1="250"
+              y1="200"
+              x2="400"
+              y2="120"
+              stroke="#1e293b"
+              stroke-width="3"
+            />
+            <line
+              x1="250"
+              y1="200"
+              x2="400"
+              y2="280"
+              stroke="#1e293b"
+              stroke-width="3"
+            />
+            <line
+              x1="400"
+              y1="120"
+              x2="600"
+              y2="120"
+              stroke="#06b6d4"
+              stroke-dasharray="5 5"
+              stroke-width="2"
+            />
+            <line
+              x1="400"
+              y1="280"
+              x2="600"
+              y2="280"
+              stroke="#1e293b"
+              stroke-width="3"
+            />
+            <line
+              x1="600"
+              y1="120"
+              x2="750"
+              y2="200"
+              stroke="#1e293b"
+              stroke-width="3"
+            />
+            <line
+              x1="600"
+              y1="280"
+              x2="750"
+              y2="200"
+              stroke="#10b981"
+              stroke-width="3"
+            />
+
+            <!-- Nodes -->
+            <circle
+              cx="250"
+              cy="200"
+              r="14"
+              fill="#6366f1"
+              stroke="#a5b4fc"
+              stroke-width="2"
+            />
+            <text
+              x="250"
+              y="235"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              landing-page (stateA)
+            </text>
+
+            <circle
+              cx="400"
+              cy="120"
+              r="14"
+              fill="#06b6d4"
+              stroke="#22d3ee"
+              stroke-width="2"
+            />
+            <text
+              x="400"
+              y="95"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              login-form (stateB)
+            </text>
+
+            <circle
+              cx="400"
+              cy="280"
+              r="14"
+              fill="#3b82f6"
+              stroke="#60a5fa"
+              stroke-width="2"
+            />
+            <text
+              x="400"
+              y="315"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              pricing (stateC)
+            </text>
+
+            <circle
+              cx="600"
+              cy="120"
+              r="14"
+              fill="#3b82f6"
+              stroke="#60a5fa"
+              stroke-width="2"
+            />
+            <text
+              x="600"
+              y="95"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              auth-error (stateD)
+            </text>
+
+            <circle
+              cx="600"
+              cy="280"
+              r="14"
+              fill="#10b981"
+              stroke="#34d399"
+              stroke-width="2"
+            />
+            <text
+              x="600"
+              y="315"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              dashboard (stateE)
+            </text>
+
+            <circle
+              cx="750"
+              cy="200"
+              r="14"
+              fill="#6366f1"
+              stroke="#a5b4fc"
+              stroke-width="2"
+            />
+            <text
+              x="750"
+              y="235"
+              fill="#f3f4f6"
+              font-size="12"
+              font-family="monospace"
+              text-anchor="middle"
+            >
+              profile (stateF)
+            </text>
+
+            <!-- Edge labels -->
+            <rect
+              x="300"
+              y="145"
+              width="50"
+              height="18"
+              rx="4"
+              fill="#18181b"
+              stroke="#3f3f46"
+              stroke-width="1"
+            />
+            <text
+              x="325"
+              y="158"
+              fill="#a1a1aa"
+              font-size="10"
+              font-family="sans-serif"
+              text-anchor="middle"
+            >
+              Click "Sign In"
+            </text>
+
+            <rect
+              x="655"
+              y="235"
+              width="55"
+              height="18"
+              rx="4"
+              fill="#18181b"
+              stroke="#10b981"
+              stroke-width="1"
+            />
+            <text
+              x="682"
+              y="248"
+              fill="#34d399"
+              font-size="10"
+              font-family="sans-serif"
+              text-anchor="middle"
+            >
+              Success (100%)
+            </text>
+          </svg>
+          <div class="viewer-caption">
+            <span>Interactive Visual Graph Map Visualizer</span>
+            <code>vision-memory-mcp view</code>
+          </div>
         </div>
-      </div>
-    </section>
-    
-    <!-- Quickstart Section -->
-    <section id="quickstart" class="quickstart-section">
-      <div class="section-title">
-        <h2>🚀 Quickstart</h2>
-        <p>Initialize vision-memory-mcp in your project root workspace in under a minute.</p>
-      </div>
-      
-      <div class="code-container">
-        <span class="code-text">npm install -g .</span>
-        <button class="btn-copy" onclick="copyCode('npm install -g .')">Copy</button>
-      </div>
-      
-      <div class="code-container">
-        <span class="code-text">vision-memory-mcp init</span>
-        <button class="btn-copy" onclick="copyCode('vision-memory-mcp init')">Copy</button>
-      </div>
-      
-      <div class="code-container" style="margin-bottom: 3rem;">
-        <span class="code-text">vision-memory-mcp run</span>
-        <button class="btn-copy" onclick="copyCode('vision-memory-mcp run')">Copy</button>
-      </div>
-      
-    </section>
-    
-  </main>
-  
-  <footer>
-    <p>vision-memory-mcp • MIT License • Built for agentic excellence</p>
-  </footer>
-  
-  <!-- Interactive Calculator Script -->
-  <script>
-    function copyCode(text) {
-      navigator.clipboard.writeText(text);
-      alert('Copied to clipboard: ' + text);
-    }
-    
-    const inputScreenshots = document.getElementById('input-screenshots');
-    const inputPromptsize = document.getElementById('input-promptsize');
-    const inputHitratio = document.getElementById('input-hitratio');
-    const selectModel = document.getElementById('select-model');
-    
-    const valScreenshots = document.getElementById('val-screenshots');
-    const valPromptsize = document.getElementById('val-promptsize');
-    const valHitratio = document.getElementById('val-hitratio');
-    
-    const resCost = document.getElementById('res-cost');
-    const resTokens = document.getElementById('res-tokens');
-    const resTime = document.getElementById('res-time');
-    const resTier = document.getElementById('res-tier');
-    
-    function updateCalculator() {
-      const count = parseInt(inputScreenshots.value, 10);
-      const size = parseInt(inputPromptsize.value, 10);
-      const hitRatio = parseInt(inputHitratio.value, 10) / 100;
-      const modelCostPerM = parseFloat(selectModel.value);
-      
-      valScreenshots.textContent = count;
-      valPromptsize.textContent = size.toLocaleString();
-      valHitratio.textContent = Math.round(hitRatio * 100) + '%';
-      
-      // Calculate outputs
-      const cacheHits = count * hitRatio;
-      const tokensSaved = cacheHits * size;
-      const costSaved = (tokensSaved / 1000000) * modelCostPerM;
-      const timeSavedSec = cacheHits * 4.0; // 4 seconds saved per remote API call
-      const timeSavedMin = timeSavedSec / 60;
-      
-      // Update DOM
-      resCost.textContent = '$' + costSaved.toFixed(2);
-      resTokens.innerHTML = tokensSaved.toLocaleString() + ' <span>tokens</span>';
-      
-      if (timeSavedMin < 1) {
-        resTime.innerHTML = Math.round(timeSavedSec) + ' <span>seconds</span>';
-      } else {
-        resTime.innerHTML = timeSavedMin.toFixed(1) + ' <span>minutes</span>';
+      </section>
+
+      <!-- Value Proposition Section -->
+      <section id="features" class="features-section" style="padding: 3rem 0">
+        <div class="section-title">
+          <h2>💡 Tiered Visual Verification</h2>
+          <p
+            style="
+              max-width: 700px;
+              margin: 0.5rem auto 0;
+              color: var(--text-secondary);
+            "
+          >
+            Persists layout states locally. Eliminates redundant screenshot
+            ingestion overhead for developers and agent blackboards.
+          </p>
+        </div>
+        <div
+          class="features-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))"
+        >
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>👁️</span> L1/L2 Exact Cache Hit</h3>
+            </div>
+            <p>
+              Instantly matches screenshots using exact perceptual Difference
+              Hashing (dhash) in less than 5ms, avoiding API calls entirely.
+            </p>
+          </article>
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>🧠</span> L3 Semantic Nearest-Neighbor</h3>
+            </div>
+            <p>
+              Runs local vector similarity search against CLIP image embeddings
+              using LanceDB, identifying layout templates even under minor CSS
+              changes.
+            </p>
+          </article>
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>🌳</span> AX-Tree Validation</h3>
+            </div>
+            <p>
+              Cross-references accessibility tree strings to detect structural
+              shifts (e.g. content changes in forms), ensuring zero cache-hit
+              false positives.
+            </p>
+          </article>
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>🤖</span> L4 Fallback Describer</h3>
+            </div>
+            <p>
+              If cache misses, routes to your vision model to auto-ingest layout
+              features and seed the cache, so future loops are instant.
+            </p>
+          </article>
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>📉</span> Token Conservation</h3>
+            </div>
+            <p>
+              Screenshots consume thousands of context tokens. Recovers 95%+
+              input token space by replacing raw images with text state
+              descriptions.
+            </p>
+          </article>
+          <article class="card feature-card">
+            <div class="feature-header">
+              <h3><span>⚡</span> Zero-Latency Transitions</h3>
+            </div>
+            <p>
+              Keeps dynamic layouts mapped. Allows parallel subagents to
+              traverse the web or UI flows without waiting on visual models.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ROI Calculator Section -->
+      <section id="calculator" class="calculator-section">
+        <div class="section-title">
+          <h2>📊 Visual Cache Value & ROI Estimator</h2>
+          <p>
+            Estimate the API cost and developer time saved by caching visual
+            states rather than re-evaluating raw images repeatedly.
+          </p>
+        </div>
+
+        <div class="card calc-grid">
+          <div class="calc-inputs">
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="input-screenshots" class="slider-label"
+                  >Cached Screenshots (Avoided Requests)</label
+                >
+                <span class="slider-value" id="val-screenshots">150</span>
+              </div>
+              <input
+                type="range"
+                id="input-screenshots"
+                min="0"
+                max="1000"
+                value="150"
+                aria-label="Cached Screenshots"
+              />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="input-promptsize" class="slider-label"
+                  >Avg Vision LLM Prompt Size (Tokens per Image)</label
+                >
+                <span class="slider-value" id="val-promptsize">1,400</span>
+              </div>
+              <input
+                type="range"
+                id="input-promptsize"
+                min="500"
+                max="3000"
+                step="100"
+                value="1400"
+                aria-label="Average Prompt Size in Tokens"
+              />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="input-hitratio" class="slider-label"
+                  >Average Layout Cache-Hit Ratio</label
+                >
+                <span class="slider-value" id="val-hitratio">75%</span>
+              </div>
+              <input
+                type="range"
+                id="input-hitratio"
+                min="0"
+                max="100"
+                value="75"
+                aria-label="Cache Hit Ratio Percentage"
+              />
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label for="select-model" class="slider-label"
+                  >Target Visual LLM Pricing</label
+                >
+              </div>
+              <select
+                id="select-model"
+                aria-label="Select Target Visual LLM"
+                style="
+                  width: 100%;
+                  padding: 0.6rem;
+                  border-radius: 8px;
+                  background: var(--bg-tertiary);
+                  border: 1px solid var(--border-color);
+                  color: var(--text-primary);
+                  font-family: var(--font-sans);
+                  outline: none;
+                "
+              >
+                <option value="15.00">
+                  Claude 3 Opus / o1 Pro ($15.00 / M tokens)
+                </option>
+                <option value="10.00">
+                  Claude 4.6 Opus ($10.00 / M tokens)
+                </option>
+                <option value="3.00" selected>
+                  Claude 3.5 Sonnet ($3.00 / M tokens)
+                </option>
+                <option value="2.50">
+                  GPT-4o / Gemini 1.5 Pro ($2.50 / M tokens)
+                </option>
+                <option value="0.55">DeepSeek-R1 ($0.55 / M tokens)</option>
+                <option value="0.075">
+                  Gemini 1.5 Flash ($0.075 / M tokens)
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="results-card card">
+            <div class="result-metric">
+              <div class="metric-label">Estimated API Cost Saved</div>
+              <div class="metric-value" id="res-cost">$0.47</div>
+            </div>
+
+            <div class="result-metric">
+              <div class="metric-label">LLM Context Tokens Saved</div>
+              <div class="metric-value" id="res-tokens">
+                157,500 <span>tokens</span>
+              </div>
+            </div>
+
+            <div class="result-metric" style="margin-bottom: 1.5rem">
+              <div class="metric-label">Visual Wait Time Saved</div>
+              <div class="metric-value" id="res-time">
+                7.5 <span>minutes</span>
+              </div>
+            </div>
+
+            <div class="badge-roi" id="res-tier">Calculating ROI...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Spec Compliance Section -->
+      <section id="spec" class="spec-section">
+        <div class="section-title">
+          <h2>🛠️ Architecture & Specifications</h2>
+          <p>Built explicitly for developers and agentic coding workflows.</p>
+        </div>
+        <div class="spec-grid">
+          <ul class="spec-list">
+            <li class="spec-item">
+              <h3>LanceDB Vector Database</h3>
+              <p>
+                Runs embedded in-process using LanceDB. Stores binary visual
+                embeddings and dhash scalars with indexation for sub-millisecond
+                retrieval.
+              </p>
+            </li>
+            <li class="spec-item">
+              <h3>Xenova CLIP Embedding Pipeline</h3>
+              <p>
+                Leverages Xenova/clip-vit-base-patch32 locally on the host to
+                compute 512-dimension visual features, requiring no external API
+                tokens.
+              </p>
+            </li>
+          </ul>
+          <ul class="spec-list">
+            <li class="spec-item">
+              <h3>AX-Tree (Accessibility) Validation</h3>
+              <p>
+                Saves semantic state context by compiling web DOM structure
+                accessibility trees to verify element interactions dynamically.
+              </p>
+            </li>
+            <li class="spec-item">
+              <h3>Transition Mapping & Graph Traversal</h3>
+              <p>
+                Builds dynamic maps linking visual states with actions, using
+                Dijkstra/BFS to auto-calculate high-probability navigational
+                routes.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Quickstart Section -->
+      <section id="quickstart" class="quickstart-section">
+        <div class="section-title">
+          <h2>🚀 Quickstart</h2>
+          <p>
+            Initialize vision-memory-mcp in your project root workspace in under
+            a minute.
+          </p>
+        </div>
+
+        <div class="code-container">
+          <span class="code-text"
+            >npm install -g @putervision/vision-memory-mcp</span
+          >
+          <button
+            class="btn-copy"
+            id="btn-copy-install"
+            onclick="
+              copyCode('npm install -g @putervision/vision-memory-mcp', this)
+            "
+            aria-label="Copy install command"
+          >
+            Copy
+          </button>
+        </div>
+
+        <div class="code-container">
+          <span class="code-text">vision-memory-mcp init</span>
+          <button
+            class="btn-copy"
+            id="btn-copy-init"
+            onclick="copyCode('vision-memory-mcp init', this)"
+            aria-label="Copy init command"
+          >
+            Copy
+          </button>
+        </div>
+
+        <div class="code-container" style="margin-bottom: 3rem">
+          <span class="code-text">vision-memory-mcp run</span>
+          <button
+            class="btn-copy"
+            id="btn-copy-run"
+            onclick="copyCode('vision-memory-mcp run', this)"
+            aria-label="Copy run command"
+          >
+            Copy
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        vision-memory-mcp • MIT License • Built by
+        <a
+          href="https://putervision.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style="color: var(--accent-cyan); text-decoration: none"
+          >PuterVision LLC</a
+        >
+      </p>
+    </footer>
+
+    <!-- Interactive Calculator & UX Script -->
+    <script>
+      function copyCode(text, btnElement) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            if (btnElement) {
+              const originalText = btnElement.textContent;
+              btnElement.textContent = 'Copied!';
+              btnElement.style.background = '#10b981';
+              btnElement.style.color = '#ffffff';
+              setTimeout(() => {
+                btnElement.textContent = originalText;
+                btnElement.style.background = '';
+                btnElement.style.color = '';
+              }, 2000);
+            }
+          })
+          .catch(() => {
+            alert('Copied to clipboard: ' + text);
+          });
       }
-      
-      // Tier assessment
-      if (costSaved > 10.0) {
-        resTier.textContent = '🔥 Massive Enterprise ROI';
-        resTier.style.background = 'rgba(16, 185, 129, 0.15)';
-        resTier.style.color = '#34d399';
-        resTier.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-      } else if (costSaved > 1.5) {
-        resTier.textContent = '⚡ Substantial ROI';
-        resTier.style.background = 'rgba(6, 182, 212, 0.15)';
-        resTier.style.color = '#22d3ee';
-        resTier.style.borderColor = 'rgba(6, 182, 212, 0.3)';
-      } else {
-        resTier.textContent = '👍 Moderate ROI';
-        resTier.style.background = 'rgba(99, 102, 241, 0.1)';
-        resTier.style.color = '#a5b4fc';
-        resTier.style.borderColor = 'rgba(99, 102, 241, 0.2)';
+
+      const inputScreenshots = document.getElementById('input-screenshots');
+      const inputPromptsize = document.getElementById('input-promptsize');
+      const inputHitratio = document.getElementById('input-hitratio');
+      const selectModel = document.getElementById('select-model');
+
+      const valScreenshots = document.getElementById('val-screenshots');
+      const valPromptsize = document.getElementById('val-promptsize');
+      const valHitratio = document.getElementById('val-hitratio');
+
+      const resCost = document.getElementById('res-cost');
+      const resTokens = document.getElementById('res-tokens');
+      const resTime = document.getElementById('res-time');
+      const resTier = document.getElementById('res-tier');
+
+      function updateCalculator() {
+        const count = parseInt(inputScreenshots.value, 10);
+        const size = parseInt(inputPromptsize.value, 10);
+        const hitRatio = parseInt(inputHitratio.value, 10) / 100;
+        const modelCostPerM = parseFloat(selectModel.value);
+
+        valScreenshots.textContent = count;
+        valPromptsize.textContent = size.toLocaleString();
+        valHitratio.textContent = Math.round(hitRatio * 100) + '%';
+
+        // Calculate outputs
+        const cacheHits = count * hitRatio;
+        const tokensSaved = cacheHits * size;
+        const costSaved = (tokensSaved / 1000000) * modelCostPerM;
+        const timeSavedSec = cacheHits * 4.0; // 4 seconds saved per remote API call
+        const timeSavedMin = timeSavedSec / 60;
+
+        // Update DOM
+        resCost.textContent = '$' + costSaved.toFixed(2);
+        resTokens.innerHTML =
+          tokensSaved.toLocaleString() + ' <span>tokens</span>';
+
+        if (timeSavedMin < 1) {
+          resTime.innerHTML =
+            Math.round(timeSavedSec) + ' <span>seconds</span>';
+        } else {
+          resTime.innerHTML = timeSavedMin.toFixed(1) + ' <span>minutes</span>';
+        }
+
+        // Tier assessment
+        if (costSaved > 10.0) {
+          resTier.textContent = '🔥 Massive Enterprise ROI';
+          resTier.style.background = 'rgba(16, 185, 129, 0.15)';
+          resTier.style.color = '#34d399';
+          resTier.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+        } else if (costSaved > 1.5) {
+          resTier.textContent = '⚡ Substantial ROI';
+          resTier.style.background = 'rgba(6, 182, 212, 0.15)';
+          resTier.style.color = '#22d3ee';
+          resTier.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+        } else {
+          resTier.textContent = '👍 Moderate ROI';
+          resTier.style.background = 'rgba(99, 102, 241, 0.1)';
+          resTier.style.color = '#a5b4fc';
+          resTier.style.borderColor = 'rgba(99, 102, 241, 0.2)';
+        }
       }
-    }
-    
-    inputScreenshots.addEventListener('input', updateCalculator);
-    inputPromptsize.addEventListener('input', updateCalculator);
-    inputHitratio.addEventListener('input', updateCalculator);
-    selectModel.addEventListener('change', updateCalculator);
-    
-    // Run initial calculation
-    updateCalculator();
-  </script>
-</body>
+
+      if (inputScreenshots && inputPromptsize && inputHitratio && selectModel) {
+        inputScreenshots.addEventListener('input', updateCalculator);
+        inputPromptsize.addEventListener('input', updateCalculator);
+        inputHitratio.addEventListener('input', updateCalculator);
+        selectModel.addEventListener('change', updateCalculator);
+        updateCalculator();
+      }
+    </script>
+  </body>
 </html>

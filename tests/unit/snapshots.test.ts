@@ -122,11 +122,11 @@ describe('Snapshots Checkpointing and Diffing', () => {
 
     expect(diff.added_states).toHaveLength(1);
     expect(diff.added_states[0].id).toBe('state-2');
-    
+
     expect(diff.modified_states).toHaveLength(1);
     expect(diff.modified_states[0].id).toBe('state-1');
     expect(diff.modified_states[0].hash_distance).toBe(32); // 0000... vs 0101... is distance 32
-    
+
     expect(diff.removed_states).toHaveLength(0);
   });
 });

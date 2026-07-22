@@ -25,10 +25,10 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 ### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
 * **Google Antigravity (`~/.gemini/config/config.json`)**: Add these rules to your `"globalPermissionGrants"` -> `"allow"` list:
-  * `"command(node dist/cli.js)"` (Allow running the CLI without parameters prompts)
+  * `"command(vision-memory-mcp)"` (Allow running the CLI without parameters prompts)
   * `"read_file(.*\\.gemini/antigravity/brain/.*)"` (Allow reading captured screenshots)
   * `"write_file(.*\\.gemini/antigravity/brain/.*)"` (Allow saving visual states)
-* **VS Code / Cursor IDE (`settings.json`)**: Ensure the agent has execution permissions for `command(node dist/cli.js)` and read/write access to the workspace's local `.vision-memory-mcp/` cache directory.
+* **VS Code / Cursor IDE (`settings.json`)**: Ensure the agent has execution permissions for `command(vision-memory-mcp)` and read/write access to the workspace's local `.vision-memory-mcp/` cache directory.
 
 ## State Memory (state-memory-mcp)
 

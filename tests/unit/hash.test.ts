@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { hammingDistance, calculateDHash, calculateAHash } from '../../src/core/hash.js';
+import {
+  hammingDistance,
+  calculateDHash,
+  calculateAHash,
+} from '../../src/core/hash.js';
 import sharp from 'sharp';
 
 describe('Perceptual Hashing Utilities', () => {
   describe('hammingDistance', () => {
     it('should calculate correct distance for identical hashes', () => {
-      const hash = '1010101010101010101010101010101010101010101010101010101010101010';
+      const hash =
+        '1010101010101010101010101010101010101010101010101010101010101010';
       expect(hammingDistance(hash, hash)).toBe(0);
     });
 
@@ -35,9 +40,11 @@ describe('Perceptual Hashing Utilities', () => {
           width: 100,
           height: 100,
           channels: 3,
-          background: { r: 0, g: 0, b: 0 }
-        }
-      }).png().toBuffer();
+          background: { r: 0, g: 0, b: 0 },
+        },
+      })
+        .png()
+        .toBuffer();
 
       const dhash = await calculateDHash(blackBuffer);
       const ahash = await calculateAHash(blackBuffer);

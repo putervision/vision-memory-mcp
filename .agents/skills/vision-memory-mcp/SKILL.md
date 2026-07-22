@@ -34,7 +34,7 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:
 * **Google Antigravity (`~/.gemini/config/config.json`)**: Add these rules to your `"globalPermissionGrants"` -> `"allow"` list:
-  * `"command(node dist/cli.js)"` (Allows running any query/ingest command prefix)
+  * `"command(vision-memory-mcp)"` (Allows running any query/ingest command prefix)
   * `"read_file(.*\\.gemini/antigravity/brain/.*)"` (Allows reading brain screenshots)
   * `"write_file(.*\\.gemini/antigravity/brain/.*)"` (Allows saving brain snapshots)
 

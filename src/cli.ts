@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
-import { storage } from './core/storage.js';
+import { storage, escapeSql } from './core/storage.js';
 import { getCurrentBranch, memoryCache } from './core/cache.js';
 import { saveSnapshot, diffSnapshots } from './core/snapshots.js';
 import { config } from './config.js';
@@ -12,7 +12,7 @@ import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let pkgVersion = '0.1.7';
+let pkgVersion = '0.2.0';
 try {
   const pkgPath = path.resolve(__dirname, '../package.json');
   if (fs.existsSync(pkgPath)) {
@@ -64,7 +64,11 @@ async function runCli() {
     process.exit(0);
   }
 
-  if (args.includes('--version') || args.includes('-v') || command === 'version') {
+  if (
+    args.includes('--version') ||
+    args.includes('-v') ||
+    command === 'version'
+  ) {
     console.log(`v${pkgVersion}`);
     process.exit(0);
   }
@@ -96,7 +100,7 @@ async function runCli() {
       break;
 
     case 'undo':
-      await runUndo();
+      await runUndo(args);
       break;
 
     case 'optimize':
@@ -163,13 +167,13 @@ This project utilizes \`vision-memory-mcp\` to cache visual states, record layou
 * \`save_visual_snapshot\` / \`diff_visual_snapshots\`: Manage visual checkpoints and detect visual regression.
 * \`undo_last_visual_mutation\`: Revert the last visual mutation.
 
-### 3. Agent Permissions & Auto-Run Configuration
+#### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
 * **Google Antigravity (\`~/.gemini/config/config.json\`)**: Add these rules to your \`"globalPermissionGrants"\` -> \`"allow"\` list:
-  * \`"command(node dist/cli.js)"\` (Allow running the CLI without parameters prompts)
+  * \`"command(vision-memory-mcp)"\` (Allow running the CLI without parameters prompts)
   * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow reading captured screenshots)
   * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow saving visual states)
-* **VS Code / Cursor IDE (\`settings.json\`)**: Ensure the agent has execution permissions for \`command(node dist/cli.js)\` and read/write access to the workspace's local \`.vision-memory-mcp/\` cache directory.
+* **VS Code / Cursor IDE (\`settings.json\`)**: Ensure the agent has execution permissions for \`command(vision-memory-mcp)\` and read/write access to the workspace's local \`.vision-memory-mcp/\` cache directory.
 `;
 }
 
@@ -190,7 +194,7 @@ ALWAYS check the visual cache before querying front-end vision models.
 
 ## Auto-Run Permissions Setup
 Ensure the following permissions are allowed in the global agent grants (e.g. \`~/.gemini/config/config.json\`) to bypass confirmation dialogs:
-* \`"command(node dist/cli.js)"\`
+* \`"command(vision-memory-mcp)"\`
 * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\`
 * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\`
 <!-- vision-memory-mcp:end -->
@@ -217,23 +221,42 @@ function mergeMcpConfig(
       const existing = JSON.parse(raw);
 
       if (existing[serversKey]?.['vision-memory-mcp']) {
-        console.log(`      ⏭️  ${label} (${relativePath}) — already configured`);
+        console.log(
+          `      ⏭️  ${label} (${relativePath}) — already configured`
+        );
         return;
       }
 
       if (!existing[serversKey]) {
         existing[serversKey] = {};
       }
-      existing[serversKey]['vision-memory-mcp'] = template[serversKey]['vision-memory-mcp'];
+      existing[serversKey]['vision-memory-mcp'] =
+        template[serversKey]['vision-memory-mcp'];
 
-      fs.writeFileSync(filePath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
-      console.log(`      ✅ ${label} (${relativePath}) — merged vision-memory-mcp server`);
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify(existing, null, 2) + '\n',
+        'utf-8'
+      );
+      console.log(
+        `      ✅ ${label} (${relativePath}) — merged vision-memory-mcp server`
+      );
     } catch {
-      fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
-      console.log(`      ✅ ${label} (${relativePath}) — created (replaced invalid JSON)`);
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify(template, null, 2) + '\n',
+        'utf-8'
+      );
+      console.log(
+        `      ✅ ${label} (${relativePath}) — created (replaced invalid JSON)`
+      );
     }
   } else {
-    fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(template, null, 2) + '\n',
+      'utf-8'
+    );
     console.log(`      ✅ ${label} (${relativePath}) — created`);
   }
 }
@@ -251,7 +274,8 @@ async function runInit() {
 
   // 2. Append to gitignore
   const gitignorePath = path.resolve(root, '.gitignore');
-  const ignoreContent = '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n.env\n';
+  const ignoreContent =
+    '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n.env\n';
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf8');
     if (!content.includes('.vision-memory-mcp')) {
@@ -300,8 +324,16 @@ THUMBNAIL_SIZE=64
   const instructionsText = getInstructionsTemplate();
   const instructionTargets = [
     { path: '.gemini/instructions.md', label: 'Gemini', standalone: false },
-    { path: '.cursor/rules/vision-memory-mcp.mdc', label: 'Cursor', standalone: true },
-    { path: '.github/copilot-instructions.md', label: 'GitHub Copilot', standalone: false },
+    {
+      path: '.cursor/rules/vision-memory-mcp.mdc',
+      label: 'Cursor',
+      standalone: true,
+    },
+    {
+      path: '.github/copilot-instructions.md',
+      label: 'GitHub Copilot',
+      standalone: false,
+    },
     { path: '.vscode/instructions.md', label: 'VS Code', standalone: false },
     { path: 'CLAUDE.md', label: 'Claude Code', standalone: false },
     { path: '.windsurfrules', label: 'Windsurf', standalone: false },
@@ -318,7 +350,9 @@ THUMBNAIL_SIZE=64
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
       if (content.includes('## Visual Memory (vision-memory-mcp)')) {
-        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+        console.log(
+          `      ⏭️  ${target.label} (${target.path}) — already configured`
+        );
         continue;
       }
 
@@ -328,7 +362,9 @@ THUMBNAIL_SIZE=64
 
       const separator = content.endsWith('\n') ? '\n' : '\n\n';
       fs.appendFileSync(filePath, `${separator}${instructionsText}`, 'utf-8');
-      console.log(`      ✅ ${target.label} (${target.path}) — appended instructions`);
+      console.log(
+        `      ✅ ${target.label} (${target.path}) — appended instructions`
+      );
     } else {
       fs.writeFileSync(filePath, instructionsText, 'utf-8');
       console.log(`      ✅ ${target.label} (${target.path}) — created`);
@@ -374,7 +410,7 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:
 * **Google Antigravity (\`~/.gemini/config/config.json\`)**: Add these rules to your \`"globalPermissionGrants"\` -> \`"allow"\` list:
-  * \`"command(node dist/cli.js)"\` (Allows running any query/ingest command prefix)
+  * \`"command(vision-memory-mcp)"\` (Allows running any query/ingest command prefix)
   * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allows reading brain screenshots)
   * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allows saving brain snapshots)
 
@@ -395,20 +431,27 @@ Run these commands in the terminal for management and analytics:
       fs.mkdirSync(localSkillDir, { recursive: true });
     }
     fs.writeFileSync(localSkillFile, skillContent, 'utf-8');
-    console.log(`      ✅ Local Agent Skill (.agents/skills/vision-memory-mcp/SKILL.md) — created`);
+    console.log(
+      `      ✅ Local Agent Skill (.agents/skills/vision-memory-mcp/SKILL.md) — created`
+    );
   } catch (err: any) {
     console.log(`      ⚠️  Failed to scaffold local skill: ${err.message}`);
   }
 
   // Global Skill
-  const globalSkillDir = path.join(homedir, '.gemini/config/skills/vision-memory-mcp');
+  const globalSkillDir = path.join(
+    homedir,
+    '.gemini/config/skills/vision-memory-mcp'
+  );
   const globalSkillFile = path.join(globalSkillDir, 'SKILL.md');
   try {
     if (!fs.existsSync(globalSkillDir)) {
       fs.mkdirSync(globalSkillDir, { recursive: true });
     }
     fs.writeFileSync(globalSkillFile, skillContent, 'utf-8');
-    console.log(`      ✅ Global Agent Skill (~/.gemini/config/skills/vision-memory-mcp/SKILL.md) — created`);
+    console.log(
+      `      ✅ Global Agent Skill (~/.gemini/config/skills/vision-memory-mcp/SKILL.md) — created`
+    );
   } catch (err: any) {
     console.log(`      ⚠️  Failed to scaffold global skill: ${err.message}`);
   }
@@ -467,30 +510,54 @@ Run these commands in the terminal for management and analytics:
       }
 
       if (!existing.mcpServers['vision-memory-mcp']) {
-        existing.mcpServers['vision-memory-mcp'] = mcpAntigravity.mcpServers['vision-memory-mcp'];
-        fs.writeFileSync(geminiConfigFile, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
-        console.log(`      ✅ Google Antigravity (mcp_config.json) — merged vision-memory-mcp server`);
+        existing.mcpServers['vision-memory-mcp'] =
+          mcpAntigravity.mcpServers['vision-memory-mcp'];
+        fs.writeFileSync(
+          geminiConfigFile,
+          JSON.stringify(existing, null, 2) + '\n',
+          'utf-8'
+        );
+        console.log(
+          `      ✅ Google Antigravity (mcp_config.json) — merged vision-memory-mcp server`
+        );
       } else {
-        console.log(`      ⏭️  Google Antigravity (mcp_config.json) — already configured`);
+        console.log(
+          `      ⏭️  Google Antigravity (mcp_config.json) — already configured`
+        );
       }
     } else {
-      fs.writeFileSync(geminiConfigFile, JSON.stringify(mcpAntigravity, null, 2) + '\n', 'utf-8');
+      fs.writeFileSync(
+        geminiConfigFile,
+        JSON.stringify(mcpAntigravity, null, 2) + '\n',
+        'utf-8'
+      );
       console.log(`      ✅ Google Antigravity (mcp_config.json) — created`);
     }
   } catch (err: any) {
-    console.log(`      ⚠️  Failed to update Google Antigravity config: ${err.message}`);
+    console.log(
+      `      ⚠️  Failed to update Google Antigravity config: ${err.message}`
+    );
   }
 
   // 6. Scaffold Global Rules
   console.log('  🌎 Scaffolding Global User Rules:');
   const globalTargets = [
-    { path: path.join(homedir, '.cursorrules'), label: 'Global Cursor Rules (~/.cursorrules)' },
-    { path: path.join(homedir, '.gemini/GEMINI.md'), label: 'Global Gemini Rules (~/.gemini/GEMINI.md)' },
+    {
+      path: path.join(homedir, '.cursorrules'),
+      label: 'Global Cursor Rules (~/.cursorrules)',
+    },
+    {
+      path: path.join(homedir, '.gemini/GEMINI.md'),
+      label: 'Global Gemini Rules (~/.gemini/GEMINI.md)',
+    },
   ];
   const globalRulesText = getGlobalRulesTemplate();
 
   for (const target of globalTargets) {
-    if (target.path.includes('.gemini') && !fs.existsSync(path.dirname(target.path))) {
+    if (
+      target.path.includes('.gemini') &&
+      !fs.existsSync(path.dirname(target.path))
+    ) {
       continue;
     }
 
@@ -509,7 +576,9 @@ Run these commands in the terminal for management and analytics:
     }
   }
 
-  console.log('\n🎉 Initialization complete. Run "npm run build" then "vision-memory-mcp run" to start server.');
+  console.log(
+    '\n🎉 Initialization complete. Run "vision-memory-mcp run" to start server.'
+  );
 }
 
 async function runInspect(args: string[]) {
@@ -518,9 +587,14 @@ async function runInspect(args: string[]) {
   const limit = limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 20;
 
   const branch = getCurrentBranch();
-  console.log(`🔍 Inspecting visual states on branch: "${branch}" (limit ${limit})`);
+  console.log(
+    `🔍 Inspecting visual states on branch: "${branch}" (limit ${limit})`
+  );
 
-  const states = await storage.listStates(`git_branch = '${branch}'`, limit);
+  const states = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    limit
+  );
   if (states.length === 0) {
     console.log('No visual states stored.');
     process.exit(0);
@@ -533,7 +607,10 @@ async function runInspect(args: string[]) {
   console.log('='.repeat(100));
 
   for (const s of states) {
-    const desc = s.description.length > 28 ? s.description.slice(0, 25) + '...' : s.description;
+    const desc =
+      s.description.length > 28
+        ? s.description.slice(0, 25) + '...'
+        : s.description;
     console.log(
       `| ${s.id} | ${desc.padEnd(30)} | ${String(s.access_count).padEnd(6)} | ${s.git_branch.padEnd(12)} |`
     );
@@ -556,9 +633,9 @@ async function runMetrics() {
   const totalStates = states.length;
   const totalLookups = totalHits + totalStates;
   const hitRate = totalLookups > 0 ? (totalHits / totalLookups) * 100 : 0;
-  
+
   const tokensSaved = totalHits * 1600;
-  const dollarsSaved = (tokensSaved / 1000000) * 3.00;
+  const dollarsSaved = (tokensSaved / 1000000) * 3.0;
   const timeSavedHours = (totalHits * 4.0) / 3600;
 
   // Find db directory size
@@ -601,9 +678,15 @@ Estimated value added by caching visual states:
 `);
 }
 
-function buildHtmlVisualizer(branch: string, nodes: any[], links: any[]): string {
+function buildHtmlVisualizer(
+  branch: string,
+  nodes: any[],
+  links: any[]
+): string {
   const safeJsonStringify = (val: any) => {
-    return JSON.stringify(val).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    return JSON.stringify(val)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e');
   };
 
   return `<!DOCTYPE html>
@@ -1137,11 +1220,17 @@ function buildHtmlVisualizer(branch: string, nodes: any[], links: any[]): string
 async function runView() {
   await storage.init();
   const branch = getCurrentBranch();
-  
-  const states = await storage.listStates(`git_branch = '${branch}'`, 1000);
-  const transitions = await storage.listTransitions(`git_branch = '${branch}'`, 1000);
 
-  const nodes = states.map(s => {
+  const states = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    1000
+  );
+  const transitions = await storage.listTransitions(
+    `git_branch = '${escapeSql(branch)}'`,
+    1000
+  );
+
+  const nodes = states.map((s) => {
     let parsedTags: string[] = [];
     try {
       if (s.tags) {
@@ -1154,7 +1243,12 @@ async function runView() {
       label: s.description,
       val: s.access_count || 1,
       thumbnail: s.thumbnail,
-      color: s.access_count > 10 ? '#38bdf8' : s.access_count > 3 ? '#818cf8' : '#e2e8f0',
+      color:
+        s.access_count > 10
+          ? '#38bdf8'
+          : s.access_count > 3
+            ? '#818cf8'
+            : '#e2e8f0',
       source_url: s.source_url,
       tags: parsedTags,
       created_at: s.created_at,
@@ -1162,7 +1256,7 @@ async function runView() {
     };
   });
 
-  const links = transitions.map(t => {
+  const links = transitions.map((t) => {
     const total = t.success_count + t.failure_count;
     const rate = total > 0 ? t.success_count / total : 1.0;
     return {
@@ -1173,7 +1267,8 @@ async function runView() {
       failure_count: t.failure_count,
       success_rate: rate,
       width: Math.max(1.5, Math.min(6, total / 2)),
-      color: rate >= 0.8 ? '#10b98180' : rate >= 0.5 ? '#f59e0b80' : '#ef444480',
+      color:
+        rate >= 0.8 ? '#10b98180' : rate >= 0.5 ? '#f59e0b80' : '#ef444480',
     };
   });
 
@@ -1184,7 +1279,12 @@ async function runView() {
   console.log(`📊 Exported graph HTML to: ${htmlPath}`);
 
   // Open in browser
-  const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  const openCmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'start'
+        : 'xdg-open';
   exec(`${openCmd} "${htmlPath}"`);
 }
 
@@ -1200,7 +1300,9 @@ async function runSnapshot(args: string[]) {
     }
     const desc = args[3] || '';
     const snap = await saveSnapshot(name, desc);
-    console.log(`✅ Snapshot "${snap.name}" saved successfully with ID: ${snap.id}`);
+    console.log(
+      `✅ Snapshot "${snap.name}" saved successfully with ID: ${snap.id}`
+    );
   } else if (action === 'diff') {
     const nameA = args[2];
     const nameB = args[3];
@@ -1212,37 +1314,106 @@ async function runSnapshot(args: string[]) {
     console.log(`\nDiff Results: "${nameA}" -> "${nameB}"`);
     console.log('=======================================');
     console.log(`➕ Added: ${diff.added_states.length} states`);
-    diff.added_states.forEach(s => console.log(`  - ${s.id}: "${s.description}"`));
+    diff.added_states.forEach((s) =>
+      console.log(`  - ${s.id}: "${s.description}"`)
+    );
     console.log(`➖ Removed: ${diff.removed_states.length} states`);
-    diff.removed_states.forEach(s => console.log(`  - ${s.id}: "${s.description}"`));
-    console.log(`📝 Modified (Visual drift): ${diff.modified_states.length} states`);
-    diff.modified_states.forEach(s => 
-      console.log(`  - ${s.id}: "${s.description}" (visual distance: ${s.hash_distance}, vector similarity: ${s.vector_similarity.toFixed(4)})`)
+    diff.removed_states.forEach((s) =>
+      console.log(`  - ${s.id}: "${s.description}"`)
+    );
+    console.log(
+      `📝 Modified (Visual drift): ${diff.modified_states.length} states`
+    );
+    diff.modified_states.forEach((s) =>
+      console.log(
+        `  - ${s.id}: "${s.description}" (visual distance: ${s.hash_distance}, vector similarity: ${s.vector_similarity.toFixed(4)})`
+      )
     );
   } else if (action === 'list') {
     const list = await storage.listSnapshots();
     console.log('\nVisual Checkpoint Snapshots:');
     console.log('============================');
-    list.forEach(s => console.log(`- "${s.name}" (ID: ${s.id}, Branch: ${s.git_branch}, Created: ${new Date(s.created_at).toISOString()})`));
+    list.forEach((s) =>
+      console.log(
+        `- "${s.name}" (ID: ${s.id}, Branch: ${s.git_branch}, Created: ${new Date(s.created_at).toISOString()})`
+      )
+    );
   } else {
     console.error(`Unknown snapshot action: ${action}`);
   }
 }
 
-async function runUndo() {
+async function runUndo(args: string[]) {
   await storage.init();
+  const typeIdx = args.indexOf('--type');
+  const type = typeIdx !== -1 ? args[typeIdx + 1] : 'any';
   const branch = getCurrentBranch();
-  const list = await storage.listStates(`git_branch = '${branch}'`, 100);
-  if (list.length === 0) {
-    console.error('No states found to revert.');
+
+  let revertedId = '';
+  let actionReverted = '';
+
+  const undoState = async (): Promise<boolean> => {
+    const list = await storage.listStates(
+      `git_branch = '${escapeSql(branch)}'`,
+      100
+    );
+    if (list.length === 0) return false;
+    list.sort((a, b) => b.created_at - a.created_at);
+    const target = list[0];
+    await storage.deleteState(target.id);
+    memoryCache.delete(target.id, branch);
+    revertedId = target.id;
+    actionReverted = 'deleted_state';
+    return true;
+  };
+
+  const undoTransition = async (): Promise<boolean> => {
+    const list = await storage.listTransitions(
+      `git_branch = '${escapeSql(branch)}'`,
+      100
+    );
+    if (list.length === 0) return false;
+    list.sort((a, b) => b.last_traversed - a.last_traversed);
+    const target = list[0];
+    await storage.deleteTransition(target.id);
+    revertedId = target.id;
+    actionReverted = 'deleted_transition';
+    return true;
+  };
+
+  let undone = false;
+  if (type === 'state') {
+    undone = await undoState();
+  } else if (type === 'transition') {
+    undone = await undoTransition();
+  } else {
+    const stateList = await storage.listStates(
+      `git_branch = '${escapeSql(branch)}'`,
+      1
+    );
+    const transList = await storage.listTransitions(
+      `git_branch = '${escapeSql(branch)}'`,
+      1
+    );
+
+    const stateTime = stateList.length > 0 ? stateList[0].created_at : 0;
+    const transTime = transList.length > 0 ? transList[0].last_traversed : 0;
+
+    if (stateTime > transTime) {
+      undone = await undoState();
+    } else if (transTime > 0) {
+      undone = await undoTransition();
+    }
+  }
+
+  if (!undone) {
+    console.error('No states or transitions found to revert.');
     process.exit(1);
   }
 
-  list.sort((a, b) => b.created_at - a.created_at);
-  const target = list[0];
-  await storage.deleteState(target.id);
-  memoryCache.delete(target.id, branch);
-  console.log(`✅ Undo completed. Reverted state: ${target.id} ("${target.description}")`);
+  console.log(
+    `✅ Undo completed. Reverted (${actionReverted}): ${revertedId}`
+  );
 }
 
 async function runOptimize() {
@@ -1253,17 +1424,21 @@ async function runOptimize() {
 async function runPrune(args: string[]) {
   await storage.init();
   const branch = getCurrentBranch();
-  
-  const states = await storage.listStates(`git_branch = '${branch}'`, 10000);
+
+  const states = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    10000
+  );
   const now = Date.now();
   let count = 0;
 
   for (const s of states) {
     // Check if expired
     const hasTtl = s.ttl > 0;
-    const isExpired = hasTtl && (now - s.created_at > s.ttl);
+    const isExpired = hasTtl && now - s.created_at > s.ttl;
     // Or low access (e.g. accessed only once and older than 3 days)
-    const isOldAndLowAccess = s.access_count <= 1 && (now - s.created_at > 3 * 24 * 60 * 60 * 1000);
+    const isOldAndLowAccess =
+      s.access_count <= 1 && now - s.created_at > 3 * 24 * 60 * 60 * 1000;
 
     if (isExpired || isOldAndLowAccess) {
       await storage.deleteState(s.id);
@@ -1272,13 +1447,16 @@ async function runPrune(args: string[]) {
     }
   }
 
-  console.log(`✅ Database pruned. Removed ${count} stale or low-access states on branch "${branch}".`);
+  console.log(
+    `✅ Database pruned. Removed ${count} stale or low-access states on branch "${branch}".`
+  );
 }
 
 async function runBackup(args: string[]) {
   const outIdx = args.indexOf('--out');
-  const outFile = outIdx !== -1 ? args[outIdx + 1] : './backup/vision-memory-db.tar.gz';
-  
+  const outFile =
+    outIdx !== -1 ? args[outIdx + 1] : './backup/vision-memory-db.tar.gz';
+
   const dbPath = config.LANCEDB_PATH;
   if (!fs.existsSync(dbPath)) {
     console.error(`Error: Database path does not exist: ${dbPath}`);
@@ -1343,8 +1521,14 @@ async function runExport(args: string[]) {
   const outIdx = args.indexOf('--out');
   const outFile = outIdx !== -1 ? args[outIdx + 1] : undefined;
 
-  const states = await storage.listStates(`git_branch = '${branch}'`, 10000);
-  const transitions = await storage.listTransitions(`git_branch = '${branch}'`, 10000);
+  const states = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    10000
+  );
+  const transitions = await storage.listTransitions(
+    `git_branch = '${escapeSql(branch)}'`,
+    10000
+  );
 
   let output = '';
 
@@ -1362,14 +1546,14 @@ async function runExport(args: string[]) {
       output += `  ${t.from_state_id} -->|"${t.action} (${Math.round(rate * 100)}% success)"| ${t.to_state_id}\n`;
     }
   } else if (format === 'html') {
-    const nodes = states.map(s => ({
+    const nodes = states.map((s) => ({
       id: s.id,
       label: s.description.slice(0, 30) + '...',
       val: s.access_count || 1,
       thumbnail: s.thumbnail,
       color: s.access_count > 5 ? '#00ffff' : '#ffffff',
     }));
-    const links = transitions.map(t => {
+    const links = transitions.map((t) => {
       const total = t.success_count + t.failure_count;
       const rate = total > 0 ? t.success_count / total : 1.0;
       return {
@@ -1382,7 +1566,9 @@ async function runExport(args: string[]) {
     });
     output = buildHtmlVisualizer(branch, nodes, links);
   } else {
-    console.error(`Error: Unsupported format "${format}". Supported formats: json, mermaid, html`);
+    console.error(
+      `Error: Unsupported format "${format}". Supported formats: json, mermaid, html`
+    );
     process.exit(1);
   }
 
@@ -1413,7 +1599,9 @@ async function runImport(args: string[]) {
     const data = JSON.parse(content);
 
     if (!data.states || !data.transitions) {
-      console.error('Error: Invalid export file format. Expected "states" and "transitions" arrays.');
+      console.error(
+        'Error: Invalid export file format. Expected "states" and "transitions" arrays.'
+      );
       process.exit(1);
     }
 
@@ -1430,7 +1618,9 @@ async function runImport(args: string[]) {
       transitionsCount++;
     }
 
-    console.log(`✅ Import completed successfully. Imported ${statesCount} states and ${transitionsCount} transitions.`);
+    console.log(
+      `✅ Import completed successfully. Imported ${statesCount} states and ${transitionsCount} transitions.`
+    );
   } catch (err: any) {
     console.error('Failed to import data:', err.message);
     process.exit(1);
@@ -1470,7 +1660,9 @@ async function runQuery(args: string[]) {
 async function runIngest(args: string[]) {
   const isTargetCommand = args[1] === 'ingest';
   const imgPath = isTargetCommand ? args[2] : args[1];
-  const description = isTargetCommand ? args.slice(3).join(' ') : args.slice(2).join(' ');
+  const description = isTargetCommand
+    ? args.slice(3).join(' ')
+    : args.slice(2).join(' ');
 
   if (!imgPath || imgPath.startsWith('--')) {
     console.error('Error: Please specify the image file path to ingest.');
@@ -1500,7 +1692,9 @@ async function runIngest(args: string[]) {
     const processed = await processImage(imgBuffer);
     const dhash = await calculateDHash(processed.normalizedBuffer);
     const ahash = await calculateAHash(processed.normalizedBuffer);
-    const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
+    const vector = await embeddings.generateImageEmbedding(
+      processed.normalizedBuffer
+    );
 
     const stateId = crypto.randomUUID();
     const newState = {
@@ -1512,7 +1706,10 @@ async function runIngest(args: string[]) {
       structured_data: '{}',
       accessibility_tree: '{}',
       thumbnail: processed.thumbnail,
-      original_dimensions: JSON.stringify({ width: processed.originalWidth, height: processed.originalHeight }),
+      original_dimensions: JSON.stringify({
+        width: processed.originalWidth,
+        height: processed.originalHeight,
+      }),
       source_url: 'app://cli',
       source_agent: 'cli-user',
       trace_id: 'cli-ingest',
@@ -1526,14 +1723,16 @@ async function runIngest(args: string[]) {
     };
 
     await storage.addState(newState);
-    console.log(JSON.stringify({ success: true, state_id: stateId, description }));
+    console.log(
+      JSON.stringify({ success: true, state_id: stateId, description })
+    );
   } catch (err: any) {
     console.error('Failed to ingest visual state:', err.message);
     process.exit(1);
   }
 }
 
-runCli().catch(err => {
+runCli().catch((err) => {
   console.error('Fatal CLI Error:', err);
   process.exit(1);
 });

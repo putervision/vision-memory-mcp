@@ -34,9 +34,11 @@ describe('Tiered Retrieval Engine', () => {
         width: 100,
         height: 100,
         channels: 3,
-        background: { r: 255, g: 0, b: 0 }
-      }
-    }).png().toBuffer();
+        background: { r: 255, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
 
     dhashRed = await calculateDHash(redBuffer);
     ahashRed = await calculateAHash(redBuffer);

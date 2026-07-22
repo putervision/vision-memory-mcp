@@ -92,7 +92,9 @@ export class MemoryCache {
       // Evict oldest (first entry in insertion order)
       const oldestKey = this.cache.keys().next().value;
       if (oldestKey !== undefined) {
-        logger.debug(`LRU Cache: Cache full, evicting oldest state ${oldestKey}`);
+        logger.debug(
+          `LRU Cache: Cache full, evicting oldest state ${oldestKey}`
+        );
         this.cache.delete(oldestKey);
       }
     }

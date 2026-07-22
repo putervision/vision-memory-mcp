@@ -25,7 +25,7 @@ describe('Graph Navigation and Transitions', () => {
 
     // Insert mock states to link transitions
     const mockVector = new Array(512).fill(0.1);
-    
+
     const states: VisualState[] = [
       {
         id: 'state-a',
@@ -89,7 +89,7 @@ describe('Graph Navigation and Transitions', () => {
         last_accessed: Date.now(),
         access_count: 1,
         ttl: 0,
-      }
+      },
     ];
 
     for (const s of states) {

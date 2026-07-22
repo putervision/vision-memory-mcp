@@ -14,12 +14,16 @@ function shouldLog(level: LogLevel): boolean {
   return logLevels[level] >= logLevels[configuredLevel];
 }
 
-function formatMessage(level: LogLevel, message: string, ...args: any[]): string {
+function formatMessage(
+  level: LogLevel,
+  message: string,
+  ...args: any[]
+): string {
   const timestamp = new Date().toISOString();
-  const formattedArgs = args.map(arg => 
-    typeof arg === 'object' ? JSON.stringify(arg) : arg
-  ).join(' ');
-  
+  const formattedArgs = args
+    .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : arg))
+    .join(' ');
+
   return `[${timestamp}] [${level.toUpperCase()}] ${message}${formattedArgs ? ' ' + formattedArgs : ''}\n`;
 }
 
@@ -29,22 +33,22 @@ export const logger = {
       process.stderr.write(formatMessage('debug', message, ...args));
     }
   },
-  
+
   info(message: string, ...args: any[]): void {
     if (shouldLog('info')) {
       process.stderr.write(formatMessage('info', message, ...args));
     }
   },
-  
+
   warn(message: string, ...args: any[]): void {
     if (shouldLog('warn')) {
       process.stderr.write(formatMessage('warn', message, ...args));
     }
   },
-  
+
   error(message: string, ...args: any[]): void {
     if (shouldLog('error')) {
       process.stderr.write(formatMessage('error', message, ...args));
     }
-  }
+  },
 };

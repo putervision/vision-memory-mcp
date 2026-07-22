@@ -24,14 +24,16 @@ export async function analyzeScreenshotWithLLM(
       : `${endpoint}/chat/completions`;
   }
 
-  logger.info(`Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`);
+  logger.info(
+    `Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`
+  );
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY || 'no-key'}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY || 'no-key'}`,
       },
       body: JSON.stringify({
         model: config.VISION_MODEL_NAME,
@@ -58,12 +60,14 @@ export async function analyzeScreenshotWithLLM(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Vision model request failed with status ${response.status}: ${errorText}`);
+      throw new Error(
+        `Vision model request failed with status ${response.status}: ${errorText}`
+      );
     }
 
     const data = (await response.json()) as any;
     const content = data.choices?.[0]?.message?.content;
-    
+
     if (!content) {
       throw new Error('Empty response content received from vision model.');
     }

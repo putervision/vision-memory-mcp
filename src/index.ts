@@ -1,6 +1,8 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  McpServer,
+  ResourceTemplate,
+} from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
 import { storage } from './core/storage.js';
 import { registerAllTools } from './tools/handlers.js';
 import { logger } from './logger.js';
@@ -15,7 +17,7 @@ async function main() {
     // 2. Instantiate MCP Server
     const server = new McpServer({
       name: 'vision-memory-mcp',
-      version: '0.1.7',
+      version: '0.2.0',
     });
 
     // 3. Register Resource Templates
@@ -36,7 +38,7 @@ async function main() {
         }
         logger.debug(`Reading memory state resource: ${stateId}`);
         const state = await storage.getState(stateId);
-        
+
         if (!state) {
           throw new Error(`State with ID "${stateId}" not found.`);
         }
@@ -61,7 +63,7 @@ async function main() {
     logger.info('Connecting Stdio transport stream...');
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    
+
     logger.info('vision-memory-mcp server connected and running.');
 
     // 6. Handle Graceful Shutdown
@@ -78,7 +80,6 @@ async function main() {
 
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
-
   } catch (error) {
     logger.error('Fatal error starting server:', error);
     process.exit(1);

@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { storage } from './storage.js';
+import { storage, escapeSql } from './storage.js';
 import { embeddings } from './embeddings.js';
 import { memoryCache, getCurrentBranch } from './cache.js';
 import { hammingDistance } from './hash.js';
@@ -9,12 +9,22 @@ import { VisualState, RetrievalStrategy, RetrievalResult } from '../types.js';
 
 function compareAccessTrees(tree1?: string, tree2?: string): boolean {
   if (!tree1 || !tree2) return true; // If one is missing, assume they match or ignore AX check
+  const trimmed1 = tree1.trim();
+  const trimmed2 = tree2.trim();
+  if (
+    trimmed1 === '' ||
+    trimmed1 === '{}' ||
+    trimmed2 === '' ||
+    trimmed2 === '{}'
+  ) {
+    return true; // Neutral match if either state lacks accessibility tree details
+  }
   try {
-    const t1 = JSON.stringify(JSON.parse(tree1));
-    const t2 = JSON.stringify(JSON.parse(tree2));
+    const t1 = JSON.stringify(JSON.parse(trimmed1));
+    const t2 = JSON.stringify(JSON.parse(trimmed2));
     return t1 === t2;
   } catch {
-    return tree1.trim() === tree2.trim();
+    return trimmed1 === trimmed2;
   }
 }
 
@@ -36,7 +46,9 @@ export async function retrieveState(params: {
   const branch = params.gitBranch ?? getCurrentBranch();
   const accessibilityTree = params.accessibilityTree;
 
-  logger.debug(`Retrieval request: strategy=${strategy}, branch=${branch}, forceRefresh=${forceRefresh}`);
+  logger.debug(
+    `Retrieval request: strategy=${strategy}, branch=${branch}, forceRefresh=${forceRefresh}`
+  );
 
   // 1. Process screenshot if provided
   let processed: ProcessedImage | null = null;
@@ -64,14 +76,14 @@ export async function retrieveState(params: {
     logger.debug(`Text-only query: "${params.query}"`);
     const queryVector = await embeddings.generateTextEmbedding(params.query);
     // Search database
-    const branchFilter = `git_branch = '${branch}'`;
+    const branchFilter = `git_branch = '${escapeSql(branch)}'`;
     let matches = await storage.searchVector(queryVector, limit, branchFilter);
     // If no matches on current branch, fallback to other branches
     if (matches.length === 0) {
       matches = await storage.searchVector(queryVector, limit);
     }
 
-    const related = matches.map(m => ({
+    const related = matches.map((m) => ({
       id: m.id,
       description: m.description,
       similarity: 1 - ((m as any)._distance ?? 0),
@@ -109,7 +121,10 @@ export async function retrieveState(params: {
     if (!forceRefresh && strategy !== 'semantic') {
       // Retrieve states for hash comparison
       // Filter by active branch first, then fallback to others
-      let allStates = await storage.listStates(`git_branch = '${branch}'`, 1000);
+      let allStates = await storage.listStates(
+        `git_branch = '${escapeSql(branch)}'`,
+        1000
+      );
       if (allStates.length === 0) {
         allStates = await storage.listStates(undefined, 1000);
       }
@@ -125,27 +140,36 @@ export async function retrieveState(params: {
         }
       }
 
-      logger.debug(`Hamming match: minDistance=${minDistance}, bestState=${bestMatch?.id}`);
+      logger.debug(
+        `Hamming match: minDistance=${minDistance}, bestState=${bestMatch?.id}`
+      );
 
       // Check thresholds
       if (bestMatch && minDistance <= config.HASH_SIMILAR_THRESHOLD) {
         const isExact = minDistance <= config.HASH_EXACT_THRESHOLD;
-        
+
         // Validate with AX Tree if provided
-        const axMatches = compareAccessTrees(bestMatch.accessibility_tree, accessibilityTree);
+        const axMatches = compareAccessTrees(
+          bestMatch.accessibility_tree,
+          accessibilityTree
+        );
 
         if (isExact && axMatches) {
           // L1 Check: Is it in the in-memory cache?
           const cached = memoryCache.get(bestMatch.id, branch);
           const matchType = cached ? 'exact_hash' : 'near_hash'; // count as exact if matches
-          
-          logger.info(`L1/L2 Cache Hit: id=${bestMatch.id}, matchType=${matchType}, distance=${minDistance}`);
+
+          logger.info(
+            `L1/L2 Cache Hit: id=${bestMatch.id}, matchType=${matchType}, distance=${minDistance}`
+          );
 
           // Update access stats in DB asynchronously
-          storage.updateState(bestMatch.id, {
-            last_accessed: Date.now(),
-            access_count: bestMatch.access_count + 1,
-          }).catch(err => logger.error('Failed to update state stats:', err));
+          storage
+            .updateState(bestMatch.id, {
+              last_accessed: Date.now(),
+              access_count: bestMatch.access_count + 1,
+            })
+            .catch((err) => logger.error('Failed to update state stats:', err));
 
           // Save back into cache to refresh TTL
           memoryCache.set(bestMatch, config.TTL_DEFAULT_MS);
@@ -162,7 +186,9 @@ export async function retrieveState(params: {
             source_url: bestMatch.source_url,
           };
         } else if (!axMatches) {
-          logger.warn(`AX tree mismatch detected for hash hit (id=${bestMatch.id}). Invalidating exact match.`);
+          logger.warn(
+            `AX tree mismatch detected for hash hit (id=${bestMatch.id}). Invalidating exact match.`
+          );
         }
       }
     }
@@ -170,8 +196,12 @@ export async function retrieveState(params: {
     // === L3: CLIP Vector Search ===
     if (strategy !== 'fast') {
       const vector = await embeddings.generateImageEmbedding(imageBuffer);
-      const branchFilter = `git_branch = '${branch}'`;
-      let vectorMatches = await storage.searchVector(vector, limit, branchFilter);
+      const branchFilter = `git_branch = '${escapeSql(branch)}'`;
+      let vectorMatches = await storage.searchVector(
+        vector,
+        limit,
+        branchFilter
+      );
       if (vectorMatches.length === 0) {
         vectorMatches = await storage.searchVector(vector, limit);
       }
@@ -181,22 +211,28 @@ export async function retrieveState(params: {
         const distance = (topMatch as any)._distance ?? 1;
         const similarity = 1 - distance;
 
-        logger.debug(`CLIP Search Top Match: id=${topMatch.id}, similarity=${similarity}`);
+        logger.debug(
+          `CLIP Search Top Match: id=${topMatch.id}, similarity=${similarity}`
+        );
 
-        const related = vectorMatches.map(m => ({
+        const related = vectorMatches.map((m) => ({
           id: m.id,
           description: m.description,
           similarity: 1 - ((m as any)._distance ?? 1),
         }));
 
         if (similarity >= 0.85 && !forceRefresh) {
-          logger.info(`L3 Vector Hit: id=${topMatch.id}, similarity=${similarity.toFixed(4)}`);
+          logger.info(
+            `L3 Vector Hit: id=${topMatch.id}, similarity=${similarity.toFixed(4)}`
+          );
 
           // Update stats
-          storage.updateState(topMatch.id, {
-            last_accessed: Date.now(),
-            access_count: topMatch.access_count + 1,
-          }).catch(err => logger.error('Failed to update state stats:', err));
+          storage
+            .updateState(topMatch.id, {
+              last_accessed: Date.now(),
+              access_count: topMatch.access_count + 1,
+            })
+            .catch((err) => logger.error('Failed to update state stats:', err));
 
           return {
             state_id: topMatch.id,

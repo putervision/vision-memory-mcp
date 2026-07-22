@@ -1,11 +1,36 @@
-import { z } from 'zod';
-import dotenv from 'dotenv';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
 
+/**
+ * Custom lightweight .env parser to eliminate `dotenv` dependency.
+ */
+function loadEnv(envPath: string = '.env'): void {
+  const resolvedPath = path.resolve(process.cwd(), envPath);
+  if (!fs.existsSync(resolvedPath)) return;
+
+  try {
+    const content = fs.readFileSync(resolvedPath, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        let value = trimmed.slice(eqIdx + 1).trim();
+        value = value.replace(/^["']|["']$/g, '');
+        if (process.env[key] === undefined) {
+          process.env[key] = value;
+        }
+      }
+    }
+  } catch {
+    // Ignore unreadable env files
+  }
+}
+
 // Load environment variables from .env if present
-dotenv.config();
+loadEnv();
 
 // Resolve project root by walking up from CWD
 export function resolveProjectRoot(cwd: string = process.cwd()): string {
@@ -13,10 +38,10 @@ export function resolveProjectRoot(cwd: string = process.cwd()): string {
   while (true) {
     const isHome = current === os.homedir();
     const hasGit = fs.existsSync(path.join(current, '.git'));
-    const hasVisionMemory = !isHome && (
-      fs.existsSync(path.join(current, '.vision-memory')) ||
-      fs.existsSync(path.join(current, '.vision-memory-mcp'))
-    );
+    const hasVisionMemory =
+      !isHome &&
+      (fs.existsSync(path.join(current, '.vision-memory')) ||
+        fs.existsSync(path.join(current, '.vision-memory-mcp')));
 
     if (hasGit || hasVisionMemory) {
       return current;
@@ -30,57 +55,128 @@ export function resolveProjectRoot(cwd: string = process.cwd()): string {
   return path.resolve(cwd); // default to cwd if none found
 }
 
-const configSchema = z.object({
-  LANCEDB_PATH: z.string().default('.vision-memory-mcp'),
-  LANCEDB_CACHE_SIZE: z.coerce.number().int().positive().default(100),
-  HASH_EXACT_THRESHOLD: z.coerce.number().int().min(0).max(64).default(5),
-  HASH_SIMILAR_THRESHOLD: z.coerce.number().int().min(0).max(64).default(10),
-  CLIP_MODEL: z.string().default('Xenova/clip-vit-base-patch32'),
-  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(512),
-  VISION_MODEL_ENABLED: z
-    .string()
-    .transform((val) => val.toLowerCase() === 'true')
-    .or(z.boolean())
-    .default(false),
-  VISION_MODEL_ENDPOINT: z.string().url().default('http://localhost:1234/v1'),
-  VISION_MODEL_NAME: z.string().default('gpt-4o'),
-  VISION_MODEL_MAX_TOKENS: z.coerce.number().int().positive().default(500),
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-  TTL_DEFAULT_MS: z.coerce.number().int().nonnegative().default(604800000), // 7 days
-  MAX_IMAGE_SIZE_MB: z.coerce.number().int().positive().default(10),
-  THUMBNAIL_SIZE: z.coerce.number().int().positive().default(64),
-});
+export interface Config {
+  LANCEDB_PATH: string;
+  LANCEDB_CACHE_SIZE: number;
+  HASH_EXACT_THRESHOLD: number;
+  HASH_SIMILAR_THRESHOLD: number;
+  CLIP_MODEL: string;
+  EMBEDDING_DIMENSIONS: number;
+  VISION_MODEL_ENABLED: boolean;
+  VISION_MODEL_ENDPOINT: string;
+  VISION_MODEL_NAME: string;
+  VISION_MODEL_MAX_TOKENS: number;
+  LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
+  TTL_DEFAULT_MS: number;
+  MAX_IMAGE_SIZE_MB: number;
+  THUMBNAIL_SIZE: number;
+}
 
-export type Config = z.infer<typeof configSchema>;
+function parseNumber(
+  val: string | undefined,
+  defaultVal: number,
+  fieldName: string,
+  min?: number,
+  max?: number
+): number {
+  if (val === undefined || val === '') return defaultVal;
+  const num = Number(val);
+  if (isNaN(num)) {
+    throw new Error(`${fieldName} must be a valid number, got "${val}"`);
+  }
+  if (min !== undefined && num < min) {
+    throw new Error(`${fieldName} must be >= ${min}, got ${num}`);
+  }
+  if (max !== undefined && num > max) {
+    throw new Error(`${fieldName} must be <= ${max}, got ${num}`);
+  }
+  return num;
+}
+
+function parseConfig(env: Record<string, string | undefined>): Config {
+  const logLevelRaw = (env.LOG_LEVEL || 'info').toLowerCase();
+  const validLogLevels: Config['LOG_LEVEL'][] = [
+    'debug',
+    'info',
+    'warn',
+    'error',
+  ];
+  if (!validLogLevels.includes(logLevelRaw as Config['LOG_LEVEL'])) {
+    throw new Error(
+      `LOG_LEVEL must be one of [debug, info, warn, error], got "${env.LOG_LEVEL}"`
+    );
+  }
+
+  const visionEnabledRaw = env.VISION_MODEL_ENABLED;
+  const visionEnabled =
+    typeof visionEnabledRaw === 'string'
+      ? visionEnabledRaw.toLowerCase() === 'true'
+      : false;
+
+  return {
+    LANCEDB_PATH: env.LANCEDB_PATH || '.vision-memory-mcp',
+    LANCEDB_CACHE_SIZE: parseNumber(
+      env.LANCEDB_CACHE_SIZE,
+      100,
+      'LANCEDB_CACHE_SIZE',
+      1
+    ),
+    HASH_EXACT_THRESHOLD: parseNumber(
+      env.HASH_EXACT_THRESHOLD,
+      5,
+      'HASH_EXACT_THRESHOLD',
+      0,
+      64
+    ),
+    HASH_SIMILAR_THRESHOLD: parseNumber(
+      env.HASH_SIMILAR_THRESHOLD,
+      10,
+      'HASH_SIMILAR_THRESHOLD',
+      0,
+      64
+    ),
+    CLIP_MODEL: env.CLIP_MODEL || 'Xenova/clip-vit-base-patch32',
+    EMBEDDING_DIMENSIONS: parseNumber(
+      env.EMBEDDING_DIMENSIONS,
+      512,
+      'EMBEDDING_DIMENSIONS',
+      1
+    ),
+    VISION_MODEL_ENABLED: visionEnabled,
+    VISION_MODEL_ENDPOINT:
+      env.VISION_MODEL_ENDPOINT || 'http://localhost:1234/v1',
+    VISION_MODEL_NAME: env.VISION_MODEL_NAME || 'gpt-4o',
+    VISION_MODEL_MAX_TOKENS: parseNumber(
+      env.VISION_MODEL_MAX_TOKENS,
+      500,
+      'VISION_MODEL_MAX_TOKENS',
+      1
+    ),
+    LOG_LEVEL: logLevelRaw as Config['LOG_LEVEL'],
+    TTL_DEFAULT_MS: parseNumber(
+      env.TTL_DEFAULT_MS,
+      604800000,
+      'TTL_DEFAULT_MS',
+      0
+    ),
+    MAX_IMAGE_SIZE_MB: parseNumber(
+      env.MAX_IMAGE_SIZE_MB,
+      10,
+      'MAX_IMAGE_SIZE_MB',
+      1
+    ),
+    THUMBNAIL_SIZE: parseNumber(env.THUMBNAIL_SIZE, 64, 'THUMBNAIL_SIZE', 1),
+  };
+}
 
 let validatedConfig: Config;
 
 try {
-  validatedConfig = configSchema.parse({
-    LANCEDB_PATH: process.env.LANCEDB_PATH,
-    LANCEDB_CACHE_SIZE: process.env.LANCEDB_CACHE_SIZE,
-    HASH_EXACT_THRESHOLD: process.env.HASH_EXACT_THRESHOLD,
-    HASH_SIMILAR_THRESHOLD: process.env.HASH_SIMILAR_THRESHOLD,
-    CLIP_MODEL: process.env.CLIP_MODEL,
-    EMBEDDING_DIMENSIONS: process.env.EMBEDDING_DIMENSIONS,
-    VISION_MODEL_ENABLED: process.env.VISION_MODEL_ENABLED,
-    VISION_MODEL_ENDPOINT: process.env.VISION_MODEL_ENDPOINT,
-    VISION_MODEL_NAME: process.env.VISION_MODEL_NAME,
-    VISION_MODEL_MAX_TOKENS: process.env.VISION_MODEL_MAX_TOKENS,
-    LOG_LEVEL: process.env.LOG_LEVEL,
-    TTL_DEFAULT_MS: process.env.TTL_DEFAULT_MS,
-    MAX_IMAGE_SIZE_MB: process.env.MAX_IMAGE_SIZE_MB,
-    THUMBNAIL_SIZE: process.env.THUMBNAIL_SIZE,
-  });
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('❌ Invalid configuration environment variables:');
-    error.errors.forEach((err) => {
-      console.error(`  - ${err.path.join('.')}: ${err.message}`);
-    });
-  } else {
-    console.error('❌ Configuration error:', error);
-  }
+  validatedConfig = parseConfig(
+    process.env as Record<string, string | undefined>
+  );
+} catch (error: any) {
+  console.error('❌ Configuration error:', error.message || error);
   process.exit(1);
 }
 

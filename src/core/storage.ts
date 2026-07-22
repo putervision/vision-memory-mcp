@@ -14,7 +14,11 @@ function cleanupLockFiles(dir: string): void {
     const fullPath = path.join(dir, file);
     if (fs.statSync(fullPath).isDirectory()) {
       cleanupLockFiles(fullPath);
-    } else if (file.includes('lock') || file.endsWith('.lock') || file.includes('write.lock')) {
+    } else if (
+      file.includes('lock') ||
+      file.endsWith('.lock') ||
+      file.includes('write.lock')
+    ) {
       try {
         fs.unlinkSync(fullPath);
         logger.debug(`Cleaned up stale lock file: ${fullPath}`);
@@ -23,6 +27,10 @@ function cleanupLockFiles(dir: string): void {
       }
     }
   }
+}
+
+export function escapeSql(val: string): string {
+  return val.replace(/'/g, "''");
 }
 
 export class StorageManager {
@@ -86,7 +94,11 @@ export class StorageManager {
         ttl: 0,
       };
 
-      this.statesTable = await this.db.createTable('visual_states', [dummyState as any], { mode: 'overwrite' });
+      this.statesTable = await this.db.createTable(
+        'visual_states',
+        [dummyState as any],
+        { mode: 'overwrite' }
+      );
       await this.statesTable.delete("id = 'dummy-state-id'");
       logger.debug('Created and cleaned visual_states table.');
     }
@@ -111,7 +123,11 @@ export class StorageManager {
         metadata: '{}',
       };
 
-      this.transitionsTable = await this.db.createTable('state_transitions', [dummyTransition as any], { mode: 'overwrite' });
+      this.transitionsTable = await this.db.createTable(
+        'state_transitions',
+        [dummyTransition as any],
+        { mode: 'overwrite' }
+      );
       await this.transitionsTable.delete("id = 'dummy-transition-id'");
       logger.debug('Created and cleaned state_transitions table.');
     }
@@ -130,7 +146,11 @@ export class StorageManager {
         state_ids: '[]',
       };
 
-      this.snapshotsTable = await this.db.createTable('visual_snapshots', [dummySnapshot as any], { mode: 'overwrite' });
+      this.snapshotsTable = await this.db.createTable(
+        'visual_snapshots',
+        [dummySnapshot as any],
+        { mode: 'overwrite' }
+      );
       await this.snapshotsTable.delete("id = 'dummy-snapshot-id'");
       logger.debug('Created and cleaned visual_snapshots table.');
     }
@@ -138,21 +158,38 @@ export class StorageManager {
     // Create scalar indexes to speed up lookups
     try {
       if (this.statesTable) {
-        await (this.statesTable as any).createScalarIndex('dhash', { indexType: 'btree' });
-        await (this.statesTable as any).createScalarIndex('git_branch', { indexType: 'bitmap' });
+        await (this.statesTable as any).createScalarIndex('dhash', {
+          indexType: 'btree',
+        });
+        await (this.statesTable as any).createScalarIndex('git_branch', {
+          indexType: 'bitmap',
+        });
       }
     } catch (err) {
-      logger.debug('Scalar indexes for visual_states already exist or failed:', err);
+      logger.debug(
+        'Scalar indexes for visual_states already exist or failed:',
+        err
+      );
     }
 
     try {
       if (this.transitionsTable) {
-        await (this.transitionsTable as any).createScalarIndex('from_state_id', { indexType: 'btree' });
-        await (this.transitionsTable as any).createScalarIndex('to_state_id', { indexType: 'btree' });
-        await (this.transitionsTable as any).createScalarIndex('git_branch', { indexType: 'bitmap' });
+        await (this.transitionsTable as any).createScalarIndex(
+          'from_state_id',
+          { indexType: 'btree' }
+        );
+        await (this.transitionsTable as any).createScalarIndex('to_state_id', {
+          indexType: 'btree',
+        });
+        await (this.transitionsTable as any).createScalarIndex('git_branch', {
+          indexType: 'bitmap',
+        });
       }
     } catch (err) {
-      logger.debug('Scalar indexes for state_transitions already exist or failed:', err);
+      logger.debug(
+        'Scalar indexes for state_transitions already exist or failed:',
+        err
+      );
     }
   }
 
@@ -166,15 +203,24 @@ export class StorageManager {
 
   async getState(id: string): Promise<VisualState | null> {
     if (!this.statesTable) throw new Error('States table not initialized.');
-    const results = await this.statesTable.query().where(`id = '${id}'`).limit(1).toArray();
+    const safeId = escapeSql(id);
+    const results = await this.statesTable
+      .query()
+      .where(`id = '${safeId}'`)
+      .limit(1)
+      .toArray();
     return results.length > 0 ? (results[0] as unknown as VisualState) : null;
   }
 
-  async updateState(id: string, updates: Partial<Omit<VisualState, 'id'>>): Promise<void> {
+  async updateState(
+    id: string,
+    updates: Partial<Omit<VisualState, 'id'>>
+  ): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Updating visual state: ${id}`);
+    const safeId = escapeSql(id);
     await this.statesTable.update({
-      where: `id = '${id}'`,
+      where: `id = '${safeId}'`,
       values: updates,
     });
   }
@@ -182,14 +228,20 @@ export class StorageManager {
   async deleteState(id: string): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Deleting visual state: ${id}`);
-    await this.statesTable.delete(`id = '${id}'`);
+    const safeId = escapeSql(id);
+    await this.statesTable.delete(`id = '${safeId}'`);
     if (this.transitionsTable) {
       logger.debug(`Cascading delete: removing transitions for state ${id}`);
-      await this.transitionsTable.delete(`from_state_id = '${id}' OR to_state_id = '${id}'`);
+      await this.transitionsTable.delete(
+        `from_state_id = '${safeId}' OR to_state_id = '${safeId}'`
+      );
     }
   }
 
-  async listStates(filter?: string, limit: number = 50): Promise<VisualState[]> {
+  async listStates(
+    filter?: string,
+    limit: number = 50
+  ): Promise<VisualState[]> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     let q = this.statesTable.query();
     if (filter) {
@@ -199,7 +251,16 @@ export class StorageManager {
     return results as unknown as VisualState[];
   }
 
-  async searchVector(vector: number[], limit: number, filter?: string): Promise<VisualState[]> {
+  async countStates(filter?: string): Promise<number> {
+    if (!this.statesTable) throw new Error('States table not initialized.');
+    return await this.statesTable.countRows(filter);
+  }
+
+  async searchVector(
+    vector: number[],
+    limit: number,
+    filter?: string
+  ): Promise<VisualState[]> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     let search = this.statesTable.search(vector);
     if (filter) {
@@ -212,25 +273,41 @@ export class StorageManager {
   // --- State Transitions Operations ---
 
   async addTransition(transition: StateTransition): Promise<void> {
-    if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
-    logger.debug(`Upserting transition: ${transition.id} (${transition.from_state_id} -> ${transition.to_state_id})`);
-    
+    if (!this.transitionsTable)
+      throw new Error('Transitions table not initialized.');
+    logger.debug(
+      `Upserting transition: ${transition.id} (${transition.from_state_id} -> ${transition.to_state_id})`
+    );
+
     // Set unenforced primary key if LanceDB requires (usually handled during execution of mergeInsert)
     // We run mergeInsert on 'id' column
-    await this.transitionsTable.mergeInsert('id')
+    await this.transitionsTable
+      .mergeInsert('id')
       .whenMatchedUpdateAll()
       .whenNotMatchedInsertAll()
       .execute([transition as any]);
   }
 
   async getTransition(id: string): Promise<StateTransition | null> {
-    if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
-    const results = await this.transitionsTable.query().where(`id = '${id}'`).limit(1).toArray();
-    return results.length > 0 ? (results[0] as unknown as StateTransition) : null;
+    if (!this.transitionsTable)
+      throw new Error('Transitions table not initialized.');
+    const safeId = escapeSql(id);
+    const results = await this.transitionsTable
+      .query()
+      .where(`id = '${safeId}'`)
+      .limit(1)
+      .toArray();
+    return results.length > 0
+      ? (results[0] as unknown as StateTransition)
+      : null;
   }
 
-  async listTransitions(filter?: string, limit: number = 100): Promise<StateTransition[]> {
-    if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
+  async listTransitions(
+    filter?: string,
+    limit: number = 100
+  ): Promise<StateTransition[]> {
+    if (!this.transitionsTable)
+      throw new Error('Transitions table not initialized.');
     let q = this.transitionsTable.query();
     if (filter) {
       q = q.where(filter);
@@ -239,55 +316,81 @@ export class StorageManager {
     return results as unknown as StateTransition[];
   }
 
+  async countTransitions(filter?: string): Promise<number> {
+    if (!this.transitionsTable)
+      throw new Error('Transitions table not initialized.');
+    return await this.transitionsTable.countRows(filter);
+  }
+
   async deleteTransition(id: string): Promise<void> {
-    if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
+    if (!this.transitionsTable)
+      throw new Error('Transitions table not initialized.');
     logger.debug(`Deleting transition: ${id}`);
-    await this.transitionsTable.delete(`id = '${id}'`);
+    const safeId = escapeSql(id);
+    await this.transitionsTable.delete(`id = '${safeId}'`);
   }
 
   // --- Visual Snapshots Operations ---
 
   async addSnapshot(snapshot: VisualSnapshot): Promise<void> {
-    if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
+    if (!this.snapshotsTable)
+      throw new Error('Snapshots table not initialized.');
     logger.debug(`Inserting snapshot: ${snapshot.name} (${snapshot.id})`);
     await this.snapshotsTable.add([snapshot as any]);
   }
 
   async getSnapshot(idOrName: string): Promise<VisualSnapshot | null> {
-    if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
+    if (!this.snapshotsTable)
+      throw new Error('Snapshots table not initialized.');
     // Check by ID first, then by name
-    let results = await this.snapshotsTable.query().where(`id = '${idOrName}'`).limit(1).toArray();
+    const safeIdOrName = escapeSql(idOrName);
+    let results = await this.snapshotsTable
+      .query()
+      .where(`id = '${safeIdOrName}'`)
+      .limit(1)
+      .toArray();
     if (results.length === 0) {
-      results = await this.snapshotsTable.query().where(`name = '${idOrName}'`).limit(1).toArray();
+      results = await this.snapshotsTable
+        .query()
+        .where(`name = '${safeIdOrName}'`)
+        .limit(1)
+        .toArray();
     }
-    return results.length > 0 ? (results[0] as unknown as VisualSnapshot) : null;
+    return results.length > 0
+      ? (results[0] as unknown as VisualSnapshot)
+      : null;
   }
 
   async listSnapshots(limit: number = 50): Promise<VisualSnapshot[]> {
-    if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
+    if (!this.snapshotsTable)
+      throw new Error('Snapshots table not initialized.');
     const results = await this.snapshotsTable.query().limit(limit).toArray();
     return results as unknown as VisualSnapshot[];
   }
 
   async deleteSnapshot(id: string): Promise<void> {
-    if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
+    if (!this.snapshotsTable)
+      throw new Error('Snapshots table not initialized.');
     logger.debug(`Deleting snapshot: ${id}`);
-    await this.snapshotsTable.delete(`id = '${id}'`);
+    const safeId = escapeSql(id);
+    await this.snapshotsTable.delete(`id = '${safeId}'`);
   }
 
   // --- Maintenance & Indexing ---
 
   async createVectorIndex(): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
-    
+
     // In LanceDB, IVF_PQ index requires a certain amount of data to be present (typically > 1000 rows).
     // The node-lancedb SDK allows creating indices. Let's do it safely.
     const count = (await this.statesTable.query().toArray()).length;
     if (count < 256) {
-      logger.info(`Skipping vector index creation. Current row count (${count}) is too low (requires ~256+ rows for training).`);
+      logger.info(
+        `Skipping vector index creation. Current row count (${count}) is too low (requires ~256+ rows for training).`
+      );
       return;
     }
-    
+
     logger.info('Creating IVF_PQ vector index on visual_states...');
     try {
       await this.statesTable.createIndex('vector', {
@@ -325,8 +428,13 @@ export class StorageManager {
 }
 
 export const storage = new StorageManager();
-export function transitionKey(fromId: string, toId: string, action: string): string {
-  return crypto.createHash('sha256')
+export function transitionKey(
+  fromId: string,
+  toId: string,
+  action: string
+): string {
+  return crypto
+    .createHash('sha256')
     .update(`${fromId}:${toId}:${action}`)
     .digest('hex')
     .slice(0, 32);

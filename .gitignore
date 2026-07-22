@@ -8,10 +8,8 @@ viewer.html
 *.tar.gz
 *.log
 plans/
-# vision-memory-mcp local database
-.vision-memory/
-.env
 
-# vision-memory-mcp local database
+# vision-memory-mcp local databases
+.vision-memory/
 .vision-memory-mcp/
-.env
+

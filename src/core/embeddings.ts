@@ -1,12 +1,26 @@
-import { 
-  AutoProcessor, 
+import {
+  AutoProcessor,
   AutoTokenizer,
-  CLIPVisionModelWithProjection, 
+  CLIPVisionModelWithProjection,
   CLIPTextModelWithProjection,
-  RawImage
+  RawImage,
 } from '@huggingface/transformers';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+
+export function cosineSimilarity(v1: number[], v2: number[]): number {
+  if (!v1 || !v2 || v1.length !== v2.length) return 0;
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < v1.length; i++) {
+    dotProduct += v1[i] * v2[i];
+    normA += v1[i] * v1[i];
+    normB += v2[i] * v2[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
 
 export class EmbeddingsManager {
   private processor: any = null;
@@ -21,18 +35,25 @@ export class EmbeddingsManager {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
-      logger.info(`Loading CLIP embedding model: ${config.CLIP_MODEL} (first run may download ~350MB)...`);
+      logger.info(
+        `Loading CLIP embedding model: ${config.CLIP_MODEL} (first run may download ~90MB)...`
+      );
       try {
         const modelOpts = {
-          // You can pass specific options here, e.g. quantized: false/true
-          quantized: false, 
+          quantized: true,
         };
 
         // Load processor, tokenizer and both CLIP models
         this.processor = await AutoProcessor.from_pretrained(config.CLIP_MODEL);
         this.tokenizer = await AutoTokenizer.from_pretrained(config.CLIP_MODEL);
-        this.visionModel = await CLIPVisionModelWithProjection.from_pretrained(config.CLIP_MODEL, modelOpts as any);
-        this.textModel = await CLIPTextModelWithProjection.from_pretrained(config.CLIP_MODEL, modelOpts as any);
+        this.visionModel = await CLIPVisionModelWithProjection.from_pretrained(
+          config.CLIP_MODEL,
+          modelOpts as any
+        );
+        this.textModel = await CLIPTextModelWithProjection.from_pretrained(
+          config.CLIP_MODEL,
+          modelOpts as any
+        );
 
         this.initialized = true;
         logger.info('CLIP embedding models loaded successfully.');
@@ -66,6 +87,9 @@ export class EmbeddingsManager {
 
       // Extract raw data array [0] (batch dimension = 1)
       const list = embeds.tolist();
+      if (typeof embeds?.dispose === 'function') {
+        embeds.dispose();
+      }
       return list[0] as number[];
     } catch (error) {
       logger.error('Error generating image embedding:', error);
@@ -81,7 +105,10 @@ export class EmbeddingsManager {
 
     try {
       // Process text
-      const textInputs = await this.tokenizer([text], { padding: true, truncation: true });
+      const textInputs = await this.tokenizer([text], {
+        padding: true,
+        truncation: true,
+      });
 
       // Run inference
       const textOutputs = await this.textModel(textInputs);
@@ -89,6 +116,9 @@ export class EmbeddingsManager {
 
       // Extract raw data array [0]
       const list = embeds.tolist();
+      if (typeof embeds?.dispose === 'function') {
+        embeds.dispose();
+      }
       return list[0] as number[];
     } catch (error) {
       logger.error(`Error generating text embedding for "${text}":`, error);

@@ -1,34 +1,27 @@
 import crypto from 'crypto';
-import { storage } from './storage.js';
+import { storage, escapeSql } from './storage.js';
+import { cosineSimilarity } from './embeddings.js';
 import { getCurrentBranch } from './cache.js';
 import { logger } from '../logger.js';
 import { hammingDistance } from './hash.js';
 import { VisualSnapshot, VisualState } from '../types.js';
 
-function cosineSimilarity(v1: number[], v2: number[]): number {
-  if (!v1 || !v2 || v1.length !== v2.length) return 0;
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < v1.length; i++) {
-    dotProduct += v1[i] * v2[i];
-    normA += v1[i] * v1[i];
-    normB += v2[i] * v2[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
 /**
  * Save current visual states as a named checkpoint snapshot.
  */
-export async function saveSnapshot(name: string, description?: string): Promise<VisualSnapshot> {
+export async function saveSnapshot(
+  name: string,
+  description?: string
+): Promise<VisualSnapshot> {
   const branch = getCurrentBranch();
   logger.info(`Saving visual snapshot: "${name}" on branch "${branch}"`);
 
   // Fetch all visual states on the current branch
-  const states = await storage.listStates(`git_branch = '${branch}'`, 10000);
-  const stateIds = states.map(s => s.id);
+  const states = await storage.listStates(
+    `git_branch = '${escapeSql(branch)}'`,
+    10000
+  );
+  const stateIds = states.map((s) => s.id);
 
   const snapshot: VisualSnapshot = {
     id: crypto.randomUUID(),
@@ -45,7 +38,11 @@ export async function saveSnapshot(name: string, description?: string): Promise<
 
 export interface SnapshotDiffResult {
   added_states: Array<{ id: string; description: string; source_url?: string }>;
-  removed_states: Array<{ id: string; description: string; source_url?: string }>;
+  removed_states: Array<{
+    id: string;
+    description: string;
+    source_url?: string;
+  }>;
   modified_states: Array<{
     id: string;
     description: string;
@@ -91,17 +88,21 @@ export async function diffSnapshots(
 
   // Match states by ID first.
   // If a state exists in both but has different dhash, it is modified.
-  const statesAMap = new Map(statesA.map(s => [s.id, s]));
-  const statesBMap = new Map(statesB.map(s => [s.id, s]));
+  const statesAMap = new Map(statesA.map((s) => [s.id, s]));
+  const statesBMap = new Map(statesB.map((s) => [s.id, s]));
 
   // Also build mapping by description/source_url to detect visual drift on the same screen (renamed or re-ingested under different ID)
-  const descAMap = new Map(statesA.map(s => [s.description + '|' + (s.source_url || ''), s]));
-  const descBMap = new Map(statesB.map(s => [s.description + '|' + (s.source_url || ''), s]));
+  const descAMap = new Map(
+    statesA.map((s) => [s.description + '|' + (s.source_url || ''), s])
+  );
+  const descBMap = new Map(
+    statesB.map((s) => [s.description + '|' + (s.source_url || ''), s])
+  );
 
   // 1. Process deletions and modifications
   for (const stateA of statesA) {
     const stateBById = statesBMap.get(stateA.id);
-    
+
     if (stateBById) {
       // Check if visual properties changed
       const dist = hammingDistance(stateA.dhash, stateBById.dhash);
