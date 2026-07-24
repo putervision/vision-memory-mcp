@@ -23,11 +23,10 @@ export function getCurrentBranch(): string {
     })
       .toString()
       .trim();
+    cachedBranch = branch;
   } catch (error) {
     if (cachedBranch !== 'main') {
-      logger.debug(
-        'Failed to resolve git branch via rev-parse; defaulting to "main".'
-      );
+      logger.debug('Failed to resolve git branch via rev-parse; defaulting to "main".');
     }
     cachedBranch = 'main';
   }
@@ -106,9 +105,7 @@ export class MemoryCache {
       // Evict oldest (first entry in insertion order)
       const oldestKey = this.cache.keys().next().value;
       if (oldestKey !== undefined) {
-        logger.debug(
-          `LRU Cache: Cache full, evicting oldest state ${oldestKey}`
-        );
+        logger.debug(`LRU Cache: Cache full, evicting oldest state ${oldestKey}`);
         this.cache.delete(oldestKey);
       }
     }

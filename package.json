@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce tokens.",
   "keywords": [
     "mcp",
@@ -30,6 +30,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli.js",
+      "types": "./dist/cli.d.ts"
     }
   },
   "main": "./dist/index.js",
@@ -46,27 +50,33 @@
   ],
   "scripts": {
     "build": "tsup",
+    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test",
     "dev": "tsup --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write src/**/*.ts tests/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts tests/**/*.ts",
+    "lint": "eslint src/**/*.ts",
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
-    "cli": "node dist/cli.js"
+    "cli": "node dist/cli.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@lancedb/lancedb": "^0.13.0",
-    "@modelcontextprotocol/sdk": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "sharp": "^0.33.4"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^20.14.9",
+    "eslint": "^9.0.0",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
+    "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   },
   "engines": {

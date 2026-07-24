@@ -127,20 +127,32 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (10 Available)
+## 🔌 MCP Tools (12 Available)
 
 | Tool                        | Purpose                                                           | Key Inputs                                                                  |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `analyze_screenshot`        | Check visual cache / ingest new screen                            | `screenshot` (base64, req), `description` (opt), `accessibility_tree` (opt) |
-| `recall_memory`             | Find past screens via query or image                              | `query` (text, opt), `screenshot` (base64, opt), `limit` (opt)              |
+| `analyze_screenshot`        | Check visual cache / ingest new screen                            | `screenshot` (opt), `file_path` (opt), `response_format` ('compact' \| 'full'), `accessibility_tree` (opt) |
+| `recall_memory`             | Find past screens via query or image                              | `query` (opt), `screenshot` (opt), `file_path` (opt), `response_format` (opt) |
 | `record_outcome`            | Log action success and build navigation path                      | `from_state_id` (req), `to_state_id` (req), `action` (req), `success` (req) |
 | `get_navigation_paths`      | Find optimal BFS path between UI states                           | `from_state_id` (opt), `to_description` (opt)                               |
-| `compare_states`            | Compare visual and structural diffs                               | `state_a_id` (req), `state_b_id` (req)                                      |
-| `get_session_context`       | Retrieve summary context briefing                                 | `include_recent` (opt), `include_frequent` (opt)                            |
+| `compare_states`            | Compare visual and key-level structural diffs                     | `state_a_id` (req), `state_b_id` (req), `response_format` (opt)             |
+| `get_session_context`       | Retrieve summary context briefing                                 | `include_recent` (opt), `include_frequent` (opt), `response_format` (opt)   |
 | `save_visual_snapshot`      | Save checkpoint of visual memory states                           | `name` (req), `description` (opt)                                           |
 | `diff_visual_snapshots`     | Diff two checkpoints for visual drift                             | `snapshot_a_name` (req), `snapshot_b_name` (req)                            |
 | `undo_last_visual_mutation` | Revert the last state or edge mutation                            | `type` ('state' \| 'transition' \| 'any')                                   |
 | `create_visual_blocker`     | Generate structured visual blocker payload for `state-memory-mcp` | `visual_state_id` (req), `description` (req), `project` (opt)               |
+| `predict_next_action`       | Predict optimal next UI action from state & goal                  | `current_state_id` (req), `goal_description` (opt), `goal_state_id` (opt)   |
+| `batch_analyze_screenshots` | Process batch array of 1–20 screenshots or file paths            | `items` (req array of screenshot/file_path objects), `response_format` (opt) |
+
+---
+
+## 📜 MCP Prompts (3 Available)
+
+| Prompt | Description | Key Arguments |
+| ------ | ----------- | ------------- |
+| `analyze-ui-state` | Analyze UI screen layout, input fields, interactive controls, and active alerts. | `state_id` (req) |
+| `diagnose-visual-regression` | Compare baseline vs current snapshot checkpoints to diagnose visual drift. | `baseline_snapshot` (req), `current_snapshot` (req) |
+| `navigate-to-goal` | Formulate step-by-step navigation path from current state to reach a goal. | `current_state_id` (req), `goal_description` (req) |
 
 ---
 

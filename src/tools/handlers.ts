@@ -7,18 +7,14 @@ import { config } from '../config.js';
 import { storage, escapeSql } from '../core/storage.js';
 import { getCurrentBranch, memoryCache } from '../core/cache.js';
 import { processImage } from '../core/image-pipeline.js';
-import {
-  calculateDHash,
-  calculateAHash,
-  hammingDistance,
-} from '../core/hash.js';
+import { calculateDHash, calculateAHash, hammingDistance } from '../core/hash.js';
 import { embeddings, cosineSimilarity } from '../core/embeddings.js';
-import { retrieveState } from '../core/retrieval.js';
+import { retrieveState, compressAccessibilityTree } from '../core/retrieval.js';
 import { recordTransition, findNavigationPaths } from '../core/graph.js';
 import { saveSnapshot, diffSnapshots } from '../core/snapshots.js';
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { logger } from '../logger.js';
-import { VisualState } from '../types.js';
+import { VisualState, ResponseFormat } from '../types.js';
 
 function getDirSize(dirPath: string): number {
   let size = 0;
@@ -40,27 +36,112 @@ function getDirSize(dirPath: string): number {
   return size;
 }
 
+export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
+  if (filePath) {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Specified image file does not exist: ${filePath}`);
+    }
+    const buf = fs.readFileSync(filePath);
+    return buf.toString('base64');
+  }
+  if (screenshot && screenshot.trim().length > 0) {
+    return screenshot;
+  }
+  throw new Error('Either screenshot base64 or file_path must be provided.');
+}
+
+export function formatResponsePayload(payload: any, format: ResponseFormat = 'compact'): any {
+  if (format === 'full') return payload;
+
+  if (Array.isArray(payload)) {
+    return payload.map((item) => formatResponsePayload(item, format));
+  }
+
+  if (payload && typeof payload === 'object') {
+    const compactObj: any = {};
+    const strippedFields = new Set([
+      'accessibility_tree',
+      'structured_data',
+      'vector',
+      'dhash',
+      'ahash',
+      'thumbnail',
+      'original_dimensions',
+    ]);
+
+    for (const [key, value] of Object.entries(payload)) {
+      if (!strippedFields.has(key)) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          compactObj[key] = formatResponsePayload(value, format);
+        } else {
+          compactObj[key] = value;
+        }
+      }
+    }
+    return compactObj;
+  }
+
+  return payload;
+}
+
+function computeStructuredDiff(
+  rawA?: string,
+  rawB?: string
+): { added: Record<string, any>; removed: Record<string, any>; modified: Record<string, any> } {
+  let objA: any = {};
+  let objB: any = {};
+  try {
+    objA = rawA ? JSON.parse(rawA) : {};
+  } catch {}
+  try {
+    objB = rawB ? JSON.parse(rawB) : {};
+  } catch {}
+
+  const keysA = new Set(Object.keys(objA));
+  const keysB = new Set(Object.keys(objB));
+
+  const added: Record<string, any> = {};
+  const removed: Record<string, any> = {};
+  const modified: Record<string, any> = {};
+
+  for (const k of keysB) {
+    if (!keysA.has(k)) {
+      added[k] = objB[k];
+    }
+  }
+
+  for (const k of keysA) {
+    if (!keysB.has(k)) {
+      removed[k] = objA[k];
+    } else if (JSON.stringify(objA[k]) !== JSON.stringify(objB[k])) {
+      modified[k] = { from: objA[k], to: objB[k] };
+    }
+  }
+
+  return { added, removed, modified };
+}
+
 export function registerAllTools(server: McpServer): void {
   // 1. Tool: analyze_screenshot
   server.registerTool(
     'analyze_screenshot',
     {
+      title: 'Analyze & Cache Screenshot',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
       description:
-        'Ingest a base64 screenshot, check visual state cache, and return details of the state (generating a new memory entry if not matched).',
+        'Ingest a screenshot or file path, check visual state cache, and return details of the state (generating a new memory entry if not matched).',
       inputSchema: z.object({
-        screenshot: z
+        screenshot: z.string().optional().describe('Base64-encoded image string'),
+        file_path: z
           .string()
-          .min(1, 'Screenshot parameter must not be empty')
-          .refine(
-            (val) => {
-              const cleaned = val
-                .replace(/^data:image\/[a-zA-Z]+;base64,/, '')
-                .trim();
-              return cleaned.length > 0 && /^[A-Za-z0-9+/=]+$/.test(cleaned);
-            },
-            { message: 'Invalid base64-encoded image payload' }
-          )
-          .describe('Base64-encoded image string (required)'),
+          .optional()
+          .describe(
+            'Absolute path to a local image file. Use instead of screenshot to avoid base64 overhead'
+          ),
         description: z
           .string()
           .optional()
@@ -69,94 +150,84 @@ export function registerAllTools(server: McpServer): void {
           .string()
           .optional()
           .describe('Optional JSON string representing the simplified AX tree'),
-        source_url: z
-          .string()
-          .optional()
-          .describe('Optional app/page path or URL where captured'),
-        tags: z
-          .array(z.string())
-          .optional()
-          .describe('Optional classification tags'),
+        source_url: z.string().optional().describe('Optional app/page path or URL where captured'),
+        tags: z.array(z.string()).optional().describe('Optional classification tags'),
         force_refresh: z
           .boolean()
           .optional()
           .describe('Bypass L1/L2 cache and force new ingestion'),
-        git_branch: z
-          .string()
-          .optional()
-          .describe('Override the active git branch'),
+        git_branch: z.string().optional().describe('Override the active git branch'),
         trace_id: z
           .string()
           .optional()
+          .describe('Optional session_id or trace_id for correlation with state-memory-mcp'),
+        response_format: z
+          .enum(['compact', 'full'])
+          .optional()
           .describe(
-            'Optional session_id or trace_id for correlation with state-memory-mcp'
+            'Response verbosity. compact omits internal fields like hashes, vectors, AX trees. Default: compact'
           ),
       }),
     },
     async (params) => {
       try {
+        const imageB64 = await resolveImageInput(params.screenshot, params.file_path);
+        const format = params.response_format ?? 'compact';
         const branch = params.git_branch ?? getCurrentBranch();
+
+        const axTree = params.accessibility_tree
+          ? compressAccessibilityTree(params.accessibility_tree)
+          : undefined;
 
         // 1. Run tiered retrieval
         const retrieval = await retrieveState({
-          screenshot: params.screenshot,
+          screenshot: imageB64,
           strategy: 'thorough',
           forceRefresh: params.force_refresh,
           gitBranch: branch,
-          accessibilityTree: params.accessibility_tree,
+          accessibilityTree: axTree,
         });
 
         // 2. If it's a cache hit, return results
         if (retrieval.is_known && retrieval.state_id) {
-          // If a new description is provided, update the existing record's description
-          if (
-            params.description &&
-            params.description !== retrieval.description
-          ) {
+          if (params.description && params.description !== retrieval.description) {
             await storage.updateState(retrieval.state_id, {
               description: params.description,
             });
             retrieval.description = params.description;
           }
+          const formatted = formatResponsePayload(retrieval, format);
           return {
-            content: [
-              { type: 'text', text: JSON.stringify(retrieval, null, 2) },
-            ],
+            content: [{ type: 'text', text: JSON.stringify(formatted) }],
           };
         }
 
         // 3. Cache miss: Ingest new state
         logger.info('Cache miss: generating new state entry...');
-        const processed = await processImage(params.screenshot);
+        const processed = await processImage(imageB64);
         const dhash = await calculateDHash(processed.normalizedBuffer);
         const ahash = await calculateAHash(processed.normalizedBuffer);
 
-        // Resolve description
         let finalDesc = params.description ?? '';
         if (!finalDesc) {
-          // Trigger L4 vision LLM if enabled
           try {
-            finalDesc = await analyzeScreenshotWithLLM(params.screenshot);
+            finalDesc = await analyzeScreenshotWithLLM(imageB64);
           } catch (err) {
             logger.warn('L4 Vision fallback failed or was disabled:', err);
             finalDesc = 'New visual state (pending analysis).';
           }
         }
 
-        // Generate CLIP embedding
-        const vector = await embeddings.generateImageEmbedding(
-          processed.normalizedBuffer
-        );
-
-        const stateId = crypto.randomUUID();
+        const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
+        const newId = crypto.randomUUID();
         const newState: VisualState = {
-          id: stateId,
+          id: newId,
           dhash,
           ahash,
           vector,
           description: finalDesc,
           structured_data: '{}',
-          accessibility_tree: params.accessibility_tree ?? '{}',
+          accessibility_tree: axTree ?? '{}',
           thumbnail: processed.thumbnail,
           original_dimensions: JSON.stringify({
             width: processed.originalWidth,
@@ -174,21 +245,25 @@ export function registerAllTools(server: McpServer): void {
           ttl: 0,
         };
 
-        // Write to storage and cache
         await storage.addState(newState);
         memoryCache.set(newState);
 
-        const result = {
-          state_id: stateId,
+        const resultObj = {
+          state_id: newId,
           is_known: false,
           match_type: 'new',
           similarity_score: 0.0,
           description: finalDesc,
-          related_states: retrieval.related_states || [],
+          thumbnail: processed.thumbnail,
+          dimensions: {
+            width: processed.originalWidth,
+            height: processed.originalHeight,
+          },
         };
 
+        const formatted = formatResponsePayload(resultObj, format);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(formatted) }],
         };
       } catch (error: any) {
         logger.error('Error in analyze_screenshot tool:', error);
@@ -209,126 +284,85 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'recall_memory',
     {
+      title: 'Search Visual Memory',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
       description:
-        'Search visual memory by text description query or image query (or both) to locate relevant past states.',
+        'Search visual state memory using screenshot image, text query, or accessibility tree.',
       inputSchema: z.object({
-        query: z
-          .string()
-          .optional()
-          .describe('Text search description (e.g. "error dialog")'),
         screenshot: z
           .string()
           .optional()
-          .describe('Base64 image to search visually'),
+          .describe('Base64 image payload to search by visual appearance'),
+        file_path: z.string().optional().describe('Absolute file path to search by local image'),
+        query: z.string().optional().describe('Text query string for semantic vector search'),
         strategy: z
           .enum(['fast', 'semantic', 'thorough'])
           .optional()
-          .describe('Matching depth strategy'),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(10)
+          .describe('Retrieval strategy'),
+        limit: z.number().int().min(1).max(20).optional().describe('Result count limit'),
+        accessibility_tree: z.string().optional().describe('AX tree JSON for filtering'),
+        git_branch: z.string().optional().describe('Branch scope filter'),
+        response_format: z
+          .enum(['compact', 'full'])
           .optional()
-          .describe('Maximum number of results to return'),
-        include_transitions: z
-          .boolean()
-          .optional()
-          .describe('Include outbound transitions in results'),
-        git_branch: z
-          .string()
-          .optional()
-          .describe('Override the active git branch'),
+          .describe('Response format verbosity'),
       }),
     },
     async (params) => {
       try {
-        const branch = params.git_branch ?? getCurrentBranch();
-        const limit = params.limit ?? 3;
+        const format = params.response_format ?? 'compact';
+        let imageB64: string | undefined;
+        if (params.screenshot || params.file_path) {
+          imageB64 = await resolveImageInput(params.screenshot, params.file_path);
+        }
 
-        const retrieval = await retrieveState({
-          screenshot: params.screenshot,
-          query: params.query,
-          strategy: params.strategy,
-          limit,
-          gitBranch: branch,
-        });
+        const axTree = params.accessibility_tree
+          ? compressAccessibilityTree(params.accessibility_tree)
+          : undefined;
 
-        // Enforce limit on related states + main state formatting
-        const results = [];
-
-        if (retrieval.state_id) {
-          let transitions: any[] = [];
-          if (params.include_transitions) {
-            transitions = await storage.listTransitions(
-              `from_state_id = '${retrieval.state_id}'`
-            );
-          }
-
-          results.push({
-            state_id: retrieval.state_id,
-            description: retrieval.description,
-            similarity_score: retrieval.similarity_score,
-            structured_data: retrieval.structured_data,
-            accessibility_tree: retrieval.accessibility_tree,
-            tags: retrieval.tags,
-            source_url: retrieval.source_url,
-            transitions: transitions.map((t) => ({
-              action: t.action,
-              to_state_id: t.to_state_id,
-              success_rate:
-                t.success_count + t.failure_count > 0
-                  ? t.success_count / (t.success_count + t.failure_count)
-                  : 1.0,
-            })),
+        if (imageB64) {
+          const result = await retrieveState({
+            screenshot: imageB64,
+            strategy: params.strategy ?? 'thorough',
+            limit: params.limit,
+            gitBranch: params.git_branch,
+            accessibilityTree: axTree,
           });
+
+          const formatted = formatResponsePayload(result, format);
+          return {
+            content: [{ type: 'text', text: JSON.stringify(formatted) }],
+          };
         }
 
-        if (retrieval.related_states) {
-          for (const item of retrieval.related_states.slice(
-            0,
-            limit - results.length
-          )) {
-            let transitions: any[] = [];
-            if (params.include_transitions) {
-              transitions = await storage.listTransitions(
-                `from_state_id = '${item.id}'`
-              );
-            }
-            const s = await storage.getState(item.id);
-            results.push({
-              state_id: item.id,
-              description: item.description,
-              similarity_score: item.similarity,
-              structured_data: s?.structured_data,
-              tags: s ? JSON.parse(s.tags || '[]') : [],
-              source_url: s?.source_url,
-              transitions: transitions.map((t) => ({
-                action: t.action,
-                to_state_id: t.to_state_id,
-                success_rate:
-                  t.success_count + t.failure_count > 0
-                    ? t.success_count / (t.success_count + t.failure_count)
-                    : 1.0,
-              })),
-            });
-          }
+        if (params.query) {
+          const result = await retrieveState({
+            query: params.query,
+            strategy: 'semantic',
+            limit: params.limit,
+            gitBranch: params.git_branch,
+          });
+
+          const formatted = formatResponsePayload(result, format);
+          return {
+            content: [{ type: 'text', text: JSON.stringify(formatted) }],
+          };
         }
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ memories: results }, null, 2),
-            },
-          ],
-        };
+        throw new Error('At least one of screenshot, file_path, or query must be provided.');
       } catch (error: any) {
         logger.error('Error in recall_memory tool:', error);
         return {
           isError: true,
           content: [
-            { type: 'text', text: `Failed to recall memory: ${error.message}` },
+            {
+              type: 'text',
+              text: `Failed to recall memory: ${error.message}`,
+            },
           ],
         };
       }
@@ -339,152 +373,43 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'record_outcome',
     {
+      title: 'Record Action Outcome',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
       description:
-        'Record an action outcome and transition between UI states to build the navigation graph.',
+        'Log an action transition between two visual states and update transition statistics.',
       inputSchema: z.object({
-        from_state_id: z.string().describe('ID of the starting visual state'),
-        to_state_id: z
-          .string()
-          .optional()
-          .describe('ID of the resulting visual state'),
-        to_screenshot: z
-          .string()
-          .optional()
-          .describe(
-            'Base64 image of state after action (auto-analyzed if provided)'
-          ),
-        action: z
-          .string()
-          .describe('Action text performed (e.g. "click submit")'),
+        from_state_id: z.string().describe('Source state ID'),
+        to_state_id: z.string().describe('Destination state ID'),
+        action: z.string().describe('Action description'),
         action_type: z
           .enum(['click', 'type', 'navigate', 'scroll', 'custom'])
           .optional()
-          .describe('Type of action'),
-        success: z.boolean().describe('Outcome of action'),
-        duration_ms: z
-          .number()
-          .optional()
-          .describe('Action execution time in ms'),
-        notes: z.string().optional().describe('Execution notes or error logs'),
-        trace_id: z
-          .string()
-          .optional()
-          .describe(
-            'Optional session_id or trace_id for correlation with state-memory-mcp'
-          ),
+          .describe('Category of UI action'),
+        success: z.boolean().describe('Whether action succeeded'),
+        duration_ms: z.number().optional().describe('Action duration in ms'),
+        git_branch: z.string().optional().describe('Active git branch'),
+        response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
-        const fromState = await storage.getState(params.from_state_id);
-        if (!fromState) {
-          throw new Error(
-            `Starting state with ID "${params.from_state_id}" does not exist in storage.`
-          );
-        }
-
-        let toStateId = params.to_state_id;
-
-        // If to_screenshot is provided, resolve resulting state ID (auto-ingesting if cache miss)
-        if (params.to_screenshot) {
-          const branch = getCurrentBranch();
-          const ingestResult = await retrieveState({
-            screenshot: params.to_screenshot,
-            strategy: 'semantic',
-            gitBranch: branch,
-          });
-
-          if (ingestResult.is_known && ingestResult.state_id) {
-            toStateId = ingestResult.state_id;
-          } else {
-            logger.info(
-              'record_outcome: to_screenshot missed cache, auto-ingesting new visual state...'
-            );
-            const processed = await processImage(params.to_screenshot);
-            const dhash = await calculateDHash(processed.normalizedBuffer);
-            const ahash = await calculateAHash(processed.normalizedBuffer);
-
-            let finalDesc = '';
-            try {
-              finalDesc = await analyzeScreenshotWithLLM(params.to_screenshot);
-            } catch {
-              finalDesc = `Resulting state after: ${params.action}`;
-            }
-
-            const vector = await embeddings.generateImageEmbedding(
-              processed.normalizedBuffer
-            );
-            const newId = crypto.randomUUID();
-            const newState: VisualState = {
-              id: newId,
-              dhash,
-              ahash,
-              vector,
-              description: finalDesc,
-              structured_data: '{}',
-              accessibility_tree: '{}',
-              thumbnail: processed.thumbnail,
-              original_dimensions: JSON.stringify({
-                width: processed.originalWidth,
-                height: processed.originalHeight,
-              }),
-              source_url: '',
-              source_agent: 'agent',
-              trace_id: params.trace_id ?? '',
-              git_branch: branch,
-              tags: JSON.stringify(['action-result']),
-              importance_score: 0.5,
-              created_at: Date.now(),
-              last_accessed: Date.now(),
-              access_count: 1,
-              ttl: 0,
-            };
-
-            await storage.addState(newState);
-            memoryCache.set(newState);
-            toStateId = newId;
-          }
-        }
-
-        if (!toStateId) {
-          throw new Error(
-            'Either to_state_id or to_screenshot must be provided.'
-          );
-        }
-
+        const format = params.response_format ?? 'compact';
         const transition = await recordTransition({
           fromStateId: params.from_state_id,
-          toStateId,
+          toStateId: params.to_state_id,
           action: params.action,
-          actionType: params.action_type,
+          actionType: params.action_type ?? 'custom',
           success: params.success,
           durationMs: params.duration_ms,
-          notes: params.notes,
-          traceId: params.trace_id,
         });
 
-        const toState = await storage.getState(toStateId);
-
-        const totalAttempts =
-          transition.success_count + transition.failure_count;
-        const successRate =
-          totalAttempts > 0 ? transition.success_count / totalAttempts : 0;
-
-        const result = {
-          transition_id: transition.id,
-          from_state: {
-            id: params.from_state_id,
-            description: fromState?.description ?? 'Unknown',
-          },
-          to_state: {
-            id: toStateId,
-            description: toState?.description ?? 'Unknown',
-          },
-          path_success_rate: successRate,
-        };
-
+        const formatted = formatResponsePayload(transition, format);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(formatted) }],
         };
       } catch (error: any) {
         logger.error('Error in record_outcome tool:', error);
@@ -505,38 +430,32 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'get_navigation_paths',
     {
+      title: 'Find UI Navigation Path',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
       description:
         'Trace historical pathways from current state to a target state or state matching description.',
       inputSchema: z.object({
         from_state_id: z
           .string()
           .optional()
-          .describe(
-            'ID of starting state (defaults to most recently accessed state)'
-          ),
+          .describe('ID of starting state (defaults to most recently accessed state)'),
         to_state_id: z.string().optional().describe('ID of target state'),
-        to_description: z
-          .string()
-          .optional()
-          .describe('Description match of target state'),
-        max_hops: z
-          .number()
-          .int()
-          .min(1)
-          .max(10)
-          .optional()
-          .describe('BFS search limit'),
+        to_description: z.string().optional().describe('Description match of target state'),
+        max_hops: z.number().int().min(1).max(10).optional().describe('BFS search limit'),
+        response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
+        const format = params.response_format ?? 'compact';
         let fromId = params.from_state_id;
         if (!fromId) {
           const branch = getCurrentBranch();
-          const states = await storage.listStates(
-            `git_branch = '${escapeSql(branch)}'`,
-            1
-          );
+          const states = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 1);
           if (states.length > 0) {
             fromId = states[0].id;
           }
@@ -553,8 +472,9 @@ export function registerAllTools(server: McpServer): void {
           maxHops: params.max_hops,
         });
 
+        const formatted = formatResponsePayload(result, format);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(formatted) }],
         };
       } catch (error: any) {
         logger.error('Error in get_navigation_paths tool:', error);
@@ -575,43 +495,54 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'compare_states',
     {
-      description: 'Compare two states visually and structurally.',
+      title: 'Compare Visual States',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description: 'Compare two states visually and structurally with key-level JSON diffs.',
       inputSchema: z.object({
         state_a_id: z.string().describe('ID of state A'),
         state_b_id: z.string().describe('ID of state B'),
+        response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
+        const format = params.response_format ?? 'compact';
         if (params.state_a_id === params.state_b_id) {
-          throw new Error(
-            'state_a_id and state_b_id must be different visual states.'
-          );
+          throw new Error('state_a_id and state_b_id must be different visual states.');
         }
 
         const stateA = await storage.getState(params.state_a_id);
         const stateB = await storage.getState(params.state_b_id);
 
-        if (!stateA)
-          throw new Error(`State A (${params.state_a_id}) not found.`);
-        if (!stateB)
-          throw new Error(`State B (${params.state_b_id}) not found.`);
+        if (!stateA) throw new Error(`State A (${params.state_a_id}) not found.`);
+        if (!stateB) throw new Error(`State B (${params.state_b_id}) not found.`);
 
         const dist = hammingDistance(stateA.dhash, stateB.dhash);
         const similarity = cosineSimilarity(stateA.vector, stateB.vector);
 
+        const structuredDiff = computeStructuredDiff(
+          stateA.structured_data,
+          stateB.structured_data
+        );
+
         const result = {
+          state_a_id: params.state_a_id,
+          state_b_id: params.state_b_id,
           hash_distance: dist,
           vector_similarity: similarity,
-          structural_diff:
-            stateA.structured_data === stateB.structured_data
-              ? 'Structured data is identical.'
-              : 'Structured data differs.',
-          description_diff: `State A: "${stateA.description}"\nState B: "${stateB.description}"`,
+          structured_diff: structuredDiff,
+          description_a: stateA.description,
+          description_b: stateB.description,
+          is_identical: dist === 0 && similarity > 0.99,
         };
 
+        const formatted = formatResponsePayload(result, format);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(formatted) }],
         };
       } catch (error: any) {
         logger.error('Error in compare_states tool:', error);
@@ -632,6 +563,12 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'get_session_context',
     {
+      title: 'Get Session Context',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
       description:
         'Fetch aggregated visual context, listing recent/frequent states and active transitions.',
       inputSchema: z.object({
@@ -649,19 +586,17 @@ export function registerAllTools(server: McpServer): void {
           .max(20)
           .optional()
           .describe('Count of frequent states'),
+        response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
+        const format = params.response_format ?? 'compact';
         const recentCount = params.include_recent ?? 5;
         const frequentCount = params.include_frequent ?? 3;
         const branch = getCurrentBranch();
 
-        // 1. Recent states (sorted by created_at desc)
-        const recentList = await storage.listStates(
-          `git_branch = '${escapeSql(branch)}'`,
-          100
-        );
+        const recentList = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 100);
         recentList.sort((a, b) => b.created_at - a.created_at);
         const recent = recentList.slice(0, recentCount).map((s) => ({
           id: s.id,
@@ -670,7 +605,6 @@ export function registerAllTools(server: McpServer): void {
           created_at: s.created_at,
         }));
 
-        // 2. Frequent states (sorted by access_count desc)
         const frequentList = [...recentList];
         frequentList.sort((a, b) => b.access_count - a.access_count);
         const frequent = frequentList.slice(0, frequentCount).map((s) => ({
@@ -679,7 +613,6 @@ export function registerAllTools(server: McpServer): void {
           access_count: s.access_count,
         }));
 
-        // 3. Transitions
         const transitions = await storage.listTransitions(
           `git_branch = '${escapeSql(branch)}'`,
           50
@@ -691,7 +624,6 @@ export function registerAllTools(server: McpServer): void {
           last_traversed: t.last_traversed,
         }));
 
-        // 4. Memory stats
         const allStatesCount = await storage.countStates();
         const allTransCount = await storage.countTransitions();
 
@@ -702,15 +634,13 @@ export function registerAllTools(server: McpServer): void {
           memory_stats: {
             total_states: allStatesCount,
             total_transitions: allTransCount,
-            db_size_mb:
-              Math.round(
-                (getDirSize(config.LANCEDB_PATH) / (1024 * 1024)) * 100
-              ) / 100,
+            db_size_mb: Math.round((getDirSize(config.LANCEDB_PATH) / (1024 * 1024)) * 100) / 100,
           },
         };
 
+        const formatted = formatResponsePayload(result, format);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(formatted) }],
         };
       } catch (error: any) {
         logger.error('Error in get_session_context tool:', error);
@@ -731,14 +661,16 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'save_visual_snapshot',
     {
-      description:
-        'Saves current visual memory states as a named checkpoint snapshot.',
+      title: 'Save Visual Checkpoint',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+      description: 'Saves current visual memory states as a named checkpoint snapshot.',
       inputSchema: z.object({
         name: z.string().describe('Unique snapshot checkpoint name'),
-        description: z
-          .string()
-          .optional()
-          .describe('Notes describing snapshot context'),
+        description: z.string().optional().describe('Notes describing snapshot context'),
       }),
     },
     async (params) => {
@@ -753,7 +685,7 @@ export function registerAllTools(server: McpServer): void {
         };
 
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result) }],
         };
       } catch (error: any) {
         logger.error('Error in save_visual_snapshot tool:', error);
@@ -774,23 +706,24 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'diff_visual_snapshots',
     {
+      title: 'Diff Visual Checkpoints',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
       description:
         'Diff two snapshots to locate additions, deletions, or visual drift regressions.',
       inputSchema: z.object({
         snapshot_a_name: z.string().describe('Base snapshot name'),
-        snapshot_b_name: z
-          .string()
-          .describe('Target snapshot name to compare against'),
+        snapshot_b_name: z.string().describe('Target snapshot name to compare against'),
       }),
     },
     async (params) => {
       try {
-        const diff = await diffSnapshots(
-          params.snapshot_a_name,
-          params.snapshot_b_name
-        );
+        const diff = await diffSnapshots(params.snapshot_a_name, params.snapshot_b_name);
         return {
-          content: [{ type: 'text', text: JSON.stringify(diff, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(diff) }],
         };
       } catch (error: any) {
         logger.error('Error in diff_visual_snapshots tool:', error);
@@ -811,8 +744,13 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'undo_last_visual_mutation',
     {
-      description:
-        'Undo the last visual state ingestion or transition edge addition.',
+      title: 'Undo Visual Mutation',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+      description: 'Undo the last visual state ingestion or transition edge addition.',
       inputSchema: z.object({
         type: z
           .enum(['state', 'transition', 'any'])
@@ -829,15 +767,11 @@ export function registerAllTools(server: McpServer): void {
         let actionReverted = '';
 
         const undoState = async (): Promise<boolean> => {
-          const list = await storage.listStates(
-            `git_branch = '${escapeSql(branch)}'`,
-            100
-          );
+          const list = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 100);
           if (list.length === 0) return false;
           list.sort((a, b) => b.created_at - a.created_at);
           const target = list[0];
           await storage.deleteState(target.id);
-          // Also clear from LRU cache
           memoryCache.delete(target.id, branch);
           revertedId = target.id;
           actionReverted = 'deleted_state';
@@ -845,10 +779,7 @@ export function registerAllTools(server: McpServer): void {
         };
 
         const undoTransition = async (): Promise<boolean> => {
-          const list = await storage.listTransitions(
-            `git_branch = '${escapeSql(branch)}'`,
-            100
-          );
+          const list = await storage.listTransitions(`git_branch = '${escapeSql(branch)}'`, 100);
           if (list.length === 0) return false;
           list.sort((a, b) => b.last_traversed - a.last_traversed);
           const target = list[0];
@@ -864,19 +795,11 @@ export function registerAllTools(server: McpServer): void {
         } else if (type === 'transition') {
           undone = await undoTransition();
         } else {
-          // 'any': compare most recent timestamp
-          const stateList = await storage.listStates(
-            `git_branch = '${escapeSql(branch)}'`,
-            1
-          );
-          const transList = await storage.listTransitions(
-            `git_branch = '${escapeSql(branch)}'`,
-            1
-          );
+          const stateList = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 1);
+          const transList = await storage.listTransitions(`git_branch = '${escapeSql(branch)}'`, 1);
 
           const stateTime = stateList.length > 0 ? stateList[0].created_at : 0;
-          const transTime =
-            transList.length > 0 ? transList[0].last_traversed : 0;
+          const transTime = transList.length > 0 ? transList[0].last_traversed : 0;
 
           if (stateTime > transTime) {
             undone = await undoState();
@@ -896,15 +819,13 @@ export function registerAllTools(server: McpServer): void {
         };
 
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result) }],
         };
       } catch (error: any) {
         logger.error('Error in undo_last_visual_mutation tool:', error);
         return {
           isError: true,
-          content: [
-            { type: 'text', text: `Failed to undo mutation: ${error.message}` },
-          ],
+          content: [{ type: 'text', text: `Failed to undo mutation: ${error.message}` }],
         };
       }
     }
@@ -914,30 +835,28 @@ export function registerAllTools(server: McpServer): void {
   server.registerTool(
     'create_visual_blocker',
     {
+      title: 'Create Visual Blocker',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
       description:
         'Generates a structured visual blocker payload. The calling agent should use the output to call state-memory-mcp:add_node to log a blocker.',
       inputSchema: z.object({
-        visual_state_id: z
-          .string()
-          .describe('ID of the visual state where the blocker occurred'),
-        description: z
-          .string()
-          .describe('Description of the visual bug/blocker'),
+        visual_state_id: z.string().describe('ID of the visual state where the blocker occurred'),
+        description: z.string().describe('Description of the visual bug/blocker'),
         project: z
           .string()
           .optional()
-          .describe(
-            'The state-memory-mcp project name (defaults to the current folder name)'
-          ),
+          .describe('The state-memory-mcp project name (defaults to current project)'),
       }),
     },
     async (params) => {
       try {
         const state = await storage.getState(params.visual_state_id);
         if (!state) {
-          throw new Error(
-            `Visual state with ID ${params.visual_state_id} not found.`
-          );
+          throw new Error(`Visual state with ID ${params.visual_state_id} not found.`);
         }
 
         const project = params.project ?? '';
@@ -966,7 +885,7 @@ export function registerAllTools(server: McpServer): void {
         };
 
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result) }],
         };
       } catch (error: any) {
         logger.error('Error in create_visual_blocker tool:', error);
@@ -976,6 +895,246 @@ export function registerAllTools(server: McpServer): void {
             {
               type: 'text',
               text: `Failed to create visual blocker: ${error.message}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // 11. Tool: predict_next_action
+  server.registerTool(
+    'predict_next_action',
+    {
+      title: 'Predict Next UI Action',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Predict the best next UI action from current visual state based on transition success rates and goal alignment.',
+      inputSchema: z.object({
+        current_state_id: z.string().describe('ID of current active visual state'),
+        goal_description: z
+          .string()
+          .optional()
+          .describe('Optional natural language goal description'),
+        goal_state_id: z.string().optional().describe('Optional target visual state ID'),
+      }),
+    },
+    async (params) => {
+      try {
+        const currentState = await storage.getState(params.current_state_id);
+        if (!currentState) {
+          throw new Error(`Current state ID "${params.current_state_id}" not found.`);
+        }
+
+        const transitions = await storage.listTransitions(
+          `from_state_id = '${escapeSql(params.current_state_id)}'`,
+          50
+        );
+
+        if (transitions.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  predicted_action: null,
+                  confidence_score: 0.0,
+                  reasoning: 'No outbound transitions logged for current state.',
+                }),
+              },
+            ],
+          };
+        }
+
+        let bestTransition = transitions[0];
+        let maxScore = -1;
+
+        for (const t of transitions) {
+          const totalAttempts = t.success_count + t.failure_count;
+          const successRate = totalAttempts > 0 ? t.success_count / totalAttempts : 0.5;
+          let score = successRate;
+
+          if (params.goal_state_id && t.to_state_id === params.goal_state_id) {
+            score += 1.0;
+          }
+
+          if (params.goal_description) {
+            if (t.action.toLowerCase().includes(params.goal_description.toLowerCase())) {
+              score += 0.5;
+            }
+          }
+
+          if (score > maxScore) {
+            maxScore = score;
+            bestTransition = t;
+          }
+        }
+
+        const targetState = await storage.getState(bestTransition.to_state_id);
+        const result = {
+          predicted_action: bestTransition.action,
+          action_type: bestTransition.action_type,
+          from_state_id: bestTransition.from_state_id,
+          to_state_id: bestTransition.to_state_id,
+          target_state_description: targetState?.description ?? '',
+          confidence_score: Math.min(1.0, Math.round(maxScore * 100) / 100),
+          historical_success_rate:
+            bestTransition.success_count + bestTransition.failure_count > 0
+              ? bestTransition.success_count /
+                (bestTransition.success_count + bestTransition.failure_count)
+              : 1.0,
+        };
+
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        };
+      } catch (error: any) {
+        logger.error('Error in predict_next_action tool:', error);
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Failed to predict next action: ${error.message}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // 12. Tool: batch_analyze_screenshots
+  server.registerTool(
+    'batch_analyze_screenshots',
+    {
+      title: 'Batch Analyze Screenshots',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+      description: 'Process multiple screenshots or file paths in a single batch call.',
+      inputSchema: z.object({
+        items: z
+          .array(
+            z.object({
+              screenshot: z.string().optional(),
+              file_path: z.string().optional(),
+              description: z.string().optional(),
+              accessibility_tree: z.string().optional(),
+              source_url: z.string().optional(),
+              tags: z.array(z.string()).optional(),
+            })
+          )
+          .min(1)
+          .max(20)
+          .describe('List of 1 to 20 screenshot items to ingest/analyze'),
+        git_branch: z.string().optional(),
+        response_format: z.enum(['compact', 'full']).optional(),
+      }),
+    },
+    async (params) => {
+      try {
+        const format = params.response_format ?? 'compact';
+        const branch = params.git_branch ?? getCurrentBranch();
+        const results = [];
+
+        for (const item of params.items) {
+          const imageB64 = await resolveImageInput(item.screenshot, item.file_path);
+          const axTree = item.accessibility_tree
+            ? compressAccessibilityTree(item.accessibility_tree)
+            : undefined;
+
+          const retrieval = await retrieveState({
+            screenshot: imageB64,
+            strategy: 'thorough',
+            gitBranch: branch,
+            accessibilityTree: axTree,
+          });
+
+          if (retrieval.is_known && retrieval.state_id) {
+            results.push(formatResponsePayload(retrieval, format));
+            continue;
+          }
+
+          const processed = await processImage(imageB64);
+          const dhash = await calculateDHash(processed.normalizedBuffer);
+          const ahash = await calculateAHash(processed.normalizedBuffer);
+
+          let finalDesc = item.description ?? '';
+          if (!finalDesc) {
+            try {
+              finalDesc = await analyzeScreenshotWithLLM(imageB64);
+            } catch {
+              finalDesc = 'New visual state (pending analysis).';
+            }
+          }
+
+          const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
+          const newId = crypto.randomUUID();
+          const newState: VisualState = {
+            id: newId,
+            dhash,
+            ahash,
+            vector,
+            description: finalDesc,
+            structured_data: '{}',
+            accessibility_tree: axTree ?? '{}',
+            thumbnail: processed.thumbnail,
+            original_dimensions: JSON.stringify({
+              width: processed.originalWidth,
+              height: processed.originalHeight,
+            }),
+            source_url: item.source_url ?? '',
+            source_agent: 'agent',
+            trace_id: '',
+            git_branch: branch,
+            tags: JSON.stringify(item.tags ?? []),
+            importance_score: 0.5,
+            created_at: Date.now(),
+            last_accessed: Date.now(),
+            access_count: 1,
+            ttl: 0,
+          };
+
+          await storage.addState(newState);
+          memoryCache.set(newState);
+
+          const resultObj = {
+            state_id: newId,
+            is_known: false,
+            match_type: 'new',
+            similarity_score: 0.0,
+            description: finalDesc,
+            thumbnail: processed.thumbnail,
+          };
+
+          results.push(formatResponsePayload(resultObj, format));
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                batch_count: results.length,
+                results,
+              }),
+            },
+          ],
+        };
+      } catch (error: any) {
+        logger.error('Error in batch_analyze_screenshots tool:', error);
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Failed to batch analyze screenshots: ${error.message}`,
             },
           ],
         };

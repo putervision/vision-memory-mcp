@@ -70,10 +70,7 @@ export class EmbeddingsManager {
   /**
    * Generates a 512-dimension vector embedding for an image buffer.
    */
-  async generateImageEmbedding(
-    buffer: Buffer,
-    mimeType: string = 'image/webp'
-  ): Promise<number[]> {
+  async generateImageEmbedding(buffer: Buffer, mimeType: string = 'image/webp'): Promise<number[]> {
     await this.init();
 
     try {

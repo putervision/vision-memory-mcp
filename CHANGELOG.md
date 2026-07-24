@@ -5,6 +5,40 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-23
+
+### Added & Improved
+- **Code Standards & Architecture Harmonization**: Synchronized code structure, ESLint 9 configuration, Prettier rules (`printWidth: 100`, LF line endings), build pipeline versioning, process lifecycle resilience, and CLI command modularization (`src/cli/`) with `state-memory-mcp`.
+- **Dependency Harmonization**: Upgraded `@modelcontextprotocol/sdk` to `^1.0.4` and aligned shared devDependencies (`@types/node` ^20.14.9, `prettier` ^3.9.6, `tsup` ^8.1.0, `typescript` ^5.5.2).
+- **Branding & Navigation**: Added interactive PuterVision brand badge link in the top navigation header of documentation site (`docs/index.html`).
+- **Template Scaffolding**: Added `PROJECT_INSTRUCTIONS_TEMPLATE.md` for fast workspace agent instruction setup.
+
+## [0.4.0] - 2026-07-23
+
+### Added
+
+- **`file_path` Direct Image Loading**: Added `file_path` parameter to `analyze_screenshot`, `recall_memory`, and `batch_analyze_screenshots` to read local image files directly from disk, bypassing base64 encoding overhead.
+- **Selective Compact Response Format (`ResponseFormat`)**: Added `response_format` parameter (`'compact'` | `'full'`) across all retrieval/memory tools. Compact mode prunes internal fields (`vector`, `accessibility_tree`, `dhash`, `ahash`, `thumbnail`, `original_dimensions`), reducing token consumption by 70–90%.
+- **Background CLIP Model Pre-warming**: Asynchronous background initialization of CLIP embedding models on server startup to eliminate initial 3–5s cold-start latency.
+- **MCP Tool Annotations (v1.29 SDK)**: Annotated all 12 MCP tools with `title`, `readOnlyHint`, `destructiveHint`, and `idempotentHint` metadata.
+- **MCP Registered Prompts**: Created `src/tools/prompts.ts` registering standard MCP prompts (`analyze-ui-state`, `diagnose-visual-regression`, `navigate-to-goal`).
+- **Next UI Action Predictor (`predict_next_action`)**: New MCP tool predicting the optimal next UI action based on transition success rates and goal alignment.
+- **Batch Screenshot Processing (`batch_analyze_screenshots`)**: New MCP tool accepting 1–20 screenshots or file paths in a single batch call.
+- **Accessibility Tree Compression**: Added `compressAccessibilityTree()` helper to prune non-interactive layout nodes.
+- **Structured L4 Vision Output**: Updated L4 LLM vision fallback prompt to enforce JSON output format (`screen_type`, `page_title`, `key_interactive_elements`, `active_alerts`, `summary`).
+
+### Changed
+
+- **Granular Key-Level Visual State Diffing**: Upgraded `compare_states` to compute key-level JSON diffs (`added`, `removed`, `modified`) on `structured_data`.
+- **Minified JSON Responses**: Replaced verbose multiline `JSON.stringify(..., null, 2)` responses with minified JSON strings.
+- **Version Bump**: Bumped version from `0.3.0` to `0.4.0` across `package.json`, `package-lock.json`, `src/index.ts`, `docs/index.html`, and `SECURITY.md`.
+
+### Fixed
+
+- **Git Branch Scope Persistence Bug**: Fixed `getCurrentBranch()` variable scoping bug in `src/core/cache.ts` where `cachedBranch` was never updated in module state.
+- **Dead Code Cleanup**: Removed unused duplicate tool handler file `src/tools/handlers/analyze.ts`.
+- **Foreign Key Validation**: Added explicit state existence validation checks in `recordTransition()`.
+
 ## [0.3.0] - 2026-07-22
 
 ### Added

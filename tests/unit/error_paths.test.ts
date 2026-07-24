@@ -29,8 +29,7 @@ describe('Error Paths & Edge Case Suite', () => {
   });
 
   it('should handle special character SQL injection in escapeSql safely', () => {
-    const maliciousInput =
-      "admin' OR '1'='1'; DROP TABLE visual_states; -- `test` \\";
+    const maliciousInput = "admin' OR '1'='1'; DROP TABLE visual_states; -- `test` \\";
     const escaped = escapeSql(maliciousInput);
     expect(escaped).toContain("admin''");
     expect(escaped).toContain('\\\\');

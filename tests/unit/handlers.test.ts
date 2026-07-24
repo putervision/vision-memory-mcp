@@ -63,10 +63,10 @@ describe('MCP Tool Handlers', () => {
     }
   });
 
-  it('should register all 10 tools on the McpServer', () => {
+  it('should register all 12 tools on the McpServer', () => {
     const registeredTools = (server as any)._registeredTools;
     expect(registeredTools).toBeDefined();
-    expect(Object.keys(registeredTools).length).toBe(10);
+    expect(Object.keys(registeredTools).length).toBe(12);
     expect(registeredTools['analyze_screenshot']).toBeDefined();
     expect(registeredTools['recall_memory']).toBeDefined();
     expect(registeredTools['record_outcome']).toBeDefined();
@@ -77,6 +77,8 @@ describe('MCP Tool Handlers', () => {
     expect(registeredTools['diff_visual_snapshots']).toBeDefined();
     expect(registeredTools['undo_last_visual_mutation']).toBeDefined();
     expect(registeredTools['create_visual_blocker']).toBeDefined();
+    expect(registeredTools['predict_next_action']).toBeDefined();
+    expect(registeredTools['batch_analyze_screenshots']).toBeDefined();
   });
 
   it('should ingest a screenshot and return a visual state', async () => {
@@ -218,5 +220,67 @@ describe('MCP Tool Handlers', () => {
 
     expect(result.content).toBeDefined();
     expect(result.content[0].text).toBeDefined();
+  });
+
+  it('should analyze screenshot from local file_path', async () => {
+    const tmpFilePath = path.join(TEST_DB_PATH, 'temp_test_image.png');
+    const imgBuf = Buffer.from(redBase64, 'base64');
+    fs.writeFileSync(tmpFilePath, imgBuf);
+
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    const result = await ingestHandler({
+      file_path: tmpFilePath,
+      description: 'Image from disk file',
+      git_branch: 'main',
+      response_format: 'compact',
+    });
+
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.state_id).toBeDefined();
+    expect(payload.vector).toBeUndefined(); // compact format strips vector
+  });
+
+  it('should predict next action from transition history', async () => {
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    const resA = await ingestHandler({ screenshot: redBase64, git_branch: 'main' });
+    const resB = await ingestHandler({ screenshot: blueBase64, git_branch: 'main' });
+    const idA = JSON.parse(resA.content[0].text).state_id;
+    const idB = JSON.parse(resB.content[0].text).state_id;
+
+    const recordHandler = getToolHandler(server, 'record_outcome');
+    await recordHandler({
+      from_state_id: idA,
+      to_state_id: idB,
+      action: "click 'submit'",
+      success: true,
+    });
+
+    const predictHandler = getToolHandler(server, 'predict_next_action');
+    const predResult = await predictHandler({
+      current_state_id: idA,
+      goal_description: 'submit form',
+    });
+
+    expect(predResult.content).toBeDefined();
+    const payload = JSON.parse(predResult.content[0].text);
+    expect(payload.predicted_action).toBe("click 'submit'");
+  });
+
+  it('should batch analyze screenshots', async () => {
+    const batchHandler = getToolHandler(server, 'batch_analyze_screenshots');
+    const batchRes = await batchHandler({
+      items: [
+        { screenshot: redBase64, description: 'Batch Red Screen' },
+        { screenshot: blueBase64, description: 'Batch Blue Screen' },
+      ],
+      git_branch: 'main',
+      response_format: 'compact',
+    });
+
+    expect(batchRes.content).toBeDefined();
+    const payload = JSON.parse(batchRes.content[0].text);
+    expect(payload.batch_count).toBe(2);
+    expect(payload.results.length).toBe(2);
   });
 });

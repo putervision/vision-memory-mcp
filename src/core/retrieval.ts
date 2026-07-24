@@ -7,16 +7,59 @@ import { hammingDistance } from './hash.js';
 import { processImage, ProcessedImage } from './image-pipeline.js';
 import { VisualState, RetrievalStrategy, RetrievalResult } from '../types.js';
 
+export function compressAccessibilityTree(treeJson: string): string {
+  if (!treeJson || treeJson.trim() === '' || treeJson === '{}') return '{}';
+  try {
+    const parsed = JSON.parse(treeJson);
+    const interactiveRoles = new Set([
+      'button',
+      'link',
+      'textbox',
+      'checkbox',
+      'combobox',
+      'menuitem',
+      'tab',
+      'heading',
+      'form',
+    ]);
+
+    function filterNode(node: any): any {
+      if (!node || typeof node !== 'object') return null;
+      if (Array.isArray(node)) {
+        const filteredArray = node.map(filterNode).filter(Boolean);
+        return filteredArray.length > 0 ? filteredArray : null;
+      }
+
+      const role = (node.role || node.type || '').toLowerCase();
+      const children = node.children ? filterNode(node.children) : undefined;
+      const isInteractive = interactiveRoles.has(role);
+
+      if (isInteractive || (children && (Array.isArray(children) ? children.length > 0 : true))) {
+        const cleanNode: any = {};
+        if (node.role) cleanNode.role = node.role;
+        if (node.name || node.label || node.text)
+          cleanNode.name = node.name || node.label || node.text;
+        if (node.value !== undefined) cleanNode.value = node.value;
+        if (node.disabled) cleanNode.disabled = node.disabled;
+        if (node.checked !== undefined) cleanNode.checked = node.checked;
+        if (children && children.length > 0) cleanNode.children = children;
+        return cleanNode;
+      }
+      return null;
+    }
+
+    const compressed = filterNode(parsed);
+    return compressed ? JSON.stringify(compressed) : '{}';
+  } catch {
+    return treeJson;
+  }
+}
+
 function compareAccessTrees(tree1?: string, tree2?: string): boolean {
   if (!tree1 || !tree2) return true; // If one is missing, assume they match or ignore AX check
   const trimmed1 = tree1.trim();
   const trimmed2 = tree2.trim();
-  if (
-    trimmed1 === '' ||
-    trimmed1 === '{}' ||
-    trimmed2 === '' ||
-    trimmed2 === '{}'
-  ) {
+  if (trimmed1 === '' || trimmed1 === '{}' || trimmed2 === '' || trimmed2 === '{}') {
     return true; // Neutral match if either state lacks accessibility tree details
   }
   try {
@@ -126,10 +169,7 @@ export async function retrieveState(params: {
     if (!forceRefresh && strategy !== 'semantic') {
       // Retrieve states for hash comparison
       // Filter by active branch first, then fallback to others
-      let allStates = await storage.listStates(
-        `git_branch = '${escapeSql(branch)}'`,
-        1000
-      );
+      let allStates = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 1000);
       if (allStates.length === 0) {
         allStates = await storage.listStates(undefined, 1000);
       }
@@ -145,19 +185,14 @@ export async function retrieveState(params: {
         }
       }
 
-      logger.debug(
-        `Hamming match: minDistance=${minDistance}, bestState=${bestMatch?.id}`
-      );
+      logger.debug(`Hamming match: minDistance=${minDistance}, bestState=${bestMatch?.id}`);
 
       // Check thresholds
       if (bestMatch && minDistance <= config.HASH_SIMILAR_THRESHOLD) {
         const isExact = minDistance <= config.HASH_EXACT_THRESHOLD;
 
         // Validate with AX Tree if provided
-        const axMatches = compareAccessTrees(
-          bestMatch.accessibility_tree,
-          accessibilityTree
-        );
+        const axMatches = compareAccessTrees(bestMatch.accessibility_tree, accessibilityTree);
 
         if (isExact && axMatches) {
           // L1 Check: Is it in the in-memory cache?
@@ -202,11 +237,7 @@ export async function retrieveState(params: {
     if (strategy !== 'fast') {
       const vector = await embeddings.generateImageEmbedding(imageBuffer);
       const branchFilter = `git_branch = '${escapeSql(branch)}'`;
-      let vectorMatches = await storage.searchVector(
-        vector,
-        limit,
-        branchFilter
-      );
+      let vectorMatches = await storage.searchVector(vector, limit, branchFilter);
       if (vectorMatches.length === 0) {
         vectorMatches = await storage.searchVector(vector, limit);
       }
@@ -216,9 +247,7 @@ export async function retrieveState(params: {
         const distance = (topMatch as any)._distance ?? 2;
         const similarity = distanceToSimilarity(distance);
 
-        logger.debug(
-          `CLIP Search Top Match: id=${topMatch.id}, similarity=${similarity}`
-        );
+        logger.debug(`CLIP Search Top Match: id=${topMatch.id}, similarity=${similarity}`);
 
         const related = vectorMatches.map((m) => ({
           id: m.id,
@@ -227,9 +256,7 @@ export async function retrieveState(params: {
         }));
 
         if (similarity >= 0.85 && !forceRefresh) {
-          logger.info(
-            `L3 Vector Hit: id=${topMatch.id}, similarity=${similarity.toFixed(4)}`
-          );
+          logger.info(`L3 Vector Hit: id=${topMatch.id}, similarity=${similarity.toFixed(4)}`);
 
           // Update stats
           storage

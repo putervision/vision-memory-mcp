@@ -22,9 +22,17 @@ export async function recordTransition(params: {
   const successVal = params.success ? 1 : 0;
   const duration = params.durationMs ?? 0;
 
-  logger.debug(
-    `Recording transition: ${id} (${params.fromStateId} -> ${params.toStateId})`
-  );
+  logger.debug(`Recording transition: ${id} (${params.fromStateId} -> ${params.toStateId})`);
+
+  // Verify starting and target states exist in storage
+  const fromState = await storage.getState(params.fromStateId);
+  if (!fromState) {
+    throw new Error(`Starting state with ID "${params.fromStateId}" does not exist in storage.`);
+  }
+  const toState = await storage.getState(params.toStateId);
+  if (!toState) {
+    throw new Error(`Target state with ID "${params.toStateId}" does not exist in storage.`);
+  }
 
   // Check if transition already exists to update counters
   const existing = await storage.getTransition(id);
@@ -37,9 +45,7 @@ export async function recordTransition(params: {
     successCount = existing.success_count + successVal;
     failureCount = existing.failure_count + (params.success ? 0 : 1);
     const totalCount = successCount + failureCount;
-    avgDuration = Math.round(
-      (existing.duration_ms * (totalCount - 1) + duration) / totalCount
-    );
+    avgDuration = Math.round((existing.duration_ms * (totalCount - 1) + duration) / totalCount);
   }
 
   const transition: StateTransition = {
@@ -82,9 +88,7 @@ export async function findNavigationPaths(params: {
     targetStateIds.push(params.toStateId);
   } else if (params.toDescription) {
     // Perform semantic search to find candidate states matching description
-    logger.debug(
-      `Semantic resolution of target description: "${params.toDescription}"`
-    );
+    logger.debug(`Semantic resolution of target description: "${params.toDescription}"`);
     try {
       const { retrieveState } = await import('./retrieval.js');
       const searchResult = await retrieveState({
@@ -108,10 +112,7 @@ export async function findNavigationPaths(params: {
   }
 
   // Load all transitions on active branch
-  const transitions = await storage.listTransitions(
-    `git_branch = '${escapeSql(branch)}'`,
-    2000
-  );
+  const transitions = await storage.listTransitions(`git_branch = '${escapeSql(branch)}'`, 2000);
 
   // Build adjacency map
   const adj: Record<string, StateTransition[]> = {};
@@ -124,10 +125,7 @@ export async function findNavigationPaths(params: {
 
   // Pre-populate state descriptions in batch to prevent N+1 database queries during BFS enrichment
   const stateCache = new Map<string, string>();
-  const branchStates = await storage.listStates(
-    `git_branch = '${escapeSql(branch)}'`,
-    5000
-  );
+  const branchStates = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 5000);
   for (const s of branchStates) {
     stateCache.set(s.id, s.description);
   }
@@ -149,9 +147,7 @@ export async function findNavigationPaths(params: {
       success_rate: number;
       duration_ms: number;
     }>;
-  }> = [
-    { currentId: params.fromStateId, path: [params.fromStateId], steps: [] },
-  ];
+  }> = [{ currentId: params.fromStateId, path: [params.fromStateId], steps: [] }];
 
   const successfulPaths: NavigationPath[] = [];
   const failedPaths: any[] = [];
@@ -200,8 +196,7 @@ export async function findNavigationPaths(params: {
       }
 
       const totalAttempts = edge.success_count + edge.failure_count;
-      const successRate =
-        totalAttempts > 0 ? edge.success_count / totalAttempts : 1.0;
+      const successRate = totalAttempts > 0 ? edge.success_count / totalAttempts : 1.0;
 
       // Handle low-success paths (log as failed paths if success rate < 0.5)
       if (successRate < 0.5) {

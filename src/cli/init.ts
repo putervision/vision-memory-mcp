@@ -1,0 +1,401 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
+function getInstructionsTemplate(): string {
+  return `
+## Visual Memory (vision-memory-mcp)
+
+This project utilizes \`vision-memory-mcp\` to cache visual states, record layout transitions, and avoid repetitive LLM vision calls.
+
+### 1. Mandatory Workflow & Priority
+1. **Orient**: Call \`get_session_context\` to align your state context at the start of work.
+2. **Search**: Call \`recall_memory\` (text/image search) before recreating duplicate UI state paths.
+3. **Ingest/Verify**: ALWAYS call \`analyze_screenshot\` before querying any front-end vision models.
+   - **Cache Hit (\`is_known: true\`)**: Do NOT use vision models; read the returned \`description\` as context.
+   - **Cache Miss (\`is_known: false\`)**: Query your vision model, then run \`analyze_screenshot\` with both the image and description to seed the cache.
+4. **Transitions**: Call \`record_outcome\` after every click/type/scroll action to construct navigation paths.
+5. **Undo**: Call \`undo_last_visual_mutation\` to revert accidental state or edge ingestions.
+
+### 2. Tool Reference Summary
+* \`analyze_screenshot\`: Ingest screenshot, lookup cache, return layout description.
+* \`recall_memory\`: Search visual memory by description query or base64 image query.
+* \`record_outcome\`: Save UI action execution outcomes and transitions between states.
+* \`get_navigation_paths\`: Find path between states using BFS navigation graph.
+* \`compare_states\`: Compare two visual states structurally and vector-semantically.
+* \`get_session_context\`: Fetch recent states, frequent states, and transitions.
+* \`save_visual_snapshot\` / \`diff_visual_snapshots\`: Manage visual checkpoints and detect visual regression.
+* \`undo_last_visual_mutation\`: Revert the last visual mutation.
+
+#### 3. Agent Permissions & Auto-Run Configuration
+To allow cache query and ingestion commands to run automatically without prompting:
+* **Google Antigravity (\`~/.gemini/config/config.json\`)**: Add these rules to your \`"globalPermissionGrants"\` -> \`"allow"\` list:
+  * \`"command(vision-memory-mcp)"\` (Allow running the CLI without parameters prompts)
+  * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow reading captured screenshots)
+  * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow saving visual states)
+* **VS Code / Cursor IDE (\`settings.json\`)**: Ensure the agent has execution permissions for \`command(vision-memory-mcp)\` and read/write access to the workspace's local \`.vision-memory-mcp/\` cache directory.
+`;
+}
+
+function getGlobalRulesTemplate(): string {
+  return `
+<!-- vision-memory-mcp:start -->
+# Visual Memory (vision-memory-mcp)
+
+This project uses vision-memory-mcp to cache visual states, saving LLM tokens and retaining layout context.
+ALWAYS check the visual cache before querying front-end vision models.
+
+## Mandatory Workflow
+1. **Check/Align**: Call \`get_session_context\` or \`recall_memory\` to search past states.
+2. **Ingest/Verify**: Call \`analyze_screenshot\` with base64 screenshots before invoking vision LLMs.
+3. **Cache Hit (\`is_known: true\`)**: Use the cached description; do NOT invoke vision models.
+4. **Cache Miss (\`is_known: false\`)**: Query your vision model, then run \`analyze_screenshot\` with the new description to seed.
+5. **Transition Tracking**: Call \`record_outcome\` after every click/type/scroll action.
+
+## Auto-Run Permissions Setup
+Ensure the following permissions are allowed in the global agent grants (e.g. \`~/.gemini/config/config.json\`) to bypass confirmation dialogs:
+* \`"command(vision-memory-mcp)"\`
+* \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\`
+* \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\`
+<!-- vision-memory-mcp:end -->
+`;
+}
+
+function mergeMcpConfig(
+  root: string,
+  relativePath: string,
+  label: string,
+  template: Record<string, any>,
+  serversKey: string
+): void {
+  const filePath = path.join(root, relativePath);
+  const dir = path.dirname(filePath);
+
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  if (fs.existsSync(filePath)) {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const existing = JSON.parse(raw);
+
+      if (existing[serversKey]?.['vision-memory-mcp']) {
+        console.log(`      ⏭️  ${label} (${relativePath}) — already configured`);
+        return;
+      }
+
+      if (!existing[serversKey]) {
+        existing[serversKey] = {};
+      }
+      existing[serversKey]['vision-memory-mcp'] = template[serversKey]['vision-memory-mcp'];
+
+      fs.writeFileSync(filePath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+      console.log(`      ✅ ${label} (${relativePath}) — merged vision-memory-mcp server`);
+    } catch {
+      fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
+      console.log(`      ✅ ${label} (${relativePath}) — created (replaced invalid JSON)`);
+    }
+  } else {
+    fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
+    console.log(`      ✅ ${label} (${relativePath}) — created`);
+  }
+}
+
+export async function runInit(args: string[] = []) {
+  console.log('🔧 Scaffolding vision-memory-mcp workspace...');
+  const skipConfirm = args.includes('--yes') || args.includes('-y') || !process.stdin.isTTY;
+  if (!skipConfirm) {
+    console.log(
+      '  ℹ️  Notice: init configures local workspace & global user rules (~/). Pass --yes to confirm.'
+    );
+  }
+  const root = process.cwd();
+
+  // 1. Create data directory
+  const dataPath = path.resolve(root, '.vision-memory-mcp');
+  if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true });
+    console.log(`  ✅ Created database path: ${dataPath}`);
+  }
+
+  // 2. Append to gitignore
+  const gitignorePath = path.resolve(root, '.gitignore');
+  const ignoreContent = '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n.env\n';
+  if (fs.existsSync(gitignorePath)) {
+    const content = fs.readFileSync(gitignorePath, 'utf8');
+    if (!content.includes('.vision-memory-mcp')) {
+      fs.appendFileSync(gitignorePath, ignoreContent);
+      console.log('  ✅ Updated .gitignore');
+    }
+  } else {
+    fs.writeFileSync(gitignorePath, ignoreContent);
+    console.log('  ✅ Created .gitignore');
+  }
+
+  // 3. Create .env config
+  const envPath = path.resolve(root, '.env');
+  if (!fs.existsSync(envPath)) {
+    const envTemplate = `# === LanceDB ===
+LANCEDB_PATH=.vision-memory-mcp
+LANCEDB_CACHE_SIZE=100
+
+# === Hashing ===
+HASH_EXACT_THRESHOLD=5
+HASH_SIMILAR_THRESHOLD=10
+
+# === Embeddings ===
+CLIP_MODEL=Xenova/clip-vit-base-patch32
+EMBEDDING_DIMENSIONS=512
+
+# === Vision Model (Optional L4 Fallback) ===
+VISION_MODEL_ENABLED=false
+VISION_MODEL_ENDPOINT=http://localhost:1234/v1
+VISION_MODEL_NAME=gpt-4o
+VISION_MODEL_MAX_TOKENS=500
+OPENAI_API_KEY=your-api-key-here
+
+# === Server ===
+LOG_LEVEL=info
+TTL_DEFAULT_MS=604800000
+MAX_IMAGE_SIZE_MB=10
+THUMBNAIL_SIZE=64
+`;
+    fs.writeFileSync(envPath, envTemplate);
+    console.log('  ✅ Created .env configuration');
+  }
+
+  // 4. Scaffold instructions for IDE agents
+  console.log('  📝 Scaffolding IDE instruction files:');
+  const instructionsText = getInstructionsTemplate();
+  const instructionTargets = [
+    { path: '.gemini/instructions.md', label: 'Gemini', standalone: false },
+    {
+      path: '.cursor/rules/vision-memory-mcp.mdc',
+      label: 'Cursor',
+      standalone: true,
+    },
+    {
+      path: '.github/copilot-instructions.md',
+      label: 'GitHub Copilot',
+      standalone: false,
+    },
+    { path: '.vscode/instructions.md', label: 'VS Code', standalone: false },
+    { path: 'CLAUDE.md', label: 'Claude Code', standalone: false },
+    { path: '.windsurfrules', label: 'Windsurf', standalone: false },
+  ];
+
+  for (const target of instructionTargets) {
+    const filePath = path.join(root, target.path);
+    const dir = path.dirname(filePath);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      if (content.includes('## Visual Memory (vision-memory-mcp)')) {
+        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+        continue;
+      }
+
+      if (target.standalone) {
+        continue;
+      }
+
+      const separator = content.endsWith('\n') ? '\n' : '\n\n';
+      fs.appendFileSync(filePath, `${separator}${instructionsText}`, 'utf-8');
+      console.log(`      ✅ ${target.label} (${target.path}) — appended instructions`);
+    } else {
+      fs.writeFileSync(filePath, instructionsText, 'utf-8');
+      console.log(`      ✅ ${target.label} (${target.path}) — created`);
+    }
+  }
+
+  // 4b. Scaffold Antigravity Custom Skill (.agents/skills/vision-memory-mcp/SKILL.md)
+  console.log('  🎯 Scaffolding Google Antigravity custom skill:');
+  const homedir = os.homedir();
+  const skillContent = `---
+name: vision-memory-mcp
+description: Teaches the agent to use the Visual Memory MCP server to cache webpage and application screenshots, matching layout states and avoiding redundant LLM vision calls.
+---
+
+# Visual Memory (vision-memory-mcp)
+
+This project utilizes \`vision-memory-mcp\` to cache visual states, record layout transitions, and avoid repetitive LLM vision calls.
+
+### 1. Priority Order & Checklist
+Whenever you capture a screenshot, examine a webpage, or need to verify a visual state, you MUST run this sequence:
+1. **Orient**: Call \`get_session_context\` to load active transitions and recent visual states.
+2. **Search (Optional)**: Call \`recall_memory\` to search past visual states by text query or image query.
+3. **Ingest/Verify**: Call \`analyze_screenshot\` with the base64 screenshot before calling any vision LLMs.
+4. **Cache Hit**: If \`is_known\` is \`true\`, read the returned \`description\` and do NOT call your vision LLM.
+5. **Cache Miss**: If \`is_known\` is \`false\`, inspect the image with your vision model, summarize the layout, and register it back by calling \`analyze_screenshot\` with both the \`screenshot\` and \`description\` parameters.
+6. **Log Transitions**: Right after taking any UI action (click, type, navigate, scroll), call \`record_outcome\` to build the navigation graph.
+7. **Snapshotting**: Call \`save_visual_snapshot\` when reaching milestones, and \`diff_visual_snapshots\` to check for visual regressions.
+
+### 2. Complete Tool Reference
+
+| Tool Name | Key Inputs | Description |
+|-----------|------------|-------------|
+| \`analyze_screenshot\` | \`screenshot\` (base64), \`description\`?, \`accessibility_tree\`?, \`tags\`?, \`force_refresh\`? | Main ingestion and visual state retrieval tool. |
+| \`recall_memory\` | \`query\`?, \`screenshot\`?, \`strategy\`?, \`limit\`?, \`include_transitions\`? | Search visual memory by text query or image query. |
+| \`record_outcome\` | \`from_state_id\`, \`to_state_id\`?, \`to_screenshot\`?, \`action\`, \`success\`, \`notes\`? | Record UI action outcomes to build the navigation graph. |
+| \`get_navigation_paths\` | \`from_state_id\`?, \`to_state_id\`?, \`to_description\`?, \`max_hops\`? | Find historical path or instructions between states. |
+| \`compare_states\` | \`state_a_id\`, \`state_b_id\` | Compare two states visually (hash distance) and semantically. |
+| \`get_session_context\` | \`include_recent\`?, \`include_frequent\`? | Get recent/frequent states and current database statistics. |
+| \`save_visual_snapshot\` | \`name\`, \`description\`? | Save current visual memory states as a named checkpoint. |
+| \`diff_visual_snapshots\` | \`snapshot_a_name\`, \`snapshot_b_name\` | Compare two checkpoints to detect additions or visual regressions. |
+| \`undo_last_visual_mutation\` | \`type\`? ('state' \\| 'transition' \\| 'any') | Revert the last state ingestion or transition edge addition. |
+
+### 3. Agent Permissions & Auto-Run Configuration
+To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:
+* **Google Antigravity (\`~/.gemini/config/config.json\`)**: Add these rules to your \`"globalPermissionGrants"\` -> \`"allow"\` list:
+  * \`"command(vision-memory-mcp)"\` (Allows running any query/ingest command prefix)
+  * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allows reading brain screenshots)
+  * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allows saving brain snapshots)
+
+### 4. CLI Commands Reference
+Run these commands in the terminal for management and analytics:
+* \`vision-memory-mcp inspect\`: Display stored visual states in an ASCII table.
+* \`vision-memory-mcp metrics\`: Calculate cache hit rate, token savings, and ROI.
+* \`vision-memory-mcp view\`: Open an interactive force-directed graph visualizer in the browser.
+* \`vision-memory-mcp export --format [json\\|mermaid\\|html] --out [file]\`: Export the memory graph.
+* \`vision-memory-mcp prune\`: Purge expired or low-access states.
+`;
+
+  // Local Skill
+  const localSkillDir = path.join(root, '.agents/skills/vision-memory-mcp');
+  const localSkillFile = path.join(localSkillDir, 'SKILL.md');
+  try {
+    if (!fs.existsSync(localSkillDir)) {
+      fs.mkdirSync(localSkillDir, { recursive: true });
+    }
+    fs.writeFileSync(localSkillFile, skillContent, 'utf-8');
+    console.log(`      ✅ Local Agent Skill (.agents/skills/vision-memory-mcp/SKILL.md) — created`);
+  } catch (err: any) {
+    console.log(`      ⚠️  Failed to scaffold local skill: ${err.message}`);
+  }
+
+  // Global Skill
+  const globalSkillDir = path.join(homedir, '.gemini/config/skills/vision-memory-mcp');
+  const globalSkillFile = path.join(globalSkillDir, 'SKILL.md');
+  try {
+    if (!fs.existsSync(globalSkillDir)) {
+      fs.mkdirSync(globalSkillDir, { recursive: true });
+    }
+    fs.writeFileSync(globalSkillFile, skillContent, 'utf-8');
+    console.log(
+      `      ✅ Global Agent Skill (~/.gemini/config/skills/vision-memory-mcp/SKILL.md) — created`
+    );
+  } catch (err: any) {
+    console.log(`      ⚠️  Failed to scaffold global skill: ${err.message}`);
+  }
+
+  // 5. Scaffold MCP Server Configs
+  console.log('  🔌 Scaffolding MCP Configs:');
+
+  const mcpCursor = {
+    mcpServers: {
+      'vision-memory-mcp': {
+        command: 'vision-memory-mcp',
+        args: ['run'],
+        env: {
+          LANCEDB_PATH: './.vision-memory-mcp',
+        },
+      },
+    },
+  };
+  const mcpVscode = {
+    servers: {
+      'vision-memory-mcp': {
+        command: 'vision-memory-mcp',
+        args: ['run'],
+        env: {
+          LANCEDB_PATH: './.vision-memory-mcp',
+        },
+      },
+    },
+  };
+  const mcpAntigravity = {
+    mcpServers: {
+      'vision-memory-mcp': {
+        command: 'vision-memory-mcp',
+        args: ['run'],
+      },
+    },
+  };
+
+  mergeMcpConfig(root, '.cursor/mcp.json', 'Cursor', mcpCursor, 'mcpServers');
+  mergeMcpConfig(root, '.vscode/mcp.json', 'VS Code', mcpVscode, 'servers');
+
+  // Merge into Antigravity user config: ~/.gemini/config/mcp_config.json
+  const geminiConfigDir = path.join(homedir, '.gemini/config');
+  const geminiConfigFile = path.join(geminiConfigDir, 'mcp_config.json');
+  try {
+    if (!fs.existsSync(geminiConfigDir)) {
+      fs.mkdirSync(geminiConfigDir, { recursive: true });
+    }
+
+    if (fs.existsSync(geminiConfigFile)) {
+      const raw = fs.readFileSync(geminiConfigFile, 'utf-8');
+      const existing = JSON.parse(raw);
+
+      if (!existing.mcpServers) {
+        existing.mcpServers = {};
+      }
+
+      if (!existing.mcpServers['vision-memory-mcp']) {
+        existing.mcpServers['vision-memory-mcp'] = mcpAntigravity.mcpServers['vision-memory-mcp'];
+        fs.writeFileSync(geminiConfigFile, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+        console.log(
+          `      ✅ Google Antigravity (mcp_config.json) — merged vision-memory-mcp server`
+        );
+      } else {
+        console.log(`      ⏭️  Google Antigravity (mcp_config.json) — already configured`);
+      }
+    } else {
+      fs.writeFileSync(geminiConfigFile, JSON.stringify(mcpAntigravity, null, 2) + '\n', 'utf-8');
+      console.log(`      ✅ Google Antigravity (mcp_config.json) — created`);
+    }
+  } catch (err: any) {
+    console.log(`      ⚠️  Failed to update Google Antigravity config: ${err.message}`);
+  }
+
+  // 6. Scaffold Global Rules
+  console.log('  🌎 Scaffolding Global User Rules:');
+  const globalTargets = [
+    {
+      path: path.join(homedir, '.cursorrules'),
+      label: 'Global Cursor Rules (~/.cursorrules)',
+    },
+    {
+      path: path.join(homedir, '.gemini/GEMINI.md'),
+      label: 'Global Gemini Rules (~/.gemini/GEMINI.md)',
+    },
+  ];
+  const globalRulesText = getGlobalRulesTemplate();
+
+  for (const target of globalTargets) {
+    if (target.path.includes('.gemini') && !fs.existsSync(path.dirname(target.path))) {
+      continue;
+    }
+
+    if (fs.existsSync(target.path)) {
+      const content = fs.readFileSync(target.path, 'utf-8');
+      if (content.includes('vision-memory-mcp')) {
+        console.log(`      ⏭️  ${target.label} — already configured`);
+        continue;
+      }
+      const separator = content.endsWith('\n') ? '\n' : '\n\n';
+      fs.appendFileSync(target.path, `${separator}${globalRulesText}`, 'utf-8');
+      console.log(`      ✅ ${target.label} — appended rules`);
+    } else {
+      fs.writeFileSync(target.path, globalRulesText, 'utf-8');
+      console.log(`      ✅ ${target.label} — created`);
+    }
+  }
+
+  console.log('\n🎉 Initialization complete. Run "vision-memory-mcp run" to start server.');
+}

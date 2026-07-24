@@ -16,9 +16,7 @@ export interface ProcessedImage {
  * Validates and processes an incoming base64 or buffer screenshot.
  * Normalizes it to 512-aligned dimensions and generates a 64x64 WebP thumbnail.
  */
-export async function processImage(
-  input: string | Buffer
-): Promise<ProcessedImage> {
+export async function processImage(input: string | Buffer): Promise<ProcessedImage> {
   let buffer: Buffer;
 
   // 1. Decode base64 if needed

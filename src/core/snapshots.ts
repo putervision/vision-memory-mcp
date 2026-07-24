@@ -9,10 +9,7 @@ import { VisualSnapshot, VisualState } from '../types.js';
 /**
  * Save current visual states as a named checkpoint snapshot.
  */
-export async function saveSnapshot(
-  name: string,
-  description?: string
-): Promise<VisualSnapshot> {
+export async function saveSnapshot(name: string, description?: string): Promise<VisualSnapshot> {
   const branch = getCurrentBranch();
   logger.info(`Saving visual snapshot: "${name}" on branch "${branch}"`);
 
@@ -22,10 +19,7 @@ export async function saveSnapshot(
   }
 
   // Fetch all visual states on the current branch
-  const states = await storage.listStates(
-    `git_branch = '${escapeSql(branch)}'`,
-    10000
-  );
+  const states = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 10000);
   const stateIds = states.map((s) => s.id);
 
   const snapshot: VisualSnapshot = {
@@ -59,10 +53,7 @@ export interface SnapshotDiffResult {
 /**
  * Diff two visual snapshots by name.
  */
-export async function diffSnapshots(
-  nameA: string,
-  nameB: string
-): Promise<SnapshotDiffResult> {
+export async function diffSnapshots(nameA: string, nameB: string): Promise<SnapshotDiffResult> {
   logger.info(`Diffing snapshots: "${nameA}" vs "${nameB}"`);
 
   const snapA = await storage.getSnapshot(nameA);
@@ -97,12 +88,8 @@ export async function diffSnapshots(
   const statesBMap = new Map(statesB.map((s) => [s.id, s]));
 
   // Also build mapping by description/source_url to detect visual drift on the same screen (renamed or re-ingested under different ID)
-  const descAMap = new Map(
-    statesA.map((s) => [s.description + '|' + (s.source_url || ''), s])
-  );
-  const descBMap = new Map(
-    statesB.map((s) => [s.description + '|' + (s.source_url || ''), s])
-  );
+  const descAMap = new Map(statesA.map((s) => [s.description + '|' + (s.source_url || ''), s]));
+  const descBMap = new Map(statesB.map((s) => [s.description + '|' + (s.source_url || ''), s]));
 
   // 1. Process deletions and modifications
   for (const stateA of statesA) {

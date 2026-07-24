@@ -4,9 +4,7 @@ import { logger } from '../logger.js';
 /**
  * Interface for the vision model analyzer.
  */
-export async function analyzeScreenshotWithLLM(
-  base64Image: string
-): Promise<string> {
+export async function analyzeScreenshotWithLLM(base64Image: string): Promise<string> {
   if (!config.VISION_MODEL_ENABLED) {
     logger.debug('Vision model analyzer is disabled. Skipping LLM analysis.');
     return 'Vision model disabled.';
@@ -25,14 +23,10 @@ export async function analyzeScreenshotWithLLM(
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    throw new Error(
-      'OPENAI_API_KEY environment variable is required for vision analysis.'
-    );
+    throw new Error('OPENAI_API_KEY environment variable is required for vision analysis.');
   }
 
-  logger.info(
-    `Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`
-  );
+  logger.info(`Sending image to vision LLM at ${endpoint} using model ${config.VISION_MODEL_NAME}`);
 
   try {
     const response = await fetch(endpoint, {
@@ -49,7 +43,7 @@ export async function analyzeScreenshotWithLLM(
             content: [
               {
                 type: 'text',
-                text: 'Analyze this screenshot of a user interface. Provide a concise, clear description of what this screen is, its key input fields, status, and any active error warnings or alert messages. Focus on details a reasoning agent needs to navigate it.',
+                text: 'Analyze this screenshot of a user interface. Return ONLY a valid JSON object with the following schema:\n{\n  "screen_type": "form_edit" | "dashboard" | "modal_dialog" | "error_page" | "list_view" | "other",\n  "page_title": "visible heading or title",\n  "key_interactive_elements": [{"label": "button or field name", "type": "button|input|link|etc", "state": "enabled|disabled|filled"}],\n  "active_alerts": ["error or warning text if present"],\n  "summary": "concise single-sentence description of the layout and purpose"\n}',
               },
               {
                 type: 'image_url',
@@ -66,9 +60,7 @@ export async function analyzeScreenshotWithLLM(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Vision model request failed with status ${response.status}: ${errorText}`
-      );
+      throw new Error(`Vision model request failed with status ${response.status}: ${errorText}`);
     }
 
     const data = (await response.json()) as any;

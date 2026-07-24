@@ -75,3 +75,15 @@ export interface NavigationPath {
   total_success_rate: number;
   avg_duration_ms: number;
 }
+
+export type ResponseFormat = 'compact' | 'full';
+
+export interface CompactRetrievalResult {
+  state_id: string;
+  is_known: boolean;
+  match_type: string;
+  similarity_score: number;
+  description: string;
+  source_url?: string;
+  tags?: string[];
+}
