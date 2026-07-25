@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import { discoverSubMemoryDatabases } from './utils/workspace.js';
 
 /**
  * Custom lightweight .env parser to eliminate `dotenv` dependency.
@@ -188,3 +189,20 @@ export const config = {
     ? validatedConfig.LANCEDB_PATH
     : path.resolve(projectRoot, validatedConfig.LANCEDB_PATH),
 };
+
+export function getWorkspaceMemoryPaths(cwd: string = process.cwd()): string[] {
+  const primary = config.LANCEDB_PATH;
+  const paths = [primary];
+  try {
+    const discovered = discoverSubMemoryDatabases(cwd);
+    for (const d of discovered) {
+      if (d.path !== primary && !paths.includes(d.path)) {
+        paths.push(d.path);
+      }
+    }
+  } catch {
+    // Return primary if discovery fails
+  }
+  return paths;
+}
+

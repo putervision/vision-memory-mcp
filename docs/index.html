@@ -21,14 +21,39 @@
     <!-- Canonical URL -->
     <link
       rel="canonical"
-      href="https://putervision.github.io/vision-memory-mcp/"
+      href="https://visionmemorymcp.com/"
     />
+
+    <!-- JSON-LD Structured Data for Search Engines & AI Crawlers -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Visual Memory MCP",
+      "operatingSystem": "Cross-platform (Node.js)",
+      "applicationCategory": "DeveloperApplication",
+      "description": "Persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches screenshots locally to optimize context windows and reduce vision token costs by up to 90%.",
+      "softwareVersion": "0.4.4",
+      "author": {
+        "@type": "Organization",
+        "name": "PuterVision LLC",
+        "url": "https://putervision.com"
+      },
+      "license": "https://opensource.org/licenses/MIT",
+      "url": "https://visionmemorymcp.com",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta
       property="og:url"
-      content="https://putervision.github.io/vision-memory-mcp/"
+      content="https://visionmemorymcp.com/"
     />
     <meta
       property="og:title"
@@ -39,6 +64,10 @@
       content="Persistent visual cache for developer agents. Caches screenshots locally using perceptual hashing (dhash), CLIP vector search, and accessibility trees to cut LLM token costs and speed up execution."
     />
     <meta property="og:site_name" content="vision-memory-mcp" />
+    <meta
+      property="og:image"
+      content="https://visionmemorymcp.com/viewer-screenshot.png"
+    />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -50,11 +79,16 @@
       name="twitter:description"
       content="Persistent visual cache for developer agents. Caches screenshots locally using perceptual hashing (dhash), CLIP vector search, and accessibility trees."
     />
+    <meta
+      name="twitter:image"
+      content="https://visionmemorymcp.com/viewer-screenshot.png"
+    />
 
     <!-- Favicon -->
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👁️</text></svg>"
+      type="image/png"
+      href="vision-memory-icon.png"
     />
 
     <!-- Typography -->
@@ -76,6 +110,8 @@
         "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
         "applicationCategory": "DeveloperApplication",
         "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce LLM tokens.",
+        "softwareVersion": "0.4.3",
+        "url": "https://visionmemorymcp.com/",
         "license": "https://opensource.org/licenses/MIT",
         "offers": {
           "@type": "Offer",
@@ -100,18 +136,17 @@
 
     <header>
       <div class="logo">
-        <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" class="brand-link">PuterVision</a>
+        <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" class="brand-link"><img src="putervision-icon.png" alt="PuterVision Icon" class="nav-brand-img"> PuterVision</a>
         <span class="logo-sep">/</span>
-        <span class="logo-text">vision-memory-mcp</span>
+        <a href="https://visionmemorymcp.com" class="logo-link"><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="nav-brand-img"><span class="logo-text">vision-memory-mcp</span></a>
       </div>
       <nav aria-label="Main Navigation">
         <ul class="nav-links">
-          <li><a href="#features">Features</a></li>
-          <li><a href="#cli">CLI Commands</a></li>
-          <li><a href="#privacy">Privacy</a></li>
-          <li><a href="#multi-ide">IDE Setup</a></li>
+          <li><a href="#features">Why Visual Memory</a></li>
           <li><a href="#calculator">ROI Calculator</a></li>
           <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="#multi-ide">IDE Setup</a></li>
+          <li><a href="#spec">Tools & Spec</a></li>
         </ul>
       </nav>
       <a
@@ -154,8 +189,8 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.4.1</span>
-        <h1>Visual Memory MCP</h1>
+        <span class="badge">Production Ready v0.4.4 • 16 Core MCP Tools</span>
+        <h1><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="hero-title-icon"><span class="hero-title-text">Visual Memory MCP</span></h1>
         <p>
           A persistent visual cache and perceptual hashing server for developer
           agents. Caches webpage and app screenshots locally to optimize context
@@ -166,6 +201,62 @@
           <a href="#quickstart" class="btn-primary">Get Started</a>
           <a href="#multi-ide" class="btn-secondary">IDE Configs</a>
           <a href="#calculator" class="btn-secondary">Calculate ROI</a>
+          <button id="toggle-full-desc-btn" class="btn-toggle-desc"><span class="btn-icon">⚡</span> <span class="btn-text">How It Works</span></button>
+        </div>
+
+        <!-- Expandable Full System Description Panel (100% Crawlable & SEO Search Indexable) -->
+        <div id="full-description-panel" class="full-desc-panel hidden">
+          <div class="desc-scan-beam"></div>
+          <div class="desc-content-inner">
+            <div class="desc-header">
+              <span class="desc-badge">RESEARCH PAPER GROUNDED</span>
+              <h3>Theoretical Foundations, Multimodal Memory Architecture & Capabilities</h3>
+            </div>
+
+            <div class="desc-grid">
+              <div class="desc-box">
+                <h4>📦 What Visual Memory MCP Provides</h4>
+                <p>
+                  A persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches webpage and application UI screenshots locally to optimize context windows, accelerate execution speed, and eliminate redundant LLM vision costs.
+                </p>
+              </div>
+
+              <div class="desc-box">
+                <h4>⚡ First-Hop Visual Determinism (90% Token Savings)</h4>
+                <p>
+                  Grounded in First-Hop Visual Determinism principles, <code>vision-memory-mcp</code> externalizes visual UI state into persistent local memory resources over MCP. Bypasses redundant 4K screenshot re-sending on every turn, keeping active multimodal context focused strictly on current UI changes.
+                </p>
+              </div>
+
+              <div class="desc-box">
+                <h4>🔍 Sub-5ms 4-Tier Perceptual Caching Pipeline</h4>
+                <p>
+                  Operates a 4-tier caching architecture: L1 In-Memory Cache (<1ms), L2 dHash/aHash Perceptual Matching (<5ms), L3 On-Device CLIP ViT-B/32 Vector Search over LanceDB, and L4 Vision LLM Fallback. Recognizes identical or near-duplicate UI screens instantly.
+                </p>
+              </div>
+
+              <div class="desc-box">
+                <h4>📐 Visual Spec-Driven Development & Layout Diffs</h4>
+                <p>
+                  Registers UI design mockups as visual contract baselines (`set_visual_spec`) and verifies live UI execution against baselines (`verify_visual_spec`, `get_visual_diff`). Calculates layout region deltas and generates visual blockers when UI design drift occurs.
+                </p>
+              </div>
+
+              <div class="desc-box">
+                <h4>🚀 Subterranean Trajectory Fine-Tuning</h4>
+                <p>
+                  Exposes `export_visual_trajectories` to export multimodal UI state transition paths. Allows developers to fine-tune local open-source models (3B–8B parameters) to execute complex screen workflows implicitly without explicit prompt flowcharts.
+                </p>
+              </div>
+
+              <div class="desc-box">
+                <h4>📂 Multi-Database Sub-Directory Monorepo Discovery</h4>
+                <p>
+                  Automatically scans workspace sub-directories, submodules, and sub-packages (`.vision-memory-mcp` or `.vision-memory`), federating multi-database visual memory queries across complex enterprise repositories.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -512,8 +603,8 @@
                 margin-bottom: 0.8rem;
               "
             >
-              Run environment health checks verifying LanceDB access, Sharp
-              native bindings, Git, and Node.
+              Run environment health checks verifying LanceDB storage writability, Sharp
+              bindings, sub-directory Git repos, and Node runtime.
             </p>
             <code
               style="
@@ -523,6 +614,30 @@
                 font-size: 0.85rem;
               "
               >vision-memory-mcp doctor</code
+            >
+          </div>
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-purple); margin-bottom: 0.5rem">
+              🔍 audit
+            </h3>
+            <p
+              style="
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-bottom: 0.8rem;
+              "
+            >
+              Audit sub-directory Git repos, submodules, sub-directory memory database
+              locations, and total visual states.
+            </p>
+            <code
+              style="
+                background: var(--bg-primary);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 0.85rem;
+              "
+              >vision-memory-mcp audit</code
             >
           </div>
           <div class="card" style="padding: 1.5rem">
@@ -598,6 +713,181 @@
             >
           </div>
         </div>
+      <!-- Spec Compliance Section -->
+      <section id="spec" class="spec-section" style="padding: 3rem 0">
+        <div class="section-title">
+          <h2>🔌 Full MCP Specification & Tool Reference</h2>
+          <p
+            style="
+              max-width: 700px;
+              margin: 0.5rem auto 0;
+              color: var(--text-secondary);
+            "
+          >
+            Equipped with complete spec features including annotations, resources, and all 16 core tools.
+          </p>
+          <div style="margin-top: 1rem;">
+            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 16 MCP Tools</span></button>
+          </div>
+        </div>
+
+        <!-- Expandable Full 16 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+        <div id="full-tools-panel" class="full-tools-panel hidden">
+          <div class="desc-scan-beam"></div>
+          <div class="desc-content-inner">
+            <div class="desc-header">
+              <span class="desc-badge">FULL 16 MCP TOOL SUITE</span>
+              <h3>Complete Tool Definitions & Function Signatures</h3>
+            </div>
+
+            <div class="desc-grid">
+              <div class="desc-box">
+                <h4>🖼️ Visual Cache & Ingestion (3 Tools)</h4>
+                <p>
+                  <code>analyze_screenshot</code>, <code>recall_memory</code>, <code>batch_analyze_screenshots</code>.
+                  <br><br>
+                  <strong>How to Leverage:</strong> Call <code>analyze_screenshot</code> before sending any image to an external visual LLM. If <code>is_known: true</code>, reuse the cached layout description instantly in &lt;5ms, bypassing redundant 1,400+ vision token API calls!
+                </p>
+                <details style="margin-top: 0.8rem;">
+                  <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                  <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "screenshot": "/path/to/login.png", "route": "/login" }
+
+// Response
+{ "is_known": true, "state_id": "state_login_01", "similarity": 0.992 }</pre>
+                </details>
+              </div>
+
+              <div class="desc-box">
+                <h4>🧭 Trajectory & State Navigation (4 Tools)</h4>
+                <p>
+                  <code>record_outcome</code>, <code>get_navigation_paths</code>, <code>get_session_context</code>, <code>predict_next_action</code>.
+                  <br><br>
+                  <strong>How to Leverage:</strong> Call <code>record_outcome</code> after every UI action (click/type). When navigating complex UI flows, call <code>get_navigation_paths</code> to retrieve optimal BFS click pathways to reach target screens.
+                </p>
+                <details style="margin-top: 0.8rem;">
+                  <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                  <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "from_state_id": "login", "to_state_id": "dashboard", "action": "click('#submit-btn')" }
+
+// Response
+{ "recorded": true, "success_rate": 1.0 }</pre>
+                </details>
+              </div>
+
+              <div class="desc-box">
+                <h4>📐 Layout Diffs & Spec Compliance (4 Tools)</h4>
+                <p>
+                  <code>compare_states</code>, <code>get_visual_diff</code>, <code>set_visual_spec</code>, <code>verify_visual_spec</code>.
+                  <br><br>
+                  <strong>How to Leverage:</strong> Use <code>set_visual_spec</code> to register Figma design contract baselines. Call <code>verify_visual_spec</code> in Playwright/Cypress pipelines to catch layout drift and visual regressions automatically.
+                </p>
+                <details style="margin-top: 0.8rem;">
+                  <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                  <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "route": "/checkout", "live_screenshot": "/path/to/live.png" }
+
+// Response
+{ "compliant": true, "structural_diff_pct": 0.8 }</pre>
+                </details>
+              </div>
+
+              <div class="desc-box">
+                <h4>📸 Checkpoints & Fine-Tuning (8 Tools)</h4>
+                <p>
+                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>export_visual_trajectories</code>.
+                  <br><br>
+                  <strong>How to Leverage:</strong> Call <code>export_visual_trajectories</code> to export UI interaction paths in JSONL format to fine-tune local 3B–8B vision models, compiling screen workflow logic into weights for 100× lower cost.
+                </p>
+                <details style="margin-top: 0.8rem;">
+                  <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                  <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "format": "jsonl", "output_path": "./visual_trajectories.jsonl" }
+
+// Response
+{ "exported_count": 28, "status": "success" }</pre>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="features-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
+        >
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 0.8rem">
+              📁 Exposed Visual Resources
+            </h3>
+            <p
+              style="
+                margin-bottom: 1.2rem;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+              "
+            >
+              Provides read-only visual contexts using RFC 6570 templates under the <code>vision-memory:///</code> URI scheme:
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0; text-align: left;">
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-cyan); margin-bottom: 0.2rem">vision-memory:///{project}/summary</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Visual cache statistics, total states, hit rates, and disk usage metrics.</p>
+              </li>
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-cyan); margin-bottom: 0.2rem">vision-memory:///{project}/states</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Recent visual state list with thumbnails and perceptual dHash records.</p>
+              </li>
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-cyan); margin-bottom: 0.2rem">vision-memory:///{project}/transitions</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Graph of visual UI transitions and navigation paths between states.</p>
+              </li>
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-cyan); margin-bottom: 0.2rem">vision-memory:///{project}/snapshots</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Historical visual checkpoints for visual layout diffing and regression auditing.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-purple); margin-bottom: 0.8rem">
+              💬 Reusable Prompts
+            </h3>
+            <p
+              style="
+                margin-bottom: 1.2rem;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+              "
+            >
+              Template instructions that automatically fetch visual state data to bootstrap vision workflows:
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0; text-align: left;">
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-purple); margin-bottom: 0.2rem">analyze-ui-state</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Analyzes UI screen layout, input fields, interactive controls, and active alerts for a state.</p>
+              </li>
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-purple); margin-bottom: 0.2rem">diagnose-visual-regression</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Compares baseline vs current snapshot checkpoints to diagnose visual layout drift.</p>
+              </li>
+              <li style="margin-bottom: 0.8rem">
+                <h4 style="font-size: 0.95rem; color: var(--accent-purple); margin-bottom: 0.2rem">navigate-to-goal</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0">Formulates step-by-step navigation paths from current state to reach a goal state.</p>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card" style="padding: 1.5rem">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 0.8rem">
+              📘 Formal API Reference
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+              Complete OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 16 vision-memory-mcp tools.
+            </p>
+            <a href="api-reference.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Formal API Reference &rarr;</a>
+          </div>
+        </div>
       </section>
 
       <!-- Local-First Privacy Section -->
@@ -645,271 +935,6 @@
             telemetry, tracking, or external API calls are made unless you
             explicitly configure L4 LLM Vision fallback endpoints.
           </p>
-        </div>
-      </section>
-
-      <!-- Multi-IDE Setup Guide Section -->
-      <section id="multi-ide" class="multi-ide-section" style="padding: 3rem 0">
-        <div class="section-title">
-          <h2>🔌 Client & IDE Integrations</h2>
-          <p>
-            Zero manual effort:
-            <code>vision-memory-mcp init</code> automatically scaffolds config
-            files for all supported IDEs.
-          </p>
-        </div>
-
-        <!-- Auto-Scaffold Highlight Card -->
-        <div
-          class="card"
-          style="
-            margin-bottom: 2rem;
-            border-color: rgba(6, 182, 212, 0.3);
-            background: rgba(6, 182, 212, 0.03);
-          "
-        >
-          <h3
-            style="
-              color: var(--accent-cyan);
-              font-size: 1.15rem;
-              margin-bottom: 0.5rem;
-            "
-          >
-            ⚡ Recommended: 1-Step Auto-Scaffolding
-          </h3>
-          <p
-            style="
-              color: var(--text-secondary);
-              font-size: 0.95rem;
-              margin-bottom: 1rem;
-            "
-          >
-            Run <code>vision-memory-mcp init --yes</code> inside your
-            repository. It automatically generates and updates configuration
-            files across all your installed agent environments, including
-            workspace agent rules (<code>.agents/AGENTS.md</code>) and database
-            paths.
-          </p>
-          <div class="code-container" style="max-width: 500px; margin: 0">
-            <span class="code-text">vision-memory-mcp init --yes</span>
-            <button
-              class="btn-copy"
-              onclick="copyCode('vision-memory-mcp init --yes', this)"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="spec-grid"
-          style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
-        >
-          <!-- Antigravity Card -->
-          <div class="card">
-            <h3 style="display: flex; align-items: center; gap: 0.5rem">
-              👽 Google Antigravity
-            </h3>
-            <p
-              style="
-                color: var(--text-secondary);
-                font-size: 0.85rem;
-                margin-bottom: 0.8rem;
-              "
-            >
-              Global: <code>~/.gemini/config/mcp_config.json</code><br />
-              Workspace: <code>.agents/settings.json</code>
-            </p>
-            <pre
-              style="
-                background: #030712;
-                padding: 1rem;
-                border-radius: 8px;
-                font-family: monospace;
-                font-size: 0.82rem;
-                border: 1px solid var(--border-color);
-                color: #10b981;
-                overflow-x: auto;
-                text-align: left;
-              "
-            >
-{
-  "mcpServers": {
-    "vision-memory-mcp": {
-      "command": "vision-memory-mcp",
-      "args": ["run"]
-    }
-  }
-}</pre>
-          </div>
-
-          <!-- Claude Code Card -->
-          <div class="card">
-            <h3 style="display: flex; align-items: center; gap: 0.5rem">
-              🤖 Claude Code & Desktop
-            </h3>
-            <p
-              style="
-                color: var(--text-secondary);
-                font-size: 0.85rem;
-                margin-bottom: 0.8rem;
-              "
-            >
-              One-line CLI:
-              <code
-                >claude mcp add vision-memory-mcp -- npx -y
-                @putervision/vision-memory-mcp run</code
-              ><br />
-              Desktop config: <code>claude_desktop_config.json</code>
-            </p>
-            <pre
-              style="
-                background: #030712;
-                padding: 1rem;
-                border-radius: 8px;
-                font-family: monospace;
-                font-size: 0.82rem;
-                border: 1px solid var(--border-color);
-                color: #f59e0b;
-                overflow-x: auto;
-                text-align: left;
-              "
-            >
-{
-  "mcpServers": {
-    "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
-    }
-  }
-}</pre>
-          </div>
-
-          <!-- Cursor & VS Code Card -->
-          <div class="card">
-            <h3 style="display: flex; align-items: center; gap: 0.5rem">
-              🪄 Cursor & VS Code
-            </h3>
-            <p
-              style="
-                color: var(--text-secondary);
-                font-size: 0.85rem;
-                margin-bottom: 0.8rem;
-              "
-            >
-              Cursor: <code>.cursor/mcp.json</code><br />
-              VS Code: <code>.vscode/mcp.json</code>
-            </p>
-            <pre
-              style="
-                background: #030712;
-                padding: 1rem;
-                border-radius: 8px;
-                font-family: monospace;
-                font-size: 0.82rem;
-                border: 1px solid var(--border-color);
-                color: #818cf8;
-                overflow-x: auto;
-                text-align: left;
-              "
-            >
-{
-  "mcpServers": {
-    "vision-memory-mcp": {
-      "command": "vision-memory-mcp",
-      "args": ["run"]
-    }
-  }
-}</pre>
-          </div>
-
-          <!-- Windsurf & Roo Code Card -->
-          <div class="card">
-            <h3 style="display: flex; align-items: center; gap: 0.5rem">
-              🌊 Windsurf & Roo / Cline
-            </h3>
-            <p
-              style="
-                color: var(--text-secondary);
-                font-size: 0.85rem;
-                margin-bottom: 0.8rem;
-              "
-            >
-              Windsurf: <code>~/.codeium/windsurf/mcp_config.json</code><br />
-              Roo Code / Cline: <code>.cline/mcp.json</code>
-            </p>
-            <pre
-              style="
-                background: #030712;
-                padding: 1rem;
-                border-radius: 8px;
-                font-family: monospace;
-                font-size: 0.82rem;
-                border: 1px solid var(--border-color);
-                color: #06b6d4;
-                overflow-x: auto;
-                text-align: left;
-              "
-            >
-{
-  "mcpServers": {
-    "vision-memory-mcp": {
-      "command": "vision-memory-mcp",
-      "args": ["run"]
-    }
-  }
-}</pre>
-          </div>
-        </div>
-
-        <!-- Agent Rules Card -->
-        <div class="card" style="padding: 2rem; margin-top: 2rem">
-          <h3 style="color: var(--accent-emerald); margin-bottom: 0.8rem">
-            🤖 Agent System Rules Prompt
-          </h3>
-          <p style="color: var(--text-secondary); margin-bottom: 1.2rem">
-            Add this rule to <code>AGENTS.md</code>, <code>.cursorrules</code>,
-            or <code>.windsurfrules</code> to instruct your AI agent to check
-            the visual cache automatically:
-          </p>
-          <div
-            class="code-container"
-            style="
-              background: var(--bg-primary);
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-            "
-          >
-            <pre
-              style="
-                font-family: monospace;
-                color: var(--text-primary);
-                font-size: 0.82rem;
-                overflow-x: auto;
-              "
-            ><code><!-- vision-memory-mcp:start -->
-# Visual Memory Rules
-This project uses vision-memory-mcp to cache visual UI states.
-
-1. Call analyze_screenshot with base64 screenshots before visual checks.
-2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.
-3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.
-4. Call record_outcome after click/type/navigation actions.
-<!-- vision-memory-mcp:end --></code></pre>
-            <button
-              class="btn-copy"
-              onclick="
-                copyCode(
-                  '<!-- vision-memory-mcp:start -->\n# Visual Memory Rules\nThis project uses vision-memory-mcp to cache visual UI states.\n\n1. Call analyze_screenshot with base64 screenshots before visual checks.\n2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.\n3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.\n4. Call record_outcome after click/type/navigation actions.\n<!-- vision-memory-mcp:end -->',
-                  this
-                )
-              "
-              aria-label="Copy Agent Rules snippet"
-            >
-              Copy Rules
-            </button>
-          </div>
         </div>
       </section>
 
@@ -1040,6 +1065,10 @@ This project uses vision-memory-mcp to cache visual UI states.
             <div class="badge-roi" id="res-tier">Calculating ROI...</div>
           </div>
         </div>
+
+        <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; line-height: 1.5;">
+          * <strong>Disclaimer:</strong> ROI calculations are illustrative estimates based on selected visual LLM token rates and average perceptual cache-hit ratios. Actual token savings and execution time drops depend on image resolution, screenshot frequency, and model provider rates.
+        </p>
       </section>
 
       <!-- Quickstart Section -->
@@ -1138,6 +1167,285 @@ This project uses vision-memory-mcp to cache visual UI states.
           </div>
         </div>
       </section>
+
+      <!-- Multi-IDE Setup Guide Section -->
+      <section id="multi-ide" class="multi-ide-section" style="padding: 3rem 0">
+        <div class="section-title">
+          <h2>🔌 Client & IDE Integrations</h2>
+          <p>
+            Zero manual effort:
+            <code>vision-memory-mcp init</code> automatically scaffolds config
+            files for all supported IDEs.
+          </p>
+        </div>
+
+        <!-- Auto-Scaffold Highlight Card -->
+        <div
+          class="card"
+          style="
+            margin-bottom: 2rem;
+            border-color: rgba(6, 182, 212, 0.3);
+            background: rgba(6, 182, 212, 0.03);
+          "
+        >
+          <h3
+            style="
+              color: var(--accent-cyan);
+              font-size: 1.15rem;
+              margin-bottom: 0.5rem;
+            "
+          >
+            ⚡ Recommended: 1-Step Auto-Scaffolding
+          </h3>
+          <p
+            style="
+              color: var(--text-secondary);
+              font-size: 0.95rem;
+              margin-bottom: 1rem;
+            "
+          >
+            Run <code>vision-memory-mcp init --yes</code> inside your
+            repository. It automatically generates and updates configuration
+            files across all your installed agent environments, including
+            workspace agent rules (<code>.agents/AGENTS.md</code>) and database
+            paths.
+          </p>
+          <div class="code-container" style="max-width: 500px; margin: 0">
+            <span class="code-text">vision-memory-mcp init --yes</span>
+            <button
+              class="btn-copy"
+              onclick="copyCode('vision-memory-mcp init --yes', this)"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="spec-grid"
+          style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
+        >
+          <!-- Antigravity Card -->
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                👽 Google Antigravity
+              </h3>
+              <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+            </div>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Global: <code>~/.gemini/config/mcp_config.json</code><br />
+              Workspace: <code>.agents/settings.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #10b981;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Claude Code Card -->
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                🤖 Claude Code & Desktop
+              </h3>
+              <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+            </div>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              One-line CLI:
+              <code
+                >claude mcp add vision-memory-mcp -- npx -y
+                @putervision/vision-memory-mcp run</code
+              ><br />
+              Desktop config: <code>claude_desktop_config.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #f59e0b;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Cursor & VS Code Card -->
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                🪄 Cursor & VS Code
+              </h3>
+              <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+            </div>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Cursor: <code>.cursor/mcp.json</code><br />
+              VS Code: <code>.vscode/mcp.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #818cf8;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+
+          <!-- Windsurf & Roo Code Card -->
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                🌊 Windsurf & Roo / Cline
+              </h3>
+              <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+            </div>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 0.8rem;
+              "
+            >
+              Windsurf: <code>~/.codeium/windsurf/mcp_config.json</code><br />
+              Roo Code / Cline: <code>.cline/mcp.json</code>
+            </p>
+            <pre
+              style="
+                background: #030712;
+                padding: 1rem;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.82rem;
+                border: 1px solid var(--border-color);
+                color: #06b6d4;
+                overflow-x: auto;
+                text-align: left;
+              "
+            >
+{
+  "mcpServers": {
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": ["run"]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <!-- Agent Rules Card -->
+        <div class="card" style="padding: 2rem; margin-top: 2rem">
+          <h3 style="color: var(--accent-emerald); margin-bottom: 0.8rem">
+            🤖 Agent System Rules Prompt
+          </h3>
+          <p style="color: var(--text-secondary); margin-bottom: 1.2rem">
+            Add this rule to <code>AGENTS.md</code>, <code>.cursorrules</code>,
+            or <code>.windsurfrules</code> to instruct your AI agent to check
+            the visual cache automatically:
+          </p>
+          <div
+            class="code-container"
+            style="
+              background: var(--bg-primary);
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            "
+          >
+            <pre
+              style="
+                font-family: monospace;
+                color: var(--text-primary);
+                font-size: 0.82rem;
+                overflow-x: auto;
+              "
+            ><code><!-- vision-memory-mcp:start -->
+# Visual Memory Rules
+This project uses vision-memory-mcp to cache visual UI states.
+
+1. Call analyze_screenshot with base64 screenshots before visual checks.
+2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.
+3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.
+4. Call record_outcome after click/type/navigation actions.
+<!-- vision-memory-mcp:end --></code></pre>
+            <button
+              class="btn-copy"
+              onclick="
+                copyCode(
+                  '<!-- vision-memory-mcp:start -->\n# Visual Memory Rules\nThis project uses vision-memory-mcp to cache visual UI states.\n\n1. Call analyze_screenshot with base64 screenshots before visual checks.\n2. On Cache Hit (is_known: true): Reuse cached description; skip external vision model.\n3. On Cache Miss (is_known: false): Query vision model, then call analyze_screenshot to seed cache.\n4. Call record_outcome after click/type/navigation actions.\n<!-- vision-memory-mcp:end -->',
+                  this
+                )
+              "
+              aria-label="Copy Agent Rules snippet"
+            >
+              Copy Rules
+            </button>
+          </div>
+        </div>
+      </section>
+
+      </section>
     </main>
 
     <footer
@@ -1159,14 +1467,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           rel="noopener noreferrer"
           style="color: var(--accent-cyan); text-decoration: none"
           >PuterVision LLC</a
-        >. Released under the
-        <a
-          href="https://opensource.org/licenses/MIT"
-          target="_blank"
-          rel="noopener noreferrer"
-          style="color: var(--accent-cyan); text-decoration: none"
-          >MIT License</a
-        >.
+        >. Direct inquiries to <a href="mailto:contact@putervision.com" style="color: var(--accent-cyan); text-decoration: none;">contact@putervision.com</a>.
       </p>
       <p
         style="
@@ -1206,6 +1507,15 @@ This project uses vision-memory-mcp to cache visual UI states.
           .catch(() => {
             alert('Copied to clipboard: ' + text);
           });
+      }
+
+      function copyConfigBlock(btnElement) {
+        const container = btnElement.closest('.card') || btnElement.parentElement;
+        const pre = container.querySelector('pre');
+        if (pre) {
+          const text = pre.textContent.trim();
+          copyCode(text, btnElement);
+        }
       }
 
       const inputScreenshots = document.getElementById('input-screenshots');
@@ -1276,6 +1586,48 @@ This project uses vision-memory-mcp to cache visual UI states.
         inputHitratio.addEventListener('input', updateCalculator);
         selectModel.addEventListener('change', updateCalculator);
         updateCalculator();
+      }
+
+      // Toggle Full Description Panel
+      const toggleBtn = document.getElementById('toggle-full-desc-btn');
+      const fullPanel = document.getElementById('full-description-panel');
+      if (toggleBtn && fullPanel) {
+        toggleBtn.addEventListener('click', () => {
+          const isHidden = fullPanel.classList.contains('hidden');
+          if (isHidden) {
+            fullPanel.classList.remove('hidden');
+            fullPanel.classList.add('phase-in-anim');
+            toggleBtn.querySelector('.btn-text').innerText = 'Hide Architecture';
+            toggleBtn.classList.add('active');
+            setTimeout(() => fullPanel.classList.remove('phase-in-anim'), 850);
+          } else {
+            fullPanel.classList.remove('phase-in-anim');
+            fullPanel.classList.add('hidden');
+            toggleBtn.querySelector('.btn-text').innerText = 'How It Works';
+            toggleBtn.classList.remove('active');
+          }
+        });
+      }
+
+      // Toggle Full Tools Reference Panel
+      const toggleToolsBtn = document.getElementById('toggle-tools-btn');
+      const fullToolsPanel = document.getElementById('full-tools-panel');
+      if (toggleToolsBtn && fullToolsPanel) {
+        toggleToolsBtn.addEventListener('click', () => {
+          const isHidden = fullToolsPanel.classList.contains('hidden');
+          if (isHidden) {
+            fullToolsPanel.classList.remove('hidden');
+            fullToolsPanel.classList.add('phase-in-anim');
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'Hide Tools Reference';
+            toggleToolsBtn.classList.add('active');
+            setTimeout(() => fullToolsPanel.classList.remove('phase-in-anim'), 850);
+          } else {
+            fullToolsPanel.classList.remove('phase-in-anim');
+            fullToolsPanel.classList.add('hidden');
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 16 MCP Tools';
+            toggleToolsBtn.classList.remove('active');
+          }
+        });
       }
     </script>
   </body>

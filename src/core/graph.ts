@@ -25,11 +25,11 @@ export async function recordTransition(params: {
   logger.debug(`Recording transition: ${id} (${params.fromStateId} -> ${params.toStateId})`);
 
   // Verify starting and target states exist in storage
-  const fromState = await storage.getState(params.fromStateId);
+  const fromState = await storage.getStateAll(params.fromStateId);
   if (!fromState) {
     throw new Error(`Starting state with ID "${params.fromStateId}" does not exist in storage.`);
   }
-  const toState = await storage.getState(params.toStateId);
+  const toState = await storage.getStateAll(params.toStateId);
   if (!toState) {
     throw new Error(`Target state with ID "${params.toStateId}" does not exist in storage.`);
   }
@@ -112,7 +112,7 @@ export async function findNavigationPaths(params: {
   }
 
   // Load all transitions on active branch
-  const transitions = await storage.listTransitions(`git_branch = '${escapeSql(branch)}'`, 2000);
+  const transitions = await storage.listTransitionsAll(`git_branch = '${escapeSql(branch)}'`, 2000);
 
   // Build adjacency map
   const adj: Record<string, StateTransition[]> = {};
@@ -125,14 +125,14 @@ export async function findNavigationPaths(params: {
 
   // Pre-populate state descriptions in batch to prevent N+1 database queries during BFS enrichment
   const stateCache = new Map<string, string>();
-  const branchStates = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 5000);
+  const branchStates = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, 5000);
   for (const s of branchStates) {
     stateCache.set(s.id, s.description);
   }
 
   const getStateDesc = async (id: string): Promise<string> => {
     if (stateCache.has(id)) return stateCache.get(id)!;
-    const s = await storage.getState(id);
+    const s = await storage.getStateAll(id);
     const desc = s?.description ?? 'Unknown State';
     stateCache.set(id, desc);
     return desc;

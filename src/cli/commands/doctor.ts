@@ -5,18 +5,18 @@ import { execSync } from 'child_process';
 import { config } from '../../config.js';
 
 export async function runDoctor(args: string[] = []): Promise<void> {
-  console.log('🩺 Running vision-memory-mcp environment health check...\n');
-  let passCount = 0;
-  let totalCount = 0;
+  const isJson = args.includes('--json');
+  const checks: Array<{ label: string; passed: boolean; details: string }> = [];
 
   function reportCheck(label: string, passed: boolean, details: string) {
-    totalCount++;
-    if (passed) {
-      passCount++;
-      console.log(`  ✅ ${label}: ${details}`);
-    } else {
-      console.log(`  ❌ ${label}: ${details}`);
+    checks.push({ label, passed, details });
+    if (!isJson) {
+      console.log(`  ${passed ? '✅' : '❌'} ${label}: ${details}`);
     }
+  }
+
+  if (!isJson) {
+    console.log('🩺 Running vision-memory-mcp environment health check...\n');
   }
 
   // 1. Node.js version check
@@ -38,13 +38,20 @@ export async function runDoctor(args: string[] = []): Promise<void> {
     }
     fs.accessSync(parentDir, fs.constants.W_OK);
     storageWritable = true;
-  } catch (err: any) {
+  } catch {
     storageWritable = false;
   }
+
+  const { discoverSubMemoryDatabases, discoverSubGitRepos } = await import('../../utils/workspace.js');
+  const discoveredDbs = discoverSubMemoryDatabases();
+  const dbDetails = discoveredDbs.length > 1
+    ? `Writable at ${dbPath} (${discoveredDbs.length} database locations discovered across workspace)`
+    : `Writable at ${dbPath}`;
+
   reportCheck(
     'LanceDB Storage Writable',
     storageWritable,
-    storageWritable ? `Writable at ${dbPath}` : `Cannot write to ${dbPath}`
+    storageWritable ? dbDetails : `Cannot write to ${dbPath}`
   );
 
   // 3. Sharp Native Binary Support
@@ -72,43 +79,64 @@ export async function runDoctor(args: string[] = []): Promise<void> {
   );
 
   // 4. Git Environment Check
-  let gitOk = false;
-  try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .toString()
-      .trim();
-    gitOk = Boolean(branch);
-  } catch {
-    gitOk = false;
+  const gitRepos = discoverSubGitRepos();
+  const gitOk = gitRepos.length > 0;
+  let gitDetails = '';
+  if (gitRepos.length === 0) {
+    gitDetails = 'Git not detected (will default to main branch)';
+  } else if (gitRepos.length === 1) {
+    gitDetails = `Detected root repo on branch "${gitRepos[0].branch}"`;
+  } else {
+    const branches = gitRepos.map((r) => `${r.relativePath} (${r.branch})`).join(', ');
+    gitDetails = `Detected ${gitRepos.length} repos across workspace: ${branches}`;
+  }
+
+  reportCheck('Git Repository Integration', gitOk, gitDetails);
+
+  // 5. Gitignore Safety Check
+  const gitignorePath = path.resolve(process.cwd(), '.gitignore');
+  let gitignoreIgnored = false;
+  if (fs.existsSync(gitignorePath)) {
+    const content = fs.readFileSync(gitignorePath, 'utf8');
+    gitignoreIgnored = content.includes('.vision-memory-mcp') || content.includes('.vision-memory');
   }
   reportCheck(
-    'Git Repository Integration',
-    gitOk,
-    gitOk
-      ? 'Detected active git repository'
-      : 'Git not detected (will default to main branch)'
+    'Gitignore Security Protection',
+    gitignoreIgnored,
+    gitignoreIgnored
+      ? '.vision-memory-mcp database is properly ignored'
+      : '.vision-memory-mcp missing from .gitignore (run "vision-memory-mcp init" to fix)'
   );
 
-  // 5. Disk Space Check
-  let diskSpaceMb = 0;
-  try {
-    const stat = fs.statSync(process.cwd());
-    diskSpaceMb = 100; // placeholder check
-  } catch {}
+  // 6. Disk Space Check
   reportCheck(
     'Disk Storage Availability',
     true,
     'Sufficient disk space available for vector storage'
   );
 
-  console.log(
-    `\n📋 Health Check Summary: ${passCount}/${totalCount} checks passed.`
-  );
-  if (passCount < totalCount) {
-    console.log('⚠️  Some checks failed. Please address the warnings above.');
+  const passCount = checks.filter((c) => c.passed).length;
+  const totalCount = checks.length;
+
+  if (isJson) {
+    console.log(
+      JSON.stringify(
+        {
+          healthy: passCount === totalCount,
+          passCount,
+          totalCount,
+          checks,
+        },
+        null,
+        2
+      )
+    );
   } else {
-    console.log('🎉 System is healthy and ready to run vision-memory-mcp.');
+    console.log(`\n📋 Health Check Summary: ${passCount}/${totalCount} checks passed.`);
+    if (passCount < totalCount) {
+      console.log('⚠️  Some checks failed. Please address the warnings above.');
+    } else {
+      console.log('🎉 System is healthy and ready to run vision-memory-mcp.');
+    }
   }
 }

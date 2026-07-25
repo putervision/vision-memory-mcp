@@ -42,6 +42,7 @@ export class StorageManager {
   private statesTable: lancedb.Table | null = null;
   private transitionsTable: lancedb.Table | null = null;
   private snapshotsTable: lancedb.Table | null = null;
+  private auxiliaryDbs = new Map<string, { db: lancedb.Connection; statesTable: lancedb.Table | null }>();
 
   async init(customDbPath?: string): Promise<void> {
     const dbPath = customDbPath ?? config.LANCEDB_PATH;
@@ -61,10 +62,42 @@ export class StorageManager {
       await this.createVectorIndex().catch((err) => {
         logger.debug('Auto vector index check skipped or failed:', err);
       });
+      await this.initAuxiliaryDatabases();
       logger.info('LanceDB storage initialized successfully.');
     } catch (error) {
       logger.error('Failed to initialize database connection:', error);
       throw error;
+    }
+  }
+
+  async initAuxiliaryDatabases(rootDir: string = process.cwd()): Promise<void> {
+    try {
+      const { discoverSubMemoryDatabases } = await import('../utils/workspace.js');
+      const dbs = discoverSubMemoryDatabases(rootDir);
+      const primaryPath = path.resolve(config.LANCEDB_PATH);
+
+      for (const d of dbs) {
+        const resolvedPath = path.resolve(d.path);
+        if (resolvedPath === primaryPath || this.auxiliaryDbs.has(resolvedPath)) {
+          continue;
+        }
+
+        try {
+          cleanupLockFiles(resolvedPath);
+          const auxDb = await lancedb.connect(resolvedPath);
+          const tables = await auxDb.tableNames();
+          let statesTable: lancedb.Table | null = null;
+          if (tables.includes('visual_states')) {
+            statesTable = await auxDb.openTable('visual_states');
+          }
+          this.auxiliaryDbs.set(resolvedPath, { db: auxDb, statesTable });
+          logger.info(`Connected to auxiliary sub-directory database: ${d.relativePath}`);
+        } catch (err) {
+          logger.debug(`Could not connect to auxiliary database at ${resolvedPath}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.debug('Auxiliary database discovery skipped:', err);
     }
   }
 
@@ -210,6 +243,25 @@ export class StorageManager {
     return results.length > 0 ? (results[0] as unknown as VisualState) : null;
   }
 
+  async getStateAll(id: string): Promise<VisualState | null> {
+    const primary = await this.getState(id);
+    if (primary) return primary;
+
+    const safeId = escapeSql(id);
+    for (const aux of this.auxiliaryDbs.values()) {
+      if (!aux.statesTable) continue;
+      try {
+        const results = await aux.statesTable.query().where(`id = '${safeId}'`).limit(1).toArray();
+        if (results.length > 0) {
+          return results[0] as unknown as VisualState;
+        }
+      } catch (err) {
+        logger.debug(`Failed to getState from auxiliary db:`, err);
+      }
+    }
+    return null;
+  }
+
   async updateState(id: string, updates: Partial<Omit<VisualState, 'id'>>): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Updating visual state: ${id}`);
@@ -243,9 +295,56 @@ export class StorageManager {
     return results as unknown as VisualState[];
   }
 
+  async listStatesAll(filter?: string, limit: number = 50): Promise<VisualState[]> {
+    const combined: VisualState[] = [];
+    const primary = await this.listStates(filter, limit);
+    combined.push(...primary);
+
+    for (const [dbPath, aux] of this.auxiliaryDbs.entries()) {
+      if (!aux.statesTable) continue;
+      try {
+        let q = aux.statesTable.query();
+        if (filter) {
+          q = q.where(filter);
+        }
+        const auxStates = (await q.limit(limit).toArray()) as unknown as VisualState[];
+        const relativeSubdir = path.relative(process.cwd(), path.dirname(dbPath));
+        for (const s of auxStates) {
+          (s as any).source_subdir = relativeSubdir || '.';
+        }
+        combined.push(...auxStates);
+      } catch (err) {
+        logger.debug(`Failed to query auxiliary states from ${dbPath}:`, err);
+      }
+    }
+
+    // Deduplicate by ID
+    const seen = new Set<string>();
+    const deduplicated: VisualState[] = [];
+    for (const s of combined) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        deduplicated.push(s);
+      }
+    }
+    return deduplicated.slice(0, limit);
+  }
+
   async countStates(filter?: string): Promise<number> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     return await this.statesTable.countRows(filter);
+  }
+
+  async countStatesAll(filter?: string): Promise<number> {
+    let total = await this.countStates(filter);
+    for (const aux of this.auxiliaryDbs.values()) {
+      if (aux.statesTable) {
+        try {
+          total += await aux.statesTable.countRows(filter);
+        } catch {}
+      }
+    }
+    return total;
   }
 
   async searchVector(vector: number[], limit: number, filter?: string): Promise<VisualState[]> {
@@ -256,6 +355,48 @@ export class StorageManager {
     }
     const results = await search.limit(limit).toArray();
     return results as unknown as VisualState[];
+  }
+
+  async searchVectorAll(vector: number[], limit: number, filter?: string): Promise<VisualState[]> {
+    const combined: VisualState[] = [];
+    const primary = await this.searchVector(vector, limit, filter);
+    combined.push(...primary);
+
+    for (const [dbPath, aux] of this.auxiliaryDbs.entries()) {
+      if (!aux.statesTable) continue;
+      try {
+        let search = aux.statesTable.search(vector);
+        if (filter) {
+          search = search.where(filter);
+        }
+        const auxMatches = (await search.limit(limit).toArray()) as unknown as VisualState[];
+        const relativeSubdir = path.relative(process.cwd(), path.dirname(dbPath));
+        for (const s of auxMatches) {
+          (s as any).source_subdir = relativeSubdir || '.';
+        }
+        combined.push(...auxMatches);
+      } catch (err) {
+        logger.debug(`Failed to search vector on auxiliary database ${dbPath}:`, err);
+      }
+    }
+
+    // Sort by LanceDB _distance if present
+    combined.sort((a, b) => {
+      const distA = (a as any)._distance ?? 2;
+      const distB = (b as any)._distance ?? 2;
+      return distA - distB;
+    });
+
+    // Deduplicate by ID
+    const seen = new Set<string>();
+    const deduplicated: VisualState[] = [];
+    for (const s of combined) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        deduplicated.push(s);
+      }
+    }
+    return deduplicated.slice(0, limit);
   }
 
   // --- State Transitions Operations ---
@@ -296,9 +437,55 @@ export class StorageManager {
     return results as unknown as StateTransition[];
   }
 
+  async listTransitionsAll(filter?: string, limit: number = 100): Promise<StateTransition[]> {
+    const combined: StateTransition[] = [];
+    const primary = await this.listTransitions(filter, limit);
+    combined.push(...primary);
+
+    for (const aux of this.auxiliaryDbs.values()) {
+      if (!aux.db) continue;
+      try {
+        const tables = await aux.db.tableNames();
+        if (!tables.includes('state_transitions')) continue;
+        const auxTable = await aux.db.openTable('state_transitions');
+        let q = auxTable.query();
+        if (filter) q = q.where(filter);
+        const auxTransitions = (await q.limit(limit).toArray()) as unknown as StateTransition[];
+        combined.push(...auxTransitions);
+      } catch (err) {
+        logger.debug(`Failed to query auxiliary transitions:`, err);
+      }
+    }
+
+    // Deduplicate by ID
+    const seen = new Set<string>();
+    const deduplicated: StateTransition[] = [];
+    for (const t of combined) {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        deduplicated.push(t);
+      }
+    }
+    return deduplicated.slice(0, limit);
+  }
+
   async countTransitions(filter?: string): Promise<number> {
     if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
     return await this.transitionsTable.countRows(filter);
+  }
+
+  async countTransitionsAll(filter?: string): Promise<number> {
+    let total = await this.countTransitions(filter);
+    for (const aux of this.auxiliaryDbs.values()) {
+      try {
+        const tables = await aux.db.tableNames();
+        if (tables.includes('state_transitions')) {
+          const auxTable = await aux.db.openTable('state_transitions');
+          total += await auxTable.countRows(filter);
+        }
+      } catch {}
+    }
+    return total;
   }
 
   async deleteTransition(id: string): Promise<void> {
@@ -335,10 +522,63 @@ export class StorageManager {
     return results.length > 0 ? (results[0] as unknown as VisualSnapshot) : null;
   }
 
+  async getSnapshotAll(idOrName: string): Promise<VisualSnapshot | null> {
+    const primary = await this.getSnapshot(idOrName);
+    if (primary) return primary;
+
+    const safeIdOrName = escapeSql(idOrName);
+    for (const aux of this.auxiliaryDbs.values()) {
+      try {
+        const tables = await aux.db.tableNames();
+        if (!tables.includes('visual_snapshots')) continue;
+        const auxTable = await aux.db.openTable('visual_snapshots');
+        let results = await auxTable.query().where(`id = '${safeIdOrName}'`).limit(1).toArray();
+        if (results.length === 0) {
+          results = await auxTable.query().where(`name = '${safeIdOrName}'`).limit(1).toArray();
+        }
+        if (results.length > 0) {
+          return results[0] as unknown as VisualSnapshot;
+        }
+      } catch (err) {
+        logger.debug(`Failed to query auxiliary snapshot:`, err);
+      }
+    }
+    return null;
+  }
+
   async listSnapshots(limit: number = 50): Promise<VisualSnapshot[]> {
     if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
     const results = await this.snapshotsTable.query().limit(limit).toArray();
     return results as unknown as VisualSnapshot[];
+  }
+
+  async listSnapshotsAll(limit: number = 50): Promise<VisualSnapshot[]> {
+    const combined: VisualSnapshot[] = [];
+    const primary = await this.listSnapshots(limit);
+    combined.push(...primary);
+
+    for (const aux of this.auxiliaryDbs.values()) {
+      try {
+        const tables = await aux.db.tableNames();
+        if (!tables.includes('visual_snapshots')) continue;
+        const auxTable = await aux.db.openTable('visual_snapshots');
+        const auxSnapshots = (await auxTable.query().limit(limit).toArray()) as unknown as VisualSnapshot[];
+        combined.push(...auxSnapshots);
+      } catch (err) {
+        logger.debug(`Failed to query auxiliary snapshots:`, err);
+      }
+    }
+
+    // Deduplicate by ID
+    const seen = new Set<string>();
+    const deduplicated: VisualSnapshot[] = [];
+    for (const s of combined) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        deduplicated.push(s);
+      }
+    }
+    return deduplicated.slice(0, limit);
   }
 
   async deleteSnapshot(id: string): Promise<void> {

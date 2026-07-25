@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.4.1';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.4.5';
 
 function showHelp() {
   console.log(`
@@ -14,6 +14,8 @@ Commands:
   run                Start the MCP server on stdio transport (Default)
   init [-y|--yes]    Scaffold the workspace, .gitignore, .env, and Cursor rules
   doctor             Run environment health checks (LanceDB, sharp, git, Node)
+  update             Check npm registry and update @putervision/vision-memory-mcp globally
+  audit              Audit sub-directory Git repos and multi-database memory status
   inspect            Display an ASCII table of stored visual states and tags
   metrics            Calculate and output cache hit rate, token savings, and ROI
   view               Launch the interactive HTML force-directed graph visualizer
@@ -54,7 +56,7 @@ async function runCli() {
     args.includes('-v') ||
     command === 'version'
   ) {
-    console.log(`v${pkgVersion}`);
+    console.log(pkgVersion);
     process.exit(0);
   }
 
@@ -151,6 +153,19 @@ async function runCli() {
     case 'health-check': {
       const { runDoctor } = await import('./cli/commands/doctor.js');
       await runDoctor(args);
+      break;
+    }
+
+    case 'update':
+    case 'upgrade': {
+      const { runUpdate } = await import('./cli/commands/update.js');
+      await runUpdate(pkgVersion);
+      break;
+    }
+
+    case 'audit': {
+      const { runAudit } = await import('./cli/commands/audit.js');
+      await runAudit(args);
       break;
     }
 

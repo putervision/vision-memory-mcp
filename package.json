@@ -1,16 +1,30 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "0.4.1",
+  "version": "0.4.5",
   "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce tokens.",
   "keywords": [
     "mcp",
-    "modelcontextprotocol",
-    "vision",
-    "cache",
+    "mcp-server",
+    "model-context-protocol",
+    "model-context-protocol-server",
+    "vision-memory",
+    "visual-cache",
     "perceptual-hash",
+    "perceptual-diff",
     "vector-search",
     "lancedb",
-    "clip"
+    "clip",
+    "ai-agents",
+    "ai-assistant",
+    "cursor",
+    "cursor-rules",
+    "claude-code",
+    "windsurf",
+    "ui-testing",
+    "visual-spec",
+    "visual-sdd",
+    "trajectory-export",
+    "developer-tools"
   ],
   "homepage": "https://putervision.github.io/vision-memory-mcp",
   "bugs": {
@@ -18,7 +32,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/putervision/vision-memory-mcp.git"
+    "url": "https://github.com/putervision/vision-memory-mcp.git"
   },
   "publishConfig": {
     "access": "public"

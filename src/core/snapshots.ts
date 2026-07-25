@@ -13,13 +13,13 @@ export async function saveSnapshot(name: string, description?: string): Promise<
   const branch = getCurrentBranch();
   logger.info(`Saving visual snapshot: "${name}" on branch "${branch}"`);
 
-  const existing = await storage.getSnapshot(name);
+  const existing = await storage.getSnapshotAll(name);
   if (existing) {
     throw new Error(`Snapshot with name "${name}" already exists.`);
   }
 
   // Fetch all visual states on the current branch
-  const states = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 10000);
+  const states = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, 10000);
   const stateIds = states.map((s) => s.id);
 
   const snapshot: VisualSnapshot = {
@@ -56,8 +56,8 @@ export interface SnapshotDiffResult {
 export async function diffSnapshots(nameA: string, nameB: string): Promise<SnapshotDiffResult> {
   logger.info(`Diffing snapshots: "${nameA}" vs "${nameB}"`);
 
-  const snapA = await storage.getSnapshot(nameA);
-  const snapB = await storage.getSnapshot(nameB);
+  const snapA = await storage.getSnapshotAll(nameA);
+  const snapB = await storage.getSnapshotAll(nameB);
 
   if (!snapA) throw new Error(`Snapshot "${nameA}" not found.`);
   if (!snapB) throw new Error(`Snapshot "${nameB}" not found.`);
@@ -68,13 +68,13 @@ export async function diffSnapshots(nameA: string, nameB: string): Promise<Snaps
   // Fetch all states for both snapshots
   const statesA: VisualState[] = [];
   for (const id of idsA) {
-    const s = await storage.getState(id);
+    const s = await storage.getStateAll(id);
     if (s) statesA.push(s);
   }
 
   const statesB: VisualState[] = [];
   for (const id of idsB) {
-    const s = await storage.getState(id);
+    const s = await storage.getStateAll(id);
     if (s) statesB.push(s);
   }
 

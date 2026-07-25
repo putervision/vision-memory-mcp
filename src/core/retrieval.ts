@@ -123,18 +123,19 @@ export async function retrieveState(params: {
   if (!params.screenshot && params.query) {
     logger.debug(`Text-only query: "${params.query}"`);
     const queryVector = await embeddings.generateTextEmbedding(params.query);
-    // Search database
+    // Search database across primary and sub-directory databases
     const branchFilter = `git_branch = '${escapeSql(branch)}'`;
-    let matches = await storage.searchVector(queryVector, limit, branchFilter);
+    let matches = await storage.searchVectorAll(queryVector, limit, branchFilter);
     // If no matches on current branch, fallback to other branches
     if (matches.length === 0) {
-      matches = await storage.searchVector(queryVector, limit);
+      matches = await storage.searchVectorAll(queryVector, limit);
     }
 
     const related = matches.map((m) => ({
       id: m.id,
       description: m.description,
       similarity: distanceToSimilarity((m as any)._distance ?? 2),
+      source_subdir: (m as any).source_subdir,
     }));
 
     if (related.length > 0) {
@@ -167,11 +168,11 @@ export async function retrieveState(params: {
   if (processed && imageBuffer) {
     // === L1/L2: Hash Scanning (Fast Paths) ===
     if (!forceRefresh && strategy !== 'semantic') {
-      // Retrieve states for hash comparison
+      // Retrieve states across primary and sub-directory databases for hash comparison
       // Filter by active branch first, then fallback to others
-      let allStates = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 1000);
+      let allStates = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, 1000);
       if (allStates.length === 0) {
-        allStates = await storage.listStates(undefined, 1000);
+        allStates = await storage.listStatesAll(undefined, 1000);
       }
 
       let bestMatch: VisualState | null = null;
@@ -237,9 +238,9 @@ export async function retrieveState(params: {
     if (strategy !== 'fast') {
       const vector = await embeddings.generateImageEmbedding(imageBuffer);
       const branchFilter = `git_branch = '${escapeSql(branch)}'`;
-      let vectorMatches = await storage.searchVector(vector, limit, branchFilter);
+      let vectorMatches = await storage.searchVectorAll(vector, limit, branchFilter);
       if (vectorMatches.length === 0) {
-        vectorMatches = await storage.searchVector(vector, limit);
+        vectorMatches = await storage.searchVectorAll(vector, limit);
       }
 
       if (vectorMatches.length > 0) {

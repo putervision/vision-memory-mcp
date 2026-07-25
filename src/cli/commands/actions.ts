@@ -112,11 +112,11 @@ export async function runExport(args: string[]) {
   const outIdx = args.indexOf('--out');
   const outFile = outIdx !== -1 ? args[outIdx + 1] : undefined;
 
-  const states = await storage.listStates(
+  const states = await storage.listStatesAll(
     `git_branch = '${escapeSql(branch)}'`,
     10000
   );
-  const transitions = await storage.listTransitions(
+  const transitions = await storage.listTransitionsAll(
     `git_branch = '${escapeSql(branch)}'`,
     10000
   );

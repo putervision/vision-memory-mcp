@@ -1,6 +1,11 @@
 # 🧠 vision-memory-mcp
 
-An MCP (Model Context Protocol) server and CLI tool designed to cache visual UI states using perceptual hashing, local CLIP embeddings, and state transitions. It helps AI agents remember seen screens, reducing frontier model token usage and execution latency by up to 90%.
+[![npm version](https://img.shields.io/npm/v/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
+[![Build Status](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/badge/Website-visionmemorymcp.com-06b6d4.svg)](https://visionmemorymcp.com)
+[![License](https://img.shields.io/npm/l/@putervision/vision-memory-mcp.svg)](https://github.com/putervision/vision-memory-mcp/blob/main/LICENSE)
+
+An MCP (Model Context Protocol) server and CLI tool designed to cache visual UI states using perceptual hashing, local CLIP embeddings, and state transitions. It helps AI agents remember seen screens, reducing frontier model token usage and execution latency by up to 90%. Official Documentation & Demos: [visionmemorymcp.com](https://visionmemorymcp.com)
 
 ---
 
@@ -8,6 +13,7 @@ An MCP (Model Context Protocol) server and CLI tool designed to cache visual UI 
 
 - **Zero-Token Fast Path (L1/L2):** Uses Difference Hash (dHash) and Average Hash (aHash) to recognize identical or near-duplicate layouts in <5ms without sending images to LLMs.
 - **Semantic Retrieval (L3):** Runs local CLIP ViT-B/32 model inference to find conceptually similar screens (e.g. "billing configuration form").
+- **Monorepo & Sub-Directory Discovery:** Automatically discovers nested Git repositories, submodules, and sub-directory `.vision-memory-mcp` databases, aggregating visual memory queries across packages.
 - **State Transition Graph:** Tracks agent actions (e.g., clicking a button) and transition outcomes (success/failure rates) to guide path-finding and prevent agents from repeating mistakes.
 - **Visual Checkpoints:** Save, list, and diff snapshots of memory to identify visual regressions or layout modifications.
 - **Interactive Visualizer:** Open a local force-directed graph view of the memory in your browser.
@@ -127,7 +133,7 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (12 Available)
+## 🔌 MCP Tools (16 Available)
 
 | Tool                        | Purpose                                                           | Key Inputs                                                                  |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -143,6 +149,10 @@ Ensure you allow:
 | `create_visual_blocker`     | Generate structured visual blocker payload for `state-memory-mcp` | `visual_state_id` (req), `description` (req), `project` (opt)               |
 | `predict_next_action`       | Predict optimal next UI action from state & goal                  | `current_state_id` (req), `goal_description` (opt), `goal_state_id` (opt)   |
 | `batch_analyze_screenshots` | Process batch array of 1–20 screenshots or file paths            | `items` (req array of screenshot/file_path objects), `response_format` (opt) |
+| `set_visual_spec`           | Set a screenshot/mockup as a Visual Spec design baseline contract | `name` (req), `screenshot` (opt), `file_path` (opt)                         |
+| `verify_visual_spec`        | Verify runtime screenshot against a Visual Spec baseline contract | `spec_name` (req), `screenshot` (opt), `file_path` (opt), `tolerance` (opt)  |
+| `get_visual_diff`           | Calculate perceptual dHash diff and layout region deltas          | `state_id_a` (req), `state_id_b` (req)                                      |
+| `export_visual_trajectories`| Export multimodal trajectories for local model fine-tuning        | `git_branch` (opt), `limit` (opt)                                           |
 
 ---
 
@@ -160,6 +170,9 @@ Ensure you allow:
 
 - **`vision-memory-mcp run`**: Launches the MCP stdio server.
 - **`vision-memory-mcp init`**: Bootstraps environment and IDE rules.
+- **`vision-memory-mcp doctor [--json]`**: Health checks LanceDB writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
+- **`vision-memory-mcp update`**: Checks the npm registry and updates `@putervision/vision-memory-mcp` globally to the latest version.
+- **`vision-memory-mcp audit [--json]`**: Performs a deep workspace audit of Git repos, submodules, database locations, and state counts.
 - **`vision-memory-mcp inspect`**: Prints an ASCII table of stored states.
 - **`vision-memory-mcp metrics`**: Displays ROI metrics, token savings, and cached sizes.
 - **`vision-memory-mcp view`**: Opens a local force-directed graph view of the memory in your browser.

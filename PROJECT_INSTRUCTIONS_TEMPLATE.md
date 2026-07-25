@@ -22,3 +22,6 @@ This project uses `vision-memory-mcp` to cache visual states, perceptual hashes,
 - `record_outcome` — Record action and outcome transitions between states
 - `get_navigation_paths` — Retrieve shortest navigation paths between visual states
 - `compare_states` — Diff two visual states to detect UI changes
+- `set_visual_spec` — Establish design mockup or screenshot as a Visual Spec contract baseline
+- `verify_visual_spec` — Verify runtime captured UI screenshots against a Visual Spec baseline and detect layout drift
+

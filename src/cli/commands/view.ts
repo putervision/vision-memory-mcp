@@ -556,11 +556,11 @@ export async function runView(args: string[] = []) {
   await storage.init();
   const branch = getCurrentBranch();
 
-  const states = await storage.listStates(
+  const states = await storage.listStatesAll(
     `git_branch = '${escapeSql(branch)}'`,
     1000
   );
-  const transitions = await storage.listTransitions(
+  const transitions = await storage.listTransitionsAll(
     `git_branch = '${escapeSql(branch)}'`,
     1000
   );

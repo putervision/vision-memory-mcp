@@ -63,10 +63,10 @@ describe('MCP Tool Handlers', () => {
     }
   });
 
-  it('should register all 12 tools on the McpServer', () => {
+  it('should register all 14 tools on the McpServer', () => {
     const registeredTools = (server as any)._registeredTools;
     expect(registeredTools).toBeDefined();
-    expect(Object.keys(registeredTools).length).toBe(12);
+    expect(Object.keys(registeredTools).length).toBe(14);
     expect(registeredTools['analyze_screenshot']).toBeDefined();
     expect(registeredTools['recall_memory']).toBeDefined();
     expect(registeredTools['record_outcome']).toBeDefined();
@@ -79,6 +79,8 @@ describe('MCP Tool Handlers', () => {
     expect(registeredTools['create_visual_blocker']).toBeDefined();
     expect(registeredTools['predict_next_action']).toBeDefined();
     expect(registeredTools['batch_analyze_screenshots']).toBeDefined();
+    expect(registeredTools['set_visual_spec']).toBeDefined();
+    expect(registeredTools['verify_visual_spec']).toBeDefined();
   });
 
   it('should ingest a screenshot and return a visual state', async () => {

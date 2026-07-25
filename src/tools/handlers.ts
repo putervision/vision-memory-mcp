@@ -12,6 +12,7 @@ import { embeddings, cosineSimilarity } from '../core/embeddings.js';
 import { retrieveState, compressAccessibilityTree } from '../core/retrieval.js';
 import { recordTransition, findNavigationPaths } from '../core/graph.js';
 import { saveSnapshot, diffSnapshots } from '../core/snapshots.js';
+import { setVisualSpec, verifyVisualSpec } from '../core/visual-spec.js';
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { logger } from '../logger.js';
 import { VisualState, ResponseFormat } from '../types.js';
@@ -515,8 +516,8 @@ export function registerAllTools(server: McpServer): void {
           throw new Error('state_a_id and state_b_id must be different visual states.');
         }
 
-        const stateA = await storage.getState(params.state_a_id);
-        const stateB = await storage.getState(params.state_b_id);
+        const stateA = await storage.getStateAll(params.state_a_id);
+        const stateB = await storage.getStateAll(params.state_b_id);
 
         if (!stateA) throw new Error(`State A (${params.state_a_id}) not found.`);
         if (!stateB) throw new Error(`State B (${params.state_b_id}) not found.`);
@@ -596,7 +597,7 @@ export function registerAllTools(server: McpServer): void {
         const frequentCount = params.include_frequent ?? 3;
         const branch = getCurrentBranch();
 
-        const recentList = await storage.listStates(`git_branch = '${escapeSql(branch)}'`, 100);
+        const recentList = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, 100);
         recentList.sort((a, b) => b.created_at - a.created_at);
         const recent = recentList.slice(0, recentCount).map((s) => ({
           id: s.id,
@@ -613,7 +614,7 @@ export function registerAllTools(server: McpServer): void {
           access_count: s.access_count,
         }));
 
-        const transitions = await storage.listTransitions(
+        const transitions = await storage.listTransitionsAll(
           `git_branch = '${escapeSql(branch)}'`,
           50
         );
@@ -624,8 +625,8 @@ export function registerAllTools(server: McpServer): void {
           last_traversed: t.last_traversed,
         }));
 
-        const allStatesCount = await storage.countStates();
-        const allTransCount = await storage.countTransitions();
+        const allStatesCount = await storage.countStatesAll();
+        const allTransCount = await storage.countTransitionsAll();
 
         const result = {
           recent_states: recent,
@@ -854,7 +855,7 @@ export function registerAllTools(server: McpServer): void {
     },
     async (params) => {
       try {
-        const state = await storage.getState(params.visual_state_id);
+        const state = await storage.getStateAll(params.visual_state_id);
         if (!state) {
           throw new Error(`Visual state with ID ${params.visual_state_id} not found.`);
         }
@@ -925,13 +926,13 @@ export function registerAllTools(server: McpServer): void {
     },
     async (params) => {
       try {
-        const currentState = await storage.getState(params.current_state_id);
+        const currentState = await storage.getStateAll(params.current_state_id);
         if (!currentState) {
           throw new Error(`Current state ID "${params.current_state_id}" not found.`);
         }
 
-        const transitions = await storage.listTransitions(
-          `from_state_id = '${escapeSql(params.current_state_id)}'`,
+        const transitions = await storage.listTransitionsAll(
+          `from_state_id = '${escapeSql(params.current_state_id)}' AND git_branch = '${escapeSql(currentState.git_branch)}'`,
           50
         );
 
@@ -974,7 +975,7 @@ export function registerAllTools(server: McpServer): void {
           }
         }
 
-        const targetState = await storage.getState(bestTransition.to_state_id);
+        const targetState = await storage.getStateAll(bestTransition.to_state_id);
         const result = {
           predicted_action: bestTransition.action,
           action_type: bestTransition.action_type,
@@ -1141,4 +1142,144 @@ export function registerAllTools(server: McpServer): void {
       }
     }
   );
+
+  // set_visual_spec
+  server.tool(
+    'set_visual_spec',
+    'Set a screenshot or mockup design as a Visual Spec baseline for UI compliance testing.',
+    {
+      name: z.string().describe('Name identifier for the visual spec.'),
+      screenshot: z.string().optional().describe('Base64 encoded screenshot image.'),
+      file_path: z.string().optional().describe('Absolute file path to mockup image.'),
+    },
+    async ({ name, screenshot, file_path }) => {
+      try {
+        const res = await setVisualSpec({ name, screenshot, filePath: file_path });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to set visual spec: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // verify_visual_spec
+  server.tool(
+    'verify_visual_spec',
+    'Verify a live captured UI screenshot against a registered Visual Spec baseline.',
+    {
+      spec_name: z.string().describe('Name identifier of the visual spec baseline.'),
+      screenshot: z.string().optional().describe('Base64 encoded live screenshot image.'),
+      file_path: z.string().optional().describe('Absolute file path to live screenshot image.'),
+      tolerance: z.number().optional().describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
+    },
+    async ({ spec_name, screenshot, file_path, tolerance }) => {
+      try {
+        const res = await verifyVisualSpec({ specName: spec_name, screenshot, filePath: file_path, tolerance });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to verify visual spec: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // get_visual_diff
+  server.tool(
+    'get_visual_diff',
+    'Calculate perceptual dHash diff and region deltas between two visual states (Armstrong 2026, Section 7).',
+    {
+      state_id_a: z.string().describe('ID of the first visual state baseline.'),
+      state_id_b: z.string().describe('ID of the second visual state target.'),
+    },
+    async ({ state_id_a, state_id_b }) => {
+      try {
+        const stateA = await storage.getState(state_id_a);
+        const stateB = await storage.getState(state_id_b);
+
+        if (!stateA || !stateB) {
+          throw new Error(`One or both visual states not found: ${state_id_a}, ${state_id_b}`);
+        }
+
+        const distance = hammingDistance(stateA.dhash, stateB.dhash);
+        const similarity = 1 - Math.min(distance / 64, 1);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                state_id_a,
+                state_id_b,
+                dhash_distance: distance,
+                similarity_score: Math.round(similarity * 1000) / 1000,
+                has_layout_change: distance > 3,
+                layout_delta_ratio: Math.round((distance / 64) * 100) / 100,
+                description_a: stateA.description,
+                description_b: stateB.description,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to calculate visual diff: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // export_visual_trajectories
+  server.tool(
+    'export_visual_trajectories',
+    'Export multimodal visual state transition trajectories for local model fine-tuning.',
+    {
+      git_branch: z.string().optional().describe('Optional git branch filter.'),
+      limit: z.number().optional().describe('Maximum number of trajectories to export (default: 50).'),
+    },
+    async ({ git_branch, limit }) => {
+      try {
+        const branch = git_branch || getCurrentBranch();
+        const states = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, limit || 50);
+
+        const trajectories = states.map((s, idx) => ({
+          step: idx + 1,
+          state_id: s.id,
+          dhash: s.dhash,
+          ahash: s.ahash,
+          description: s.description,
+          source_url: s.source_url,
+          created_at: s.created_at,
+        }));
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                git_branch: branch,
+                total_trajectories: trajectories.length,
+                trajectories,
+              }, null, 2),
+            },
+          ],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to export visual trajectories: ${error.message}` }],
+        };
+      }
+    }
+  );
 }
+

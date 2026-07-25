@@ -22,6 +22,8 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `get_session_context`: Fetch recent states, frequent states, and transitions.
 - `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 - `undo_last_visual_mutation`: Revert the last visual mutation.
+- `vision-memory-mcp doctor [--json]`: Run health checks for storage writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
+- `vision-memory-mcp audit [--json]`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
 
 ### 3. Agent Permissions & Auto-Run Configuration
 

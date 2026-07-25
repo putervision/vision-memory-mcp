@@ -44,7 +44,7 @@ export async function runSnapshot(args: string[]) {
       )
     );
   } else if (action === 'list') {
-    const list = await storage.listSnapshots();
+    const list = await storage.listSnapshotsAll(1000);
     console.log('\nVisual Checkpoint Snapshots:');
     console.log('============================');
     list.forEach((s) =>

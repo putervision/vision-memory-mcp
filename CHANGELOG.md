@@ -5,6 +5,28 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] - 2026-07-24
+
+### Added & Improved
+- **First-Hop Visual Determinism Grounding** (Armstrong 2026, Section 7):
+  - Updated visual cache architecture and documentation to highlight first-hop perceptual determinism and sub-5ms dHash fast-pathing.
+  - Bumped project version to 0.4.4 across codebase, CLI, documentation, and package manifests.
+
+## [0.4.3] - 2026-07-24
+
+### Added
+- **Visual Spec-Driven Development (Visual SDD)**:
+  - Added visual baseline mockup management (`set_visual_spec`) allowing UI designs to be stored as visual contract baselines.
+  - Implemented visual spec verification (`verify_visual_spec`) comparing live UI screenshots against design baselines using perceptual dHash, layout region boundaries, and structural diffing.
+  - Added automated visual drift detection and visual blocker generation when live UI violates design contracts.
+
+## [0.4.2] - 2026-07-24
+
+### Added & Improved
+- **Sub-Directory Git Repository Discovery**: Added workspace scanning utility (`src/utils/workspace.ts`) to discover root and sub-directory Git repositories & submodules, auditing branch alignment in `vision-memory-mcp doctor` and `vision-memory-mcp audit`.
+- **Federated Multi-Database Visual Memory Retrieval**: Extended `StorageManager` with multi-connection LanceDB storage management (`listStatesAll`, `countStatesAll`, `searchVectorAll`) and updated `retrieveState()` to query and observe visual memory stored in sub-directory `.vision-memory-mcp` or `.vision-memory` databases.
+- **Workspace Audit CLI Command (`vision-memory-mcp audit`)**: Added dedicated `audit` CLI command for comprehensive inspection of workspace Git repos, submodules, sub-directory database locations, and aggregated memory metrics.
+
 ## [0.4.1] - 2026-07-23
 
 ### Added & Improved
