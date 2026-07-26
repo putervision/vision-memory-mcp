@@ -1175,11 +1175,19 @@ export function registerAllTools(server: McpServer): void {
       spec_name: z.string().describe('Name identifier of the visual spec baseline.'),
       screenshot: z.string().optional().describe('Base64 encoded live screenshot image.'),
       file_path: z.string().optional().describe('Absolute file path to live screenshot image.'),
-      tolerance: z.number().optional().describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
+      tolerance: z
+        .number()
+        .optional()
+        .describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
     },
     async ({ spec_name, screenshot, file_path, tolerance }) => {
       try {
-        const res = await verifyVisualSpec({ specName: spec_name, screenshot, filePath: file_path, tolerance });
+        const res = await verifyVisualSpec({
+          specName: spec_name,
+          screenshot,
+          filePath: file_path,
+          tolerance,
+        });
         return {
           content: [{ type: 'text', text: JSON.stringify(res) }],
         };
@@ -1216,16 +1224,20 @@ export function registerAllTools(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                state_id_a,
-                state_id_b,
-                dhash_distance: distance,
-                similarity_score: Math.round(similarity * 1000) / 1000,
-                has_layout_change: distance > 3,
-                layout_delta_ratio: Math.round((distance / 64) * 100) / 100,
-                description_a: stateA.description,
-                description_b: stateB.description,
-              }, null, 2),
+              text: JSON.stringify(
+                {
+                  state_id_a,
+                  state_id_b,
+                  dhash_distance: distance,
+                  similarity_score: Math.round(similarity * 1000) / 1000,
+                  has_layout_change: distance > 3,
+                  layout_delta_ratio: Math.round((distance / 64) * 100) / 100,
+                  description_a: stateA.description,
+                  description_b: stateB.description,
+                },
+                null,
+                2
+              ),
             },
           ],
         };
@@ -1244,12 +1256,18 @@ export function registerAllTools(server: McpServer): void {
     'Export multimodal visual state transition trajectories for local model fine-tuning.',
     {
       git_branch: z.string().optional().describe('Optional git branch filter.'),
-      limit: z.number().optional().describe('Maximum number of trajectories to export (default: 50).'),
+      limit: z
+        .number()
+        .optional()
+        .describe('Maximum number of trajectories to export (default: 50).'),
     },
     async ({ git_branch, limit }) => {
       try {
         const branch = git_branch || getCurrentBranch();
-        const states = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, limit || 50);
+        const states = await storage.listStatesAll(
+          `git_branch = '${escapeSql(branch)}'`,
+          limit || 50
+        );
 
         const trajectories = states.map((s, idx) => ({
           step: idx + 1,
@@ -1265,21 +1283,26 @@ export function registerAllTools(server: McpServer): void {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                git_branch: branch,
-                total_trajectories: trajectories.length,
-                trajectories,
-              }, null, 2),
+              text: JSON.stringify(
+                {
+                  git_branch: branch,
+                  total_trajectories: trajectories.length,
+                  trajectories,
+                },
+                null,
+                2
+              ),
             },
           ],
         };
       } catch (error: any) {
         return {
           isError: true,
-          content: [{ type: 'text', text: `Failed to export visual trajectories: ${error.message}` }],
+          content: [
+            { type: 'text', text: `Failed to export visual trajectories: ${error.message}` },
+          ],
         };
       }
     }
   );
 }
-

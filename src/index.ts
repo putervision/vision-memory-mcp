@@ -10,7 +10,7 @@ import { registerAllPrompts } from './tools/prompts.js';
 import { logger } from './logger.js';
 
 declare const __APP_VERSION__: string;
-const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.4.5';
+const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.4.6';
 
 async function main() {
   logger.info(`Starting vision-memory-mcp server v${SERVER_VERSION}...`);
@@ -82,9 +82,19 @@ async function main() {
       if (isShuttingDown) return;
       isShuttingDown = true;
       logger.info(`Shutting down gracefully (${reason})...`);
+      
+      const forceExitTimer = setTimeout(() => {
+        logger.warn('Shutdown timed out waiting for database optimization. Forcing exit...');
+        process.exit(reason === 'uncaughtException' || reason === 'unhandledRejection' ? 1 : 0);
+      }, 1000);
+      forceExitTimer.unref();
+
       try {
-        await storage.optimize();
-        logger.info('Database optimized and compacted.');
+        await Promise.race([
+          storage.optimize(),
+          new Promise((resolve) => setTimeout(resolve, 800))
+        ]);
+        logger.info('Database optimization check finished.');
       } catch (err) {
         logger.error('Failed to optimize database during shutdown:', err);
       }

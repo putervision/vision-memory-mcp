@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce tokens.",
   "keywords": [
     "mcp",
@@ -81,17 +81,22 @@
     "@huggingface/transformers": "^3.8.1",
     "@lancedb/lancedb": "^0.13.0",
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "sharp": "^0.33.4"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^20.14.9",
-    "eslint": "^9.0.0",
+    "eslint": "^10.8.0",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5",
+    "esbuild": "^0.28.1",
+    "sharp": "$sharp"
   },
   "engines": {
     "node": ">=18.0.0"

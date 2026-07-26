@@ -42,7 +42,10 @@ export class StorageManager {
   private statesTable: lancedb.Table | null = null;
   private transitionsTable: lancedb.Table | null = null;
   private snapshotsTable: lancedb.Table | null = null;
-  private auxiliaryDbs = new Map<string, { db: lancedb.Connection; statesTable: lancedb.Table | null }>();
+  private auxiliaryDbs = new Map<
+    string,
+    { db: lancedb.Connection; statesTable: lancedb.Table | null }
+  >();
 
   async init(customDbPath?: string): Promise<void> {
     const dbPath = customDbPath ?? config.LANCEDB_PATH;
@@ -562,7 +565,10 @@ export class StorageManager {
         const tables = await aux.db.tableNames();
         if (!tables.includes('visual_snapshots')) continue;
         const auxTable = await aux.db.openTable('visual_snapshots');
-        const auxSnapshots = (await auxTable.query().limit(limit).toArray()) as unknown as VisualSnapshot[];
+        const auxSnapshots = (await auxTable
+          .query()
+          .limit(limit)
+          .toArray()) as unknown as VisualSnapshot[];
         combined.push(...auxSnapshots);
       } catch (err) {
         logger.debug(`Failed to query auxiliary snapshots:`, err);

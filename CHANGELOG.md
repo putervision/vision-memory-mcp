@@ -5,6 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2026-07-26
+
+### Fixed & Security / Performance
+- **Non-Blocking Teardown & LanceDB Optimize Timeout**: Added `Promise.race` (800ms limit) and a 1-second unref'd force-exit safety timer to prevent LanceDB compaction hangs on process teardown.
+- **Path Validation & Sanity Auditing**: Hardened path traversal checks and input payload sanitization.
+- **Project Version Bump**: Bumped version across package manifests, CLI runtime, and documentation.
+
 ## [0.4.4] - 2026-07-24
 
 ### Added & Improved

@@ -106,12 +106,10 @@ export async function verifyVisualSpec(params: {
   const liveVector = await embeddings.generateImageEmbedding(processed.resizedBuffer);
 
   const distance = hammingDistance(liveDhash, specState.dhash);
-  const similarity = specState.vector
-    ? cosineSimilarity(liveVector, specState.vector)
-    : 1.0;
+  const similarity = specState.vector ? cosineSimilarity(liveVector, specState.vector) : 1.0;
 
   const threshold = params.tolerance !== undefined ? params.tolerance : 8;
-  const isCompliant = distance <= threshold && similarity >= 0.80;
+  const isCompliant = distance <= threshold && similarity >= 0.8;
 
   const status = isCompliant ? 'pass' : 'visual_drift_detected';
   const message = isCompliant

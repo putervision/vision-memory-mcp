@@ -44,7 +44,11 @@ export function discoverSubGitRepos(rootDir: string = process.cwd()): Discovered
   const rootResolved = path.resolve(rootDir);
   const now = Date.now();
 
-  if (cachedGitRepos && cachedGitRepos.key === rootResolved && now - cachedGitRepos.timestamp < CACHE_TTL_MS) {
+  if (
+    cachedGitRepos &&
+    cachedGitRepos.key === rootResolved &&
+    now - cachedGitRepos.timestamp < CACHE_TTL_MS
+  ) {
     return cachedGitRepos.data;
   }
 
@@ -133,7 +137,11 @@ export function discoverSubMemoryDatabases(rootDir: string = process.cwd()): Dis
   const rootResolved = path.resolve(rootDir);
   const now = Date.now();
 
-  if (cachedMemoryDbs && cachedMemoryDbs.key === rootResolved && now - cachedMemoryDbs.timestamp < CACHE_TTL_MS) {
+  if (
+    cachedMemoryDbs &&
+    cachedMemoryDbs.key === rootResolved &&
+    now - cachedMemoryDbs.timestamp < CACHE_TTL_MS
+  ) {
     return cachedMemoryDbs.data;
   }
 
@@ -142,7 +150,11 @@ export function discoverSubMemoryDatabases(rootDir: string = process.cwd()): Dis
 
   function addIfDb(dbPath: string, isRoot: boolean) {
     const resolved = path.resolve(dbPath);
-    if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory() && !visitedPaths.has(resolved)) {
+    if (
+      fs.existsSync(resolved) &&
+      fs.statSync(resolved).isDirectory() &&
+      !visitedPaths.has(resolved)
+    ) {
       visitedPaths.add(resolved);
       results.push({
         path: resolved,
@@ -175,7 +187,10 @@ export function discoverSubMemoryDatabases(rootDir: string = process.cwd()): Dis
         continue;
       }
 
-      if (DEFAULT_IGNORE_DIRS.has(name) || (name.startsWith('.') && name !== '.vision-memory-mcp' && name !== '.vision-memory')) {
+      if (
+        DEFAULT_IGNORE_DIRS.has(name) ||
+        (name.startsWith('.') && name !== '.vision-memory-mcp' && name !== '.vision-memory')
+      ) {
         continue;
       }
 
