@@ -63,10 +63,10 @@ describe('MCP Tool Handlers', () => {
     }
   });
 
-  it('should register all 14 tools on the McpServer', () => {
+  it('should register all 16 tools on the McpServer', () => {
     const registeredTools = (server as any)._registeredTools;
     expect(registeredTools).toBeDefined();
-    expect(Object.keys(registeredTools).length).toBe(14);
+    expect(Object.keys(registeredTools).length).toBe(16);
     expect(registeredTools['analyze_screenshot']).toBeDefined();
     expect(registeredTools['recall_memory']).toBeDefined();
     expect(registeredTools['record_outcome']).toBeDefined();
