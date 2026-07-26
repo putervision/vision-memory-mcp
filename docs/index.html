@@ -1283,8 +1283,7 @@
             >
               One-line CLI:
               <code
-                >claude mcp add vision-memory-mcp -- npx -y
-                @putervision/vision-memory-mcp run</code
+                >claude mcp add vision-memory-mcp -- vision-memory-mcp run</code
               ><br />
               Desktop config: <code>claude_desktop_config.json</code>
             </p>
@@ -1304,8 +1303,8 @@
 {
   "mcpServers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      "command": "vision-memory-mcp",
+      "args": ["run"]
     }
   }
 }</pre>

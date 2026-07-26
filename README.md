@@ -223,7 +223,7 @@ TTL_DEFAULT_MS=604800000                # Eviction TTL (default: 7 days)
 Run the initialization command in your repository root to create `.vision-memory-mcp/`, `.gitignore`, `.env`, and IDE rules:
 
 ```bash
-npx -y @putervision/vision-memory-mcp init --yes
+vision-memory-mcp init --yes
 ```
 
 #### 2. Configure Your IDE / Client
@@ -238,8 +238,8 @@ npx -y @putervision/vision-memory-mcp init --yes
 {
   "mcpServers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"],
+      "command": "vision-memory-mcp",
+      "args": ["run"],
       "env": {
         "OPENAI_API_KEY": "sk-your-openai-key-optional"
       }
@@ -258,8 +258,8 @@ npx -y @putervision/vision-memory-mcp init --yes
 {
   "mcpServers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      "command": "vision-memory-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -275,8 +275,8 @@ npx -y @putervision/vision-memory-mcp init --yes
 {
   "servers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      "command": "vision-memory-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -292,8 +292,8 @@ npx -y @putervision/vision-memory-mcp init --yes
 {
   "mcpServers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      "command": "vision-memory-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -310,8 +310,8 @@ npx -y @putervision/vision-memory-mcp init --yes
   "context_servers": {
     "vision-memory-mcp": {
       "command": {
-        "path": "npx",
-        "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+        "path": "vision-memory-mcp",
+        "args": ["run"]
       }
     }
   }
@@ -332,8 +332,8 @@ npx -y @putervision/vision-memory-mcp init --yes
 {
   "mcpServers": {
     "vision-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/vision-memory-mcp", "run"]
+      "command": "vision-memory-mcp",
+      "args": ["run"]
     }
   }
 }
