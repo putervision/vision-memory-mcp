@@ -1,7 +1,7 @@
 {
   "name": "@putervision/vision-memory-mcp",
   "version": "0.4.6",
-  "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce tokens.",
+  "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
   "keywords": [
     "mcp",
     "mcp-server",
