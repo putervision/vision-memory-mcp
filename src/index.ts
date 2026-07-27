@@ -10,7 +10,7 @@ import { registerAllPrompts } from './tools/prompts.js';
 import { logger } from './logger.js';
 
 declare const __APP_VERSION__: string;
-const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.4.7';
+const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.5.0';
 
 async function main() {
   logger.info(`Starting vision-memory-mcp server v${SERVER_VERSION}...`);

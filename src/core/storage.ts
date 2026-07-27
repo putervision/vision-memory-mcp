@@ -37,6 +37,56 @@ export function escapeSql(val: string): string {
     .replace(/\0/g, '\\0');
 }
 
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 4,
+  baseDelayMs = 50
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      const isConflict =
+        errMsg.includes('Commit conflict') ||
+        errMsg.includes('concurrent commit') ||
+        errMsg.includes('write.lock');
+      if (isConflict && attempt < maxRetries) {
+        attempt++;
+        const jitter = Math.floor(Math.random() * 50);
+        const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
+        logger.debug(
+          `LanceDB write conflict detected (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+function getDirSize(dirPath: string): number {
+  let size = 0;
+  if (!fs.existsSync(dirPath)) return 0;
+  try {
+    const files = fs.readdirSync(dirPath);
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+          size += getDirSize(filePath);
+        } else {
+          size += stats.size;
+        }
+      } catch {}
+    }
+  } catch {}
+  return size;
+}
+
 export class StorageManager {
   private db: lancedb.Connection | null = null;
   private statesTable: lancedb.Table | null = null;
@@ -46,6 +96,8 @@ export class StorageManager {
     string,
     { db: lancedb.Connection; statesTable: lancedb.Table | null }
   >();
+  private compactionFailures = 0;
+  private circuitTrippedUntil = 0;
 
   async init(customDbPath?: string): Promise<void> {
     const dbPath = customDbPath ?? config.LANCEDB_PATH;
@@ -231,12 +283,43 @@ export class StorageManager {
     }
   }
 
+  async checkStorageSizeAndEvict(): Promise<void> {
+    const maxBytes = config.MAX_LANCEDB_SIZE_MB * 1024 * 1024;
+    const currentSize = getDirSize(config.LANCEDB_PATH);
+    if (currentSize <= maxBytes) return;
+
+    logger.warn(
+      `Storage size (${(currentSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_LANCEDB_SIZE_MB}MB. Triggering LRU eviction...`
+    );
+
+    const targetBytes = maxBytes * 0.8;
+    const states = await this.listStates(undefined, 10000);
+    states.sort((a, b) => a.last_accessed - b.last_accessed);
+
+    let evictedCount = 0;
+    for (const s of states) {
+      if (getDirSize(config.LANCEDB_PATH) <= targetBytes) break;
+      try {
+        await this.deleteState(s.id);
+        evictedCount++;
+      } catch (err) {
+        logger.debug(`Failed to evict state ${s.id}:`, err);
+      }
+    }
+    logger.info(`Evicted ${evictedCount} visual states to reduce LanceDB storage size.`);
+  }
+
   // --- Visual States Operations ---
 
   async addState(state: VisualState): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Inserting visual state: ${state.id}`);
-    await this.statesTable.add([state as any]);
+    await withRetry(async () => {
+      await this.statesTable!.add([state as any]);
+    });
+    this.checkStorageSizeAndEvict().catch((err) =>
+      logger.debug('Storage size check/eviction deferred error:', err)
+    );
   }
 
   async getState(id: string): Promise<VisualState | null> {
@@ -269,9 +352,11 @@ export class StorageManager {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Updating visual state: ${id}`);
     const safeId = escapeSql(id);
-    await this.statesTable.update({
-      where: `id = '${safeId}'`,
-      values: updates,
+    await withRetry(async () => {
+      await this.statesTable!.update({
+        where: `id = '${safeId}'`,
+        values: updates,
+      });
     });
   }
 
@@ -279,13 +364,15 @@ export class StorageManager {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Deleting visual state: ${id}`);
     const safeId = escapeSql(id);
-    await this.statesTable.delete(`id = '${safeId}'`);
-    if (this.transitionsTable) {
-      logger.debug(`Cascading delete: removing transitions for state ${id}`);
-      await this.transitionsTable.delete(
-        `from_state_id = '${safeId}' OR to_state_id = '${safeId}'`
-      );
-    }
+    await withRetry(async () => {
+      await this.statesTable!.delete(`id = '${safeId}'`);
+      if (this.transitionsTable) {
+        logger.debug(`Cascading delete: removing transitions for state ${id}`);
+        await this.transitionsTable.delete(
+          `from_state_id = '${safeId}' OR to_state_id = '${safeId}'`
+        );
+      }
+    });
   }
 
   async listStates(filter?: string, limit: number = 50): Promise<VisualState[]> {
@@ -410,13 +497,13 @@ export class StorageManager {
       `Upserting transition: ${transition.id} (${transition.from_state_id} -> ${transition.to_state_id})`
     );
 
-    // Set unenforced primary key if LanceDB requires (usually handled during execution of mergeInsert)
-    // We run mergeInsert on 'id' column
-    await this.transitionsTable
-      .mergeInsert('id')
-      .whenMatchedUpdateAll()
-      .whenNotMatchedInsertAll()
-      .execute([transition as any]);
+    await withRetry(async () => {
+      await this.transitionsTable!
+        .mergeInsert('id')
+        .whenMatchedUpdateAll()
+        .whenNotMatchedInsertAll()
+        .execute([transition as any]);
+    });
   }
 
   async getTransition(id: string): Promise<StateTransition | null> {
@@ -495,7 +582,9 @@ export class StorageManager {
     if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
     logger.debug(`Deleting transition: ${id}`);
     const safeId = escapeSql(id);
-    await this.transitionsTable.delete(`id = '${safeId}'`);
+    await withRetry(async () => {
+      await this.transitionsTable!.delete(`id = '${safeId}'`);
+    });
   }
 
   // --- Visual Snapshots Operations ---
@@ -503,12 +592,13 @@ export class StorageManager {
   async addSnapshot(snapshot: VisualSnapshot): Promise<void> {
     if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
     logger.debug(`Inserting snapshot: ${snapshot.name} (${snapshot.id})`);
-    await this.snapshotsTable.add([snapshot as any]);
+    await withRetry(async () => {
+      await this.snapshotsTable!.add([snapshot as any]);
+    });
   }
 
   async getSnapshot(idOrName: string): Promise<VisualSnapshot | null> {
     if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
-    // Check by ID first, then by name
     const safeIdOrName = escapeSql(idOrName);
     let results = await this.snapshotsTable
       .query()
@@ -591,7 +681,9 @@ export class StorageManager {
     if (!this.snapshotsTable) throw new Error('Snapshots table not initialized.');
     logger.debug(`Deleting snapshot: ${id}`);
     const safeId = escapeSql(id);
-    await this.snapshotsTable.delete(`id = '${safeId}'`);
+    await withRetry(async () => {
+      await this.snapshotsTable!.delete(`id = '${safeId}'`);
+    });
   }
 
   // --- Maintenance & Indexing ---
@@ -599,8 +691,6 @@ export class StorageManager {
   async createVectorIndex(): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
 
-    // In LanceDB, IVF_PQ index requires a certain amount of data to be present (typically > 1000 rows).
-    // The node-lancedb SDK allows creating indices. Let's do it safely.
     const count = (await this.statesTable.query().toArray()).length;
     if (count < 256) {
       logger.info(
@@ -624,23 +714,39 @@ export class StorageManager {
   }
 
   async optimize(): Promise<void> {
-    logger.info('Compacting LanceDB tables (running optimize)...');
+    const now = Date.now();
+    if (now < this.circuitTrippedUntil) {
+      logger.debug('Compaction skipped: circuit breaker tripped.');
+      return;
+    }
+
+    logger.info('Compacting LanceDB tables (running optimize with 30s timeout)...');
     try {
-      if (this.statesTable) {
-        await this.statesTable.optimize();
-        logger.debug('Optimized visual_states table.');
-      }
-      if (this.transitionsTable) {
-        await this.transitionsTable.optimize();
-        logger.debug('Optimized state_transitions table.');
-      }
-      if (this.snapshotsTable) {
-        await this.snapshotsTable.optimize();
-        logger.debug('Optimized visual_snapshots table.');
-      }
+      const doOptimize = async () => {
+        if (this.statesTable) await this.statesTable.optimize();
+        if (this.transitionsTable) await this.transitionsTable.optimize();
+        if (this.snapshotsTable) await this.snapshotsTable.optimize();
+      };
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Compaction timed out after 30000ms')), 30000)
+      );
+
+      await Promise.race([doOptimize(), timeoutPromise]);
+      this.compactionFailures = 0;
       logger.info('LanceDB optimization completed successfully.');
-    } catch (err) {
-      logger.error('Failed to optimize database:', err);
+    } catch (err: any) {
+      this.compactionFailures++;
+      logger.error(
+        `Failed to optimize database (failure ${this.compactionFailures}/3):`,
+        err
+      );
+      if (this.compactionFailures >= 3) {
+        this.circuitTrippedUntil = Date.now() + 15 * 60 * 1000;
+        logger.warn(
+          'Compaction circuit breaker TRIPPED for 15 minutes due to consecutive failures.'
+        );
+      }
     }
   }
 }
@@ -653,3 +759,4 @@ export function transitionKey(fromId: string, toId: string, action: string): str
     .digest('hex')
     .slice(0, 32);
 }
+

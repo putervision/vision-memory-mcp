@@ -13,6 +13,50 @@ export interface ProcessedImage {
 }
 
 /**
+ * Validates magic byte signatures for supported image formats.
+ */
+export function validateImageMagicBytes(buffer: Buffer): boolean {
+  if (!buffer || buffer.length < 4) return false;
+
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return true;
+  }
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return true;
+  }
+
+  // WebP: RIFF .... WEBP
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return true;
+  }
+
+  // GIF: GIF87a or GIF89a
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return true;
+  }
+
+  // BMP: BM (42 4D)
+  if (buffer[0] === 0x42 && buffer[1] === 0x4d) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Validates and processes an incoming base64 or buffer screenshot.
  * Normalizes it to 512-aligned dimensions and generates a 64x64 WebP thumbnail.
  */
@@ -36,8 +80,13 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
     );
   }
 
-  // 2. Load with sharp and get metadata
-  const image = sharp(buffer);
+  // 2. Validate magic bytes before feeding to sharp
+  if (!validateImageMagicBytes(buffer)) {
+    throw new Error('Unsupported or invalid image file signature (magic bytes mismatch).');
+  }
+
+  // 3. Load with sharp and enforce input pixel limit (decompression bomb protection)
+  const image = sharp(buffer, { limitInputPixels: config.LIMIT_INPUT_PIXELS });
   let metadata: sharp.Metadata;
   try {
     metadata = await image.metadata();
@@ -53,8 +102,14 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
     throw new Error('Invalid image dimensions (width or height is zero).');
   }
 
-  // 3. Compute normalized dimensions without forced upscaling
-  // For images larger than 512px, downscale preserving aspect ratio; retain small dimensions.
+  // Check total pixels against limit
+  if (originalWidth * originalHeight > config.LIMIT_INPUT_PIXELS) {
+    throw new Error(
+      `Image pixel count (${originalWidth}x${originalHeight}) exceeds maximum allowed limit (${config.LIMIT_INPUT_PIXELS}).`
+    );
+  }
+
+  // 4. Compute normalized dimensions without forced upscaling
   let width = originalWidth;
   let height = originalHeight;
 
@@ -68,20 +123,29 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
     `Normalizing image from ${originalWidth}x${originalHeight} to normalized ${width}x${height}`
   );
 
-  // 4. Resize and normalize image without upscaling stretch
-  const normalizedBuffer = await image
+  // 5. Resize and normalize image without upscaling stretch
+  let normalizedPipeline = image
     .clone()
     .resize(width, height, { fit: 'inside', withoutEnlargement: true })
-    .toFormat('webp')
-    .toBuffer();
+    .toFormat('webp');
 
-  // 5. Generate 64x64 WebP thumbnail
-  const thumbBuffer = await image
+  if (config.STRIP_EXIF) {
+    normalizedPipeline = normalizedPipeline.withMetadata({ exif: {} });
+  }
+
+  const normalizedBuffer = await normalizedPipeline.toBuffer();
+
+  // 6. Generate thumbnail
+  let thumbPipeline = image
     .clone()
     .resize(config.THUMBNAIL_SIZE, config.THUMBNAIL_SIZE, { fit: 'fill' })
-    .toFormat('webp')
-    .toBuffer();
+    .toFormat('webp');
 
+  if (config.STRIP_EXIF) {
+    thumbPipeline = thumbPipeline.withMetadata({ exif: {} });
+  }
+
+  const thumbBuffer = await thumbPipeline.toBuffer();
   const thumbnail = `data:image/webp;base64,${thumbBuffer.toString('base64')}`;
 
   return {
@@ -94,3 +158,4 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
     originalSize,
   };
 }
+

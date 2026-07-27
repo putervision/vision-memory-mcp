@@ -59,6 +59,12 @@ export function resolveProjectRoot(cwd: string = process.cwd()): string {
 export interface Config {
   LANCEDB_PATH: string;
   LANCEDB_CACHE_SIZE: number;
+  MAX_LANCEDB_SIZE_MB: number;
+  STRICT_MODE: boolean;
+  STRIP_EXIF: boolean;
+  OFFLINE_MODE: boolean;
+  CLIP_MODEL_PATH: string;
+  LIMIT_INPUT_PIXELS: number;
   HASH_EXACT_THRESHOLD: number;
   HASH_SIMILAR_THRESHOLD: number;
   CLIP_MODEL: string;
@@ -71,6 +77,11 @@ export interface Config {
   TTL_DEFAULT_MS: number;
   MAX_IMAGE_SIZE_MB: number;
   THUMBNAIL_SIZE: number;
+}
+
+function parseBool(val: string | undefined, defaultVal: boolean): boolean {
+  if (val === undefined || val === '') return defaultVal;
+  return val.toLowerCase() === 'true' || val === '1';
 }
 
 function parseNumber(
@@ -108,11 +119,10 @@ function parseConfig(env: Record<string, string | undefined>): Config {
     );
   }
 
-  const visionEnabledRaw = env.VISION_MODEL_ENABLED;
-  const visionEnabled =
-    typeof visionEnabledRaw === 'string'
-      ? visionEnabledRaw.toLowerCase() === 'true'
-      : false;
+  const visionEnabled = parseBool(env.VISION_MODEL_ENABLED, false);
+  const strictMode = parseBool(env.STRICT_MODE, false);
+  const stripExif = parseBool(env.STRIP_EXIF, true);
+  const offlineMode = parseBool(env.OFFLINE_MODE, false);
 
   return {
     LANCEDB_PATH: env.LANCEDB_PATH || '.vision-memory-mcp',
@@ -121,6 +131,22 @@ function parseConfig(env: Record<string, string | undefined>): Config {
       100,
       'LANCEDB_CACHE_SIZE',
       1
+    ),
+    MAX_LANCEDB_SIZE_MB: parseNumber(
+      env.MAX_LANCEDB_SIZE_MB,
+      1000,
+      'MAX_LANCEDB_SIZE_MB',
+      10
+    ),
+    STRICT_MODE: strictMode,
+    STRIP_EXIF: stripExif,
+    OFFLINE_MODE: offlineMode,
+    CLIP_MODEL_PATH: env.CLIP_MODEL_PATH || '',
+    LIMIT_INPUT_PIXELS: parseNumber(
+      env.LIMIT_INPUT_PIXELS,
+      16777216,
+      'LIMIT_INPUT_PIXELS',
+      1024
     ),
     HASH_EXACT_THRESHOLD: parseNumber(
       env.HASH_EXACT_THRESHOLD,
@@ -143,7 +169,7 @@ function parseConfig(env: Record<string, string | undefined>): Config {
       'EMBEDDING_DIMENSIONS',
       1
     ),
-    VISION_MODEL_ENABLED: visionEnabled,
+    VISION_MODEL_ENABLED: strictMode ? false : visionEnabled,
     VISION_MODEL_ENDPOINT:
       env.VISION_MODEL_ENDPOINT || 'http://localhost:1234/v1',
     VISION_MODEL_NAME: env.VISION_MODEL_NAME || 'gpt-4o',

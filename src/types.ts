@@ -87,3 +87,43 @@ export interface CompactRetrievalResult {
   source_url?: string;
   tags?: string[];
 }
+
+export interface MetricsStats {
+  total_queries: number;
+  l1_exact_hits: number;
+  l2_near_hits: number;
+  l3_vector_hits: number;
+  l4_llm_calls: number;
+  cache_misses: number;
+  cache_hit_ratio: number;
+  estimated_tokens_saved: number;
+  avg_similarity_score: number;
+  uptime_seconds: number;
+}
+
+export interface EvictionPolicyConfig {
+  maxSizeMb: number;
+  watermarkRatio: number;
+  strategy: 'lru' | 'importance' | 'hybrid';
+}
+
+export interface SnapshotArchive {
+  version: string;
+  exported_at: number;
+  name: string;
+  description: string;
+  git_branch: string;
+  states: VisualState[];
+  transitions: StateTransition[];
+  snapshot: VisualSnapshot;
+}
+
+export interface BenchmarkResults {
+  timestamp: string;
+  concurrency_level: number;
+  l1_latency_ms: { p50: number; p95: number; p99: number };
+  l2_latency_ms: { p50: number; p95: number; p99: number };
+  l3_latency_ms: { p50: number; p95: number; p99: number };
+  ops_per_second: number;
+}
+

@@ -24,7 +24,7 @@ describe('Error Paths & Edge Case Suite', () => {
   it('should throw Error when processImage receives corrupt or empty buffer', async () => {
     const garbageBuffer = Buffer.from('this is not a valid image payload');
     await expect(processImage(garbageBuffer)).rejects.toThrow(
-      'Invalid image format or corrupted buffer.'
+      /magic bytes mismatch/i
     );
   });
 

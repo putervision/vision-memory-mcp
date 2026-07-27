@@ -1,6 +1,6 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.4.7)
+# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.5.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 16 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 19 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 
 ---
 
@@ -108,3 +108,9 @@ This document provides formal API specifications, parameter schemas, return shap
 ```json
 { "format": "jsonl", "output_path": "./visual_trajectories.jsonl" }
 ```
+
+---
+
+## 5. Disclaimer & Performance Notice
+
+> **Disclaimer**: The software and tools described herein are provided "as is", without warranty of any kind. Token savings estimates (e.g. up to 90%), execution latency numbers (<5ms), and financial ROI metrics are benchmark estimates based on repeated UI state patterns. Actual performance and savings depend on workflow screen repetition, image resolution, model provider rates, and prompt structure.

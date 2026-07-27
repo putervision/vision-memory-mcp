@@ -5,6 +5,25 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-27
+
+### Added
+- **Storage Limits & Eviction Policy**: Configurable `MAX_LANCEDB_SIZE_MB` (default 1000MB) with automatic LRU and importance-score eviction down to 80% watermark.
+- **Image Security & Decompression Bomb Protection**: Magic byte signature verification (`PNG`, `JPEG`, `WEBP`, `GIF`, `BMP`), pixel input limit guard (`LIMIT_INPUT_PIXELS: 16777216`), and EXIF stripping option (`STRIP_EXIF: true`).
+- **Path Isolation & Strict Mode**: Strict path sanitization in `resolveImageInput` blocking system directories (`/etc`, `/proc`, `/sys`, `~/.ssh`, `.env`) and enforcing `projectRoot` boundaries when `STRICT_MODE=true`.
+- **LanceDB Transaction Retries**: Exponential backoff retry with jitter for concurrent write conflicts (`Commit conflict for version X`).
+- **Compaction Circuit Breaker**: 30s timeout on `storage.optimize()` with a circuit breaker tripping for 15 minutes after 3 consecutive failures to prevent event loop hangs.
+- **Offline CLIP Model Execution**: Support for local model weights via `CLIP_MODEL_PATH`, `OFFLINE_MODE`, model integrity verification, and graceful fallback to perceptual hash matching.
+- **Standalone Snapshot Archives**: Added `export_snapshot` and `restore_snapshot` tools to export and restore standalone `.tar.gz` snapshot archives.
+- **Real-Time Observability**: Created `MetricsCollector` in `src/core/metrics.ts` tracking query stats, hit ratios, token savings, and exposed via `get_metrics` tool.
+- **New MCP Tools**: Added 3 new tools (`get_metrics`, `export_snapshot`, `restore_snapshot`), bringing the total tool count to **19 Core MCP Tools**.
+- **Testing & Benchmarking**: Added E2E pipeline integration tests (`pipeline.test.ts`), perceptual hash stability regression tests (`phash_stability.test.ts`), fuzz testing suite (`inputs.fuzz.test.ts`), and benchmarking utility (`src/cli/benchmark.ts`).
+- **Documentation**: Created `docs/STORAGE_ENCRYPTION.md` with transparent filesystem encryption setup guides (`fscrypt`, LUKS, APFS encrypted sparse image).
+
+### Fixed & Production Polish
+- **Direct Binary Execution Pattern**: Standardized documentation, CLI help text, website guides, and manifests to use local binary execution (`vision-memory-mcp run`).
+- **Production Documentation Polish**: Hardened installation guides, API reference docs, and package manifests across codebase.
+
 ## [0.4.7] - 2026-07-26
 
 ### Fixed & Production Polish

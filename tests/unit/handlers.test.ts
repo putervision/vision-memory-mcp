@@ -63,10 +63,10 @@ describe('MCP Tool Handlers', () => {
     }
   });
 
-  it('should register all 16 tools on the McpServer', () => {
+  it('should register all 19 tools on the McpServer', () => {
     const registeredTools = (server as any)._registeredTools;
     expect(registeredTools).toBeDefined();
-    expect(Object.keys(registeredTools).length).toBe(16);
+    expect(Object.keys(registeredTools).length).toBe(19);
     expect(registeredTools['analyze_screenshot']).toBeDefined();
     expect(registeredTools['recall_memory']).toBeDefined();
     expect(registeredTools['record_outcome']).toBeDefined();
@@ -81,6 +81,11 @@ describe('MCP Tool Handlers', () => {
     expect(registeredTools['batch_analyze_screenshots']).toBeDefined();
     expect(registeredTools['set_visual_spec']).toBeDefined();
     expect(registeredTools['verify_visual_spec']).toBeDefined();
+    expect(registeredTools['get_visual_diff']).toBeDefined();
+    expect(registeredTools['export_visual_trajectories']).toBeDefined();
+    expect(registeredTools['get_metrics']).toBeDefined();
+    expect(registeredTools['export_snapshot']).toBeDefined();
+    expect(registeredTools['restore_snapshot']).toBeDefined();
   });
 
   it('should ingest a screenshot and return a visual state', async () => {
@@ -105,7 +110,7 @@ describe('MCP Tool Handlers', () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Invalid image format');
+    expect(result.content[0].text).toMatch(/invalid image/i);
   });
 
   it('should recall visual states by text query', async () => {

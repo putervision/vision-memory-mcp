@@ -5,7 +5,9 @@ import { embeddings } from './embeddings.js';
 import { memoryCache, getCurrentBranch } from './cache.js';
 import { hammingDistance } from './hash.js';
 import { processImage, ProcessedImage } from './image-pipeline.js';
+import { metricsCollector } from './metrics.js';
 import { VisualState, RetrievalStrategy, RetrievalResult } from '../types.js';
+
 
 export function compressAccessibilityTree(treeJson: string): string {
   if (!treeJson || treeJson.trim() === '' || treeJson === '{}') return '{}';
@@ -214,12 +216,14 @@ export async function retrieveState(params: {
 
           // Save back into cache to refresh TTL
           memoryCache.set(bestMatch, config.TTL_DEFAULT_MS);
+          const score = 1 - minDistance / 64;
+          metricsCollector.recordQuery(cached ? 'l1' : 'l2', score);
 
           return {
             state_id: bestMatch.id,
             is_known: true,
             match_type: 'exact_hash',
-            similarity_score: 1 - minDistance / 64,
+            similarity_score: score,
             description: bestMatch.description,
             structured_data: bestMatch.structured_data,
             accessibility_tree: bestMatch.accessibility_tree,
@@ -258,6 +262,7 @@ export async function retrieveState(params: {
 
         if (similarity >= 0.85 && !forceRefresh) {
           logger.info(`L3 Vector Hit: id=${topMatch.id}, similarity=${similarity.toFixed(4)}`);
+          metricsCollector.recordQuery('l3', similarity);
 
           // Update stats
           storage
@@ -282,6 +287,7 @@ export async function retrieveState(params: {
         }
 
         // Return new state with related candidates
+        metricsCollector.recordQuery('miss', similarity);
         return {
           state_id: '',
           is_known: false,
@@ -297,7 +303,9 @@ export async function retrieveState(params: {
   // L4: Fallback to Vision LLM if enabled (will be implemented in analyzer.ts)
   if (config.VISION_MODEL_ENABLED && strategy === 'thorough') {
     logger.info('L4 Vision LLM fallback analysis triggered...');
-    // This will be called from analyze_screenshot tool, but we register that it missed L1-L3
+    metricsCollector.recordQuery('l4', 0.0);
+  } else {
+    metricsCollector.recordQuery('miss', 0.0);
   }
 
   return {
@@ -308,3 +316,4 @@ export async function retrieveState(params: {
     description: '',
   };
 }
+

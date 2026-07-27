@@ -33,7 +33,7 @@
       "operatingSystem": "Cross-platform (Node.js)",
       "applicationCategory": "DeveloperApplication",
       "description": "Persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches screenshots locally to optimize context windows and reduce vision token costs by up to 90%.",
-      "softwareVersion": "0.4.4",
+      "softwareVersion": "0.5.0",
       "author": {
         "@type": "Organization",
         "name": "PuterVision LLC",
@@ -110,7 +110,7 @@
         "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
         "applicationCategory": "DeveloperApplication",
         "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce LLM tokens.",
-        "softwareVersion": "0.4.3",
+        "softwareVersion": "0.5.0",
         "url": "https://visionmemorymcp.com/",
         "license": "https://opensource.org/licenses/MIT",
         "offers": {
@@ -189,7 +189,7 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.4.4 • 16 Core MCP Tools</span>
+        <span class="badge">Production Ready v0.5.0 • 19 Core MCP Tools</span>
         <h1><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="hero-title-icon"><span class="hero-title-text">Visual Memory MCP</span></h1>
         <p>
           A persistent visual cache and perceptual hashing server for developer
@@ -724,19 +724,19 @@
               color: var(--text-secondary);
             "
           >
-            Equipped with complete spec features including annotations, resources, and all 16 core tools.
+            Equipped with complete spec features including annotations, resources, and all 19 core tools.
           </p>
           <div style="margin-top: 1rem;">
-            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 16 MCP Tools</span></button>
+            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 19 MCP Tools</span></button>
           </div>
         </div>
 
-        <!-- Expandable Full 16 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+        <!-- Expandable Full 19 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
         <div id="full-tools-panel" class="full-tools-panel hidden">
           <div class="desc-scan-beam"></div>
           <div class="desc-content-inner">
             <div class="desc-header">
-              <span class="desc-badge">FULL 16 MCP TOOL SUITE</span>
+              <span class="desc-badge">FULL 19 MCP TOOL SUITE</span>
               <h3>Complete Tool Definitions & Function Signatures</h3>
             </div>
 
@@ -795,9 +795,9 @@
               <div class="desc-box">
                 <h4>📸 Checkpoints & Fine-Tuning (8 Tools)</h4>
                 <p>
-                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>export_visual_trajectories</code>.
+                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>export_visual_trajectories</code>, <code>get_metrics</code>, <code>export_snapshot</code>, <code>restore_snapshot</code>.
                   <br><br>
-                  <strong>How to Leverage:</strong> Call <code>export_visual_trajectories</code> to export UI interaction paths in JSONL format to fine-tune local 3B–8B vision models, compiling screen workflow logic into weights for 100× lower cost.
+                  <strong>How to Leverage:</strong> Call <code>export_snapshot</code> / <code>restore_snapshot</code> for standalone backups, query real-time performance via <code>get_metrics</code>, or call <code>export_visual_trajectories</code> to export UI interaction paths in JSONL format to fine-tune local models.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
@@ -883,7 +883,7 @@
               📘 Formal API Reference
             </h3>
             <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-              Complete OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 16 vision-memory-mcp tools.
+              Complete OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 19 vision-memory-mcp tools.
             </p>
             <a href="api-reference.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Formal API Reference &rarr;</a>
           </div>
@@ -1067,7 +1067,7 @@
         </div>
 
         <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; line-height: 1.5;">
-          * <strong>Disclaimer:</strong> ROI calculations are illustrative estimates based on selected visual LLM token rates and average perceptual cache-hit ratios. Actual token savings and execution time drops depend on image resolution, screenshot frequency, and model provider rates.
+          * <strong>Disclaimer & Cost Risk Notice:</strong> All ROI calculations, token savings estimates (e.g. up to 90%), and latency metrics are illustrative benchmark estimates based on selected visual LLM token rates ($3.00/M tokens for Claude 3.5 Sonnet) and average perceptual cache-hit ratios. Actual token savings, execution speedups, and financial drops vary depending on workflow screen repetition, image resolution, model provider pricing, and prompt structure. PuterVision LLC does not guarantee specific monetary savings or API throughput performance.
         </p>
       </section>
 
@@ -1476,12 +1476,11 @@ This project uses vision-memory-mcp to cache visual UI states.
           opacity: 0.85;
         "
       >
-        <strong>Disclaimer:</strong> This software is provided "as is", without
-        warranty of any kind, express or implied. Under no circumstances shall
-        the authors or contributors be liable for any database corruption, Git
-        history modification, data loss, or other issues resulting from
-        execution. Always backup your database files before performing
-        destructive operations.
+        <strong>Legal & Liability Disclaimers:</strong> This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall PuterVision LLC or the software authors be liable for database corruption, data loss, or issues resulting from execution.
+        <br><br>
+        <strong>Sensitive Data Notice:</strong> Visual states are cached locally unencrypted at the application level. Users are responsible for ensuring captured screens do not contain credentials, passwords, API keys, or regulated PII. PuterVision LLC is not liable for third-party API costs incurred via user-configured fallback endpoints.
+        <br><br>
+        <strong>Trademarks:</strong> All product names, trademarks, and registered trademarks (e.g. Cursor, Claude, OpenAI, Playwright, LanceDB) belong to their respective owners and are used strictly for identification purposes.
       </p>
     </footer>
 
@@ -1623,7 +1622,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           } else {
             fullToolsPanel.classList.remove('phase-in-anim');
             fullToolsPanel.classList.add('hidden');
-            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 16 MCP Tools';
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 19 MCP Tools';
             toggleToolsBtn.classList.remove('active');
           }
         });

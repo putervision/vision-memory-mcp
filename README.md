@@ -133,7 +133,7 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (16 Available)
+## 🔌 MCP Tools (19 Available)
 
 | Tool                        | Purpose                                                           | Key Inputs                                                                  |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -153,6 +153,9 @@ Ensure you allow:
 | `verify_visual_spec`        | Verify runtime screenshot against a Visual Spec baseline contract | `spec_name` (req), `screenshot` (opt), `file_path` (opt), `tolerance` (opt)  |
 | `get_visual_diff`           | Calculate perceptual dHash diff and layout region deltas          | `state_id_a` (req), `state_id_b` (req)                                      |
 | `export_visual_trajectories`| Export multimodal trajectories for local model fine-tuning        | `git_branch` (opt), `limit` (opt)                                           |
+| `get_metrics`               | Query real-time cache hit ratios, token savings & latency stats   | None                                                                        |
+| `export_snapshot`           | Export standalone `.tar.gz` snapshot archive JSON payload         | `name` (req)                                                                |
+| `restore_snapshot`          | Restore visual memory database from snapshot archive              | `archive_json` (req)                                                        |
 
 ---
 
@@ -192,6 +195,12 @@ Set these environment variables in your `.env` file:
 ```bash
 LANCEDB_PATH=.vision-memory-mcp        # Storage path for LanceDB
 LANCEDB_CACHE_SIZE=100                  # Maximum hot items in LRU Cache
+MAX_LANCEDB_SIZE_MB=1000                # Eviction threshold (MB)
+STRICT_MODE=false                       # Refuse external L4 calls & enforce projectRoot paths
+STRIP_EXIF=true                         # Strip EXIF metadata from stored screenshots
+OFFLINE_MODE=false                      # Restrict CLIP loading to local files only
+CLIP_MODEL_PATH=                        # Optional local path to pre-downloaded CLIP model
+LIMIT_INPUT_PIXELS=16777216             # Sharp decompression bomb pixel limit
 HASH_EXACT_THRESHOLD=5                  # Hamming distance <= this = exact hit
 HASH_SIMILAR_THRESHOLD=10               # Hamming distance <= this = similar hit
 CLIP_MODEL=Xenova/clip-vit-base-patch32 # Embedding model name
@@ -374,4 +383,12 @@ Contributions are welcome! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) gu
 
 © 2026 [PuterVision LLC](https://putervision.com). Released under the [MIT License](LICENSE).
 
-> **Disclaimer**: This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git history modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.
+> **Software & Data Loss Disclaimer**: This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors, copyright holders, or PuterVision LLC be liable for any database corruption, data loss, filesystem modifications, or issues resulting from execution. Always back up your database files before performing destructive operations.
+>
+> **Sensitive Data & Privacy Notice**: Screenshots are stored locally in `.vision-memory-mcp/` unencrypted at the application level. Users are solely responsible for ensuring captured screens do not expose confidential credentials, API keys, passwords, PII, or regulated data (e.g., HIPAA, PCI-DSS).
+>
+> **Third-Party API Fees Notice**: PuterVision LLC and the software authors assume no liability for third-party API costs, token fees, billing overages, or rate limits incurred via optional L4 vision fallback endpoints configured by the user.
+>
+> **Performance & Cost Estimates Notice**: Any token savings estimates (e.g. "up to 90%"), execution latency figures, or ROI calculations stated in this documentation are benchmark estimates based on typical UI automation workloads with repeated visual states. Actual token savings, execution speedups, and financial cost drops depend on workflow layout repetition, image resolution, model provider rates, and prompt structure. PuterVision LLC does not guarantee specific monetary savings or API throughput.
+>
+> **Trademark Notice**: All product names, trademarks, and registered trademarks (such as Cursor, Claude, OpenAI, Playwright, Zed, Windsurf, Roo Code, LanceDB) mentioned herein belong to their respective owners and are used solely for identification purposes. Use of these names does not imply affiliation or endorsement.

@@ -8,6 +8,7 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
+| v0.5.x  | :white_check_mark: |
 | v0.4.x  | :white_check_mark: |
 | < 0.4.0 | :x:                |
 
@@ -24,3 +25,16 @@ If you discover a security vulnerability in `vision-memory-mcp` (e.g., path trav
 ### Our Commitment
 - We will acknowledge receipt of your vulnerability report within **48 hours**.
 - We will coordinate a security patch release before public disclosure.
+
+---
+
+## Sensitive Data, Privacy & Liability Disclaimers
+
+### 1. Sensitive Information & Credential Responsibility
+`vision-memory-mcp` captures and caches visual state screenshots locally in `.vision-memory-mcp/`. Users and organization administrators are solely responsible for ensuring that captured screenshots do not contain confidential information, credentials, API keys, passwords, Personally Identifiable Information (PII), or regulated data (such as HIPAA or PCI-DSS protected information). PuterVision LLC and the software authors assume no liability for sensitive data stored or exposed within local visual cache directories.
+
+### 2. Filesystem Security & Encryption
+By default, visual cache data is stored unencrypted at the application layer on the local filesystem. For sensitive development environments, users are strongly advised to enable OS-level filesystem encryption (such as Linux `fscrypt`/LUKS, macOS APFS Encrypted Sparse Images, or Windows BitLocker) as documented in `docs/STORAGE_ENCRYPTION.md`.
+
+### 3. Third-Party API Costs & Financial Liability
+If Optional L4 LLM Vision Fallback is enabled (`VISION_MODEL_ENABLED=true`), external API requests may be transmitted to third-party providers (e.g. OpenAI, Anthropic, OpenRouter). PuterVision LLC and the software authors are not responsible for any API usage fees, billing overages, rate limits, or financial liabilities resulting from execution or automated agent loops.

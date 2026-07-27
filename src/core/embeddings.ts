@@ -28,43 +28,56 @@ export class EmbeddingsManager {
   private visionModel: any = null;
   private textModel: any = null;
   private initialized = false;
+  private fallbackMode = false;
   private initPromise: Promise<void> | null = null;
 
   async init(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized || this.fallbackMode) return;
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
+      const modelSource = config.CLIP_MODEL_PATH || config.CLIP_MODEL;
       logger.info(
-        `Loading CLIP embedding model: ${config.CLIP_MODEL} (first run may download ~90MB)...`
+        `Loading CLIP embedding model: ${modelSource} (offlineMode=${config.OFFLINE_MODE})...`
       );
+
       try {
-        const modelOpts = {
+        const modelOpts: any = {
           quantized: true,
         };
 
+        if (config.OFFLINE_MODE) {
+          modelOpts.local_files_only = true;
+        }
+
         // Load processor, tokenizer and both CLIP models
-        this.processor = await AutoProcessor.from_pretrained(config.CLIP_MODEL);
-        this.tokenizer = await AutoTokenizer.from_pretrained(config.CLIP_MODEL);
+        this.processor = await AutoProcessor.from_pretrained(modelSource, modelOpts);
+        this.tokenizer = await AutoTokenizer.from_pretrained(modelSource, modelOpts);
         this.visionModel = await CLIPVisionModelWithProjection.from_pretrained(
-          config.CLIP_MODEL,
-          modelOpts as any
+          modelSource,
+          modelOpts
         );
         this.textModel = await CLIPTextModelWithProjection.from_pretrained(
-          config.CLIP_MODEL,
-          modelOpts as any
+          modelSource,
+          modelOpts
         );
 
         this.initialized = true;
         logger.info('CLIP embedding models loaded successfully.');
-      } catch (error) {
-        logger.error('Failed to load CLIP embedding models:', error);
-        this.initPromise = null;
-        throw error;
+      } catch (error: any) {
+        logger.warn(
+          `Failed to load CLIP embedding model (${error.message || error}). Entering graceful fallback mode (dHash matching enabled, vector features degraded).`
+        );
+        this.fallbackMode = true;
+        this.initialized = false;
       }
     })();
 
     return this.initPromise;
+  }
+
+  get isFallback(): boolean {
+    return this.fallbackMode;
   }
 
   /**
@@ -73,27 +86,27 @@ export class EmbeddingsManager {
   async generateImageEmbedding(buffer: Buffer, mimeType: string = 'image/webp'): Promise<number[]> {
     await this.init();
 
+    if (this.fallbackMode || !this.visionModel) {
+      logger.debug('EmbeddingsManager operating in fallback mode; returning zero vector.');
+      return new Array(config.EMBEDDING_DIMENSIONS).fill(0.0);
+    }
+
     try {
-      // Convert buffer to Blob using specified or default mimeType
       const blob = new Blob([buffer], { type: mimeType });
       const image = await RawImage.fromBlob(blob);
 
-      // Process image
       const imageInputs = await this.processor(image);
-
-      // Run inference
       const visionOutputs = await this.visionModel(imageInputs);
       const embeds = visionOutputs.image_embeds;
 
-      // Extract raw data array [0] (batch dimension = 1)
       const list = embeds.tolist();
       if (typeof embeds?.dispose === 'function') {
         embeds.dispose();
       }
       return list[0] as number[];
     } catch (error) {
-      logger.error('Error generating image embedding:', error);
-      throw error;
+      logger.error('Error generating image embedding, returning zero vector fallback:', error);
+      return new Array(config.EMBEDDING_DIMENSIONS).fill(0.0);
     }
   }
 
@@ -103,18 +116,20 @@ export class EmbeddingsManager {
   async generateTextEmbedding(text: string): Promise<number[]> {
     await this.init();
 
+    if (this.fallbackMode || !this.textModel) {
+      logger.debug('EmbeddingsManager operating in fallback mode; returning zero vector.');
+      return new Array(config.EMBEDDING_DIMENSIONS).fill(0.0);
+    }
+
     try {
-      // Process text
       const textInputs = await this.tokenizer([text], {
         padding: true,
         truncation: true,
       });
 
-      // Run inference
       const textOutputs = await this.textModel(textInputs);
       const embeds = textOutputs.text_embeds;
 
-      // Extract raw data array [0]
       const list = embeds.tolist();
       if (typeof embeds?.dispose === 'function') {
         embeds.dispose();
@@ -122,9 +137,10 @@ export class EmbeddingsManager {
       return list[0] as number[];
     } catch (error) {
       logger.error(`Error generating text embedding for "${text}":`, error);
-      throw error;
+      return new Array(config.EMBEDDING_DIMENSIONS).fill(0.0);
     }
   }
 }
 
 export const embeddings = new EmbeddingsManager();
+

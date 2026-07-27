@@ -154,3 +154,82 @@ export async function diffSnapshots(nameA: string, nameB: string): Promise<Snaps
     modified_states: modified,
   };
 }
+
+/**
+ * Export a visual snapshot as a full standalone archive payload.
+ */
+export async function exportSnapshot(idOrName: string): Promise<import('../types.js').SnapshotArchive> {
+  const snap = await storage.getSnapshotAll(idOrName);
+  if (!snap) {
+    throw new Error(`Snapshot "${idOrName}" not found.`);
+  }
+
+  const stateIds: string[] = JSON.parse(snap.state_ids);
+  const states: VisualState[] = [];
+  for (const id of stateIds) {
+    const s = await storage.getStateAll(id);
+    if (s) states.push(s);
+  }
+
+  const branch = snap.git_branch || getCurrentBranch();
+  const transitions = await storage.listTransitionsAll(
+    `git_branch = '${escapeSql(branch)}'`,
+    10000
+  );
+
+  return {
+    version: '0.5.0',
+    exported_at: Date.now(),
+    name: snap.name,
+    description: snap.description,
+    git_branch: snap.git_branch,
+    snapshot: snap,
+    states,
+    transitions,
+  };
+}
+
+/**
+ * Restore a visual snapshot archive into the current visual memory database.
+ */
+export async function restoreSnapshot(archive: import('../types.js').SnapshotArchive): Promise<{
+  restored_states: number;
+  restored_transitions: number;
+  snapshot_name: string;
+}> {
+  if (!archive || !archive.snapshot || !Array.isArray(archive.states)) {
+    throw new Error('Invalid snapshot archive structure.');
+  }
+
+  let statesRestored = 0;
+  for (const state of archive.states) {
+    const existing = await storage.getState(state.id);
+    if (!existing) {
+      await storage.addState(state);
+      statesRestored++;
+    }
+  }
+
+  let transitionsRestored = 0;
+  if (Array.isArray(archive.transitions)) {
+    for (const trans of archive.transitions) {
+      const existing = await storage.getTransition(trans.id);
+      if (!existing) {
+        await storage.addTransition(trans);
+        transitionsRestored++;
+      }
+    }
+  }
+
+  const existingSnap = await storage.getSnapshot(archive.snapshot.name);
+  if (!existingSnap) {
+    await storage.addSnapshot(archive.snapshot);
+  }
+
+  return {
+    restored_states: statesRestored,
+    restored_transitions: transitionsRestored,
+    snapshot_name: archive.snapshot.name,
+  };
+}
+

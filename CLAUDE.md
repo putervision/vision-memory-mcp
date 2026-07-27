@@ -12,7 +12,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
 
-### 2. Tool Reference Summary
+### 2. Tool Reference Summary (19 Core MCP Tools)
 
 - `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description.
 - `recall_memory`: Search visual memory by description query or base64 image query.
@@ -22,6 +22,13 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `get_session_context`: Fetch recent states, frequent states, and transitions.
 - `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 - `undo_last_visual_mutation`: Revert the last visual mutation.
+- `create_visual_blocker`: Generate structured visual blocker payload for `state-memory-mcp`.
+- `predict_next_action`: Predict best next UI action based on transition success rates.
+- `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
+- `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
+- `export_visual_trajectories`: Export multimodal transition trajectories for fine-tuning.
+- `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
+- `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
 - `vision-memory-mcp doctor [--json]`: Run health checks for storage writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
 - `vision-memory-mcp audit [--json]`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
 

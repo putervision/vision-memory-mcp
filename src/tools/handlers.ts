@@ -3,7 +3,7 @@ import path from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { config } from '../config.js';
+import { config, resolveProjectRoot } from '../config.js';
 import { storage, escapeSql } from '../core/storage.js';
 import { getCurrentBranch, memoryCache } from '../core/cache.js';
 import { processImage } from '../core/image-pipeline.js';
@@ -11,9 +11,10 @@ import { calculateDHash, calculateAHash, hammingDistance } from '../core/hash.js
 import { embeddings, cosineSimilarity } from '../core/embeddings.js';
 import { retrieveState, compressAccessibilityTree } from '../core/retrieval.js';
 import { recordTransition, findNavigationPaths } from '../core/graph.js';
-import { saveSnapshot, diffSnapshots } from '../core/snapshots.js';
+import { saveSnapshot, diffSnapshots, exportSnapshot, restoreSnapshot } from '../core/snapshots.js';
 import { setVisualSpec, verifyVisualSpec } from '../core/visual-spec.js';
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
+import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
 import { VisualState, ResponseFormat } from '../types.js';
 
@@ -39,10 +40,36 @@ function getDirSize(dirPath: string): number {
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
   if (filePath) {
-    if (!fs.existsSync(filePath)) {
+    const resolvedPath = path.resolve(filePath);
+    const normalized = resolvedPath.toLowerCase();
+
+    // Check system forbidden paths
+    const forbidden = ['/etc', '/proc', '/sys', '/dev', '.ssh', '.aws', '.env'];
+    for (const f of forbidden) {
+      if (normalized.startsWith(f) || normalized.includes(`/${f}/`) || normalized.endsWith(`/${f}`)) {
+        throw new Error(`Access to sensitive file or path is restricted: ${filePath}`);
+      }
+    }
+
+    // Strict mode check: must be inside project root
+    if (config.STRICT_MODE) {
+      const root = resolveProjectRoot();
+      if (!resolvedPath.startsWith(root)) {
+        throw new Error(`STRICT_MODE enabled: file_path must be within project root (${root}).`);
+      }
+    }
+
+    // Check file extension
+    const ext = path.extname(filePath).toLowerCase();
+    const validExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'];
+    if (!validExts.includes(ext)) {
+      throw new Error(`Unsupported file extension "${ext}". Allowed: ${validExts.join(', ')}`);
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
       throw new Error(`Specified image file does not exist: ${filePath}`);
     }
-    const buf = fs.readFileSync(filePath);
+    const buf = fs.readFileSync(resolvedPath);
     return buf.toString('base64');
   }
   if (screenshot && screenshot.trim().length > 0) {
@@ -1305,4 +1332,96 @@ export function registerAllTools(server: McpServer): void {
       }
     }
   );
+
+  // 17. Tool: get_metrics
+  server.registerTool(
+    'get_metrics',
+    {
+      title: 'Get Cache & Query Metrics',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Query cache-hit ratio, average visual similarity scores, and token-savings estimates.',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      try {
+        const stats = metricsCollector.getStats();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to get metrics: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 18. Tool: export_snapshot
+  server.registerTool(
+    'export_snapshot',
+    {
+      title: 'Export Snapshot Archive',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Export a named visual snapshot as a full standalone JSON archive containing states, transitions, and metadata.',
+      inputSchema: z.object({
+        name: z.string().describe('Name or ID of visual snapshot checkpoint to export'),
+      }),
+    },
+    async (params) => {
+      try {
+        const archive = await exportSnapshot(params.name);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(archive, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to export snapshot: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 19. Tool: restore_snapshot
+  server.registerTool(
+    'restore_snapshot',
+    {
+      title: 'Restore Snapshot Archive',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+      description: 'Restore a visual memory snapshot from an exported archive JSON object.',
+      inputSchema: z.object({
+        archive_json: z.string().describe('JSON string of exported SnapshotArchive'),
+      }),
+    },
+    async (params) => {
+      try {
+        const archive = JSON.parse(params.archive_json);
+        const result = await restoreSnapshot(archive);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to restore snapshot: ${error.message}` }],
+        };
+      }
+    }
+  );
 }
+
