@@ -12,7 +12,7 @@ describe('Graph Navigation and Transitions', () => {
   beforeAll(async () => {
     // Clean up if exists
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
 
     await storage.init(TEST_DB_PATH);
@@ -100,7 +100,7 @@ describe('Graph Navigation and Transitions', () => {
   afterAll(async () => {
     // Cleanup test database
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

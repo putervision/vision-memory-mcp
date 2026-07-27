@@ -11,7 +11,7 @@ const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-snapshots-db');
 describe('Snapshots Checkpointing and Diffing', () => {
   beforeAll(async () => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
 
     await storage.init(TEST_DB_PATH);
@@ -25,7 +25,7 @@ describe('Snapshots Checkpointing and Diffing', () => {
 
   afterAll(async () => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

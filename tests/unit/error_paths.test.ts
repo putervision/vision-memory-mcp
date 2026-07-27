@@ -11,13 +11,13 @@ const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-errors-db');
 describe('Error Paths & Edge Case Suite', () => {
   beforeAll(() => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
   afterAll(() => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

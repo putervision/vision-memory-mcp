@@ -17,7 +17,7 @@ describe('Tiered Retrieval Engine', () => {
 
   beforeAll(async () => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
 
     await storage.init(TEST_DB_PATH);
@@ -71,7 +71,7 @@ describe('Tiered Retrieval Engine', () => {
 
   afterAll(async () => {
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true });
+      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 

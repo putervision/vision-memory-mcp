@@ -178,7 +178,7 @@ export async function exportSnapshot(idOrName: string): Promise<import('../types
   );
 
   return {
-    version: '0.5.0',
+    version: '0.5.1',
     exported_at: Date.now(),
     name: snap.name,
     description: snap.description,

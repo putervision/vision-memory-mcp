@@ -5,6 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-27
+
+### Changed
+- **Model Context Protocol Registry Specification Compliance**: Created and validated `server.json` manifest conforming to the official `2025-12-11` MCP Server Registry specification.
+- **Server Manifest Description Refactoring**: Optimized `server.json` description string to 93 characters (< 100 character registry limit).
+- **Version Bump**: Synchronized patch version `0.5.1` across `package.json`, `package-lock.json`, `server.json`, `src/index.ts`, `src/cli.ts`, `src/core/snapshots.ts`, documentation, and HTML assets.
+
 ## [0.5.0] - 2026-07-27
 
 ### Added
