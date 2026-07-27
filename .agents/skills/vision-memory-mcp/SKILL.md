@@ -17,7 +17,7 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 6. **Log Transitions**: Right after taking any UI action (click, type, navigate, scroll), call `record_outcome` to build the navigation graph.
 7. **Snapshotting**: Call `save_visual_snapshot` when reaching milestones, and `diff_visual_snapshots` to check for visual regressions.
 
-### 2. Complete Tool Reference (19 Core MCP Tools)
+### 2. Complete Tool Reference
 
 | Tool Name | Key Inputs | Description |
 |-----------|------------|-------------|
@@ -30,17 +30,6 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 | `save_visual_snapshot` | `name`, `description`? | Save current visual memory states as a named checkpoint. |
 | `diff_visual_snapshots` | `snapshot_a_name`, `snapshot_b_name` | Compare two checkpoints to detect additions or visual regressions. |
 | `undo_last_visual_mutation` | `type`? ('state' \| 'transition' \| 'any') | Revert the last state ingestion or transition edge addition. |
-| `create_visual_blocker` | `visual_state_id`, `description` | Generate structured visual blocker payload for state-memory-mcp. |
-| `predict_next_action` | `current_state_id`, `goal_description`? | Predict best next UI action based on transition success rates. |
-| `batch_analyze_screenshots` | `items` | Process multiple screenshots in a single batch call. |
-| `set_visual_spec` | `name`, `screenshot`? | Set a mockup design as a Visual Spec baseline. |
-| `verify_visual_spec` | `spec_name`, `screenshot`? | Verify live UI screenshot against Visual Spec baseline. |
-| `get_visual_diff` | `state_id_a`, `state_id_b` | Calculate perceptual dHash diff and layout delta ratio. |
-| `export_visual_trajectories` | `git_branch`? | Export multimodal transition trajectories for fine-tuning. |
-| `get_metrics` | None | Query cache-hit ratio, token-savings, and latency stats. |
-| `export_snapshot` | `name` | Export standalone `.tar.gz` snapshot archive JSON. |
-| `restore_snapshot` | `archive_json` | Restore visual memory database from snapshot archive. |
-
 
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:
