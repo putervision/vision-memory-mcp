@@ -1,4 +1,4 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.6.1)
+# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.6.2)
 
 This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 20 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 

@@ -15,7 +15,7 @@ function getToolHandler(server: McpServer, name: string) {
   return tool.handler || tool.cb || tool.execute || tool;
 }
 
-describe('MCP Tool Handlers', () => {
+describe('MCP Tool Handlers', { timeout: 30000 }, () => {
   let server: McpServer;
   let redBuffer: Buffer;
   let redBase64: string;

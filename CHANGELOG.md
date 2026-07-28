@@ -5,6 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-07-28
+
+### Fixes & Stability
+- **Home Directory Root Resolution Guard**: Hardened `resolveProjectRoot()` to ensure `.git` directory search excludes `os.homedir()`, preventing accidental home directory hijacking when walking parent directories.
+- **In-Place Instruction Upgrades (`upsertInstructionBlock`)**: Added `upsertInstructionBlock()` to `src/cli/init.ts` to parse and update marked instruction blocks (`<!-- vision-memory-mcp:start -->` ... `<!-- vision-memory-mcp:end -->`) in-place when re-running `init` in existing projects.
+- **CLI `doctor` Command Gitignore Path Fix**: Updated `src/cli/commands/doctor.ts` to resolve `.gitignore` against `resolveProjectRoot()` rather than `process.cwd()`.
+
 ## [0.6.1] - 2026-07-28
 
 ### Dual MCP Synergy & Governance Layer

@@ -38,7 +38,7 @@ export function resolveProjectRoot(cwd: string = process.cwd()): string {
   let current = path.resolve(cwd);
   while (true) {
     const isHome = current === os.homedir();
-    const hasGit = fs.existsSync(path.join(current, '.git'));
+    const hasGit = !isHome && fs.existsSync(path.join(current, '.git'));
     const hasVisionMemory =
       !isHome &&
       (fs.existsSync(path.join(current, '.vision-memory')) ||

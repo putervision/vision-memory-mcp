@@ -104,10 +104,35 @@ function mergeMcpConfig(
       fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
       console.log(`      ✅ ${label} (${relativePath}) — created (replaced invalid JSON)`);
     }
-  } else {
-    fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
-    console.log(`      ✅ ${label} (${relativePath}) — created`);
   }
+}
+
+function upsertInstructionBlock(
+  content: string,
+  newBlock: string,
+  startMarker: string = '<!-- vision-memory-mcp:start -->',
+  endMarker: string = '<!-- vision-memory-mcp:end -->'
+): { updatedContent: string; status: 'updated' | 'appended' | 'unchanged' } {
+  const startIndex = content.indexOf(startMarker);
+  const endIndex = content.indexOf(endMarker);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = content.substring(0, startIndex);
+    const after = content.substring(endIndex + endMarker.length);
+    const existingBlock = content.substring(startIndex, endIndex + endMarker.length);
+    if (existingBlock.trim() === newBlock.trim()) {
+      return { updatedContent: content, status: 'unchanged' };
+    }
+    const updatedContent = `${before}${newBlock.trim()}${after}`;
+    return { updatedContent, status: 'updated' };
+  }
+
+  if (content.includes('vision-memory-mcp')) {
+    return { updatedContent: content, status: 'unchanged' };
+  }
+
+  const separator = content.endsWith('\n') ? '\n' : '\n\n';
+  return { updatedContent: `${content}${separator}${newBlock.trim()}\n`, status: 'appended' };
 }
 
 export async function runInit(args: string[] = []) {
@@ -204,18 +229,29 @@ THUMBNAIL_SIZE=64
 
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
-      if (content.includes('## Visual Memory (vision-memory-mcp)')) {
-        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
-        continue;
-      }
 
       if (target.standalone) {
+        if (content.trim() === instructionsText.trim()) {
+          console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+        } else {
+          fs.writeFileSync(filePath, instructionsText, 'utf-8');
+          console.log(`      ✅ ${target.label} (${target.path}) — updated instructions`);
+        }
         continue;
       }
 
-      const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(filePath, `${separator}${instructionsText}`, 'utf-8');
-      console.log(`      ✅ ${target.label} (${target.path}) — appended instructions`);
+      const { updatedContent, status } = upsertInstructionBlock(
+        content,
+        instructionsText,
+        '<!-- vision-memory-mcp:start -->',
+        '<!-- vision-memory-mcp:end -->'
+      );
+      if (status === 'unchanged') {
+        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+      } else {
+        fs.writeFileSync(filePath, updatedContent, 'utf-8');
+        console.log(`      ✅ ${target.label} (${target.path}) — ${status} instructions`);
+      }
     } else {
       fs.writeFileSync(filePath, instructionsText, 'utf-8');
       console.log(`      ✅ ${target.label} (${target.path}) — created`);

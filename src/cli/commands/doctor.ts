@@ -94,7 +94,8 @@ export async function runDoctor(args: string[] = []): Promise<void> {
   reportCheck('Git Repository Integration', gitOk, gitDetails);
 
   // 5. Gitignore Safety Check
-  const gitignorePath = path.resolve(process.cwd(), '.gitignore');
+  const { resolveProjectRoot } = await import('../../config.js');
+  const gitignorePath = path.resolve(resolveProjectRoot(), '.gitignore');
   let gitignoreIgnored = false;
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf8');
