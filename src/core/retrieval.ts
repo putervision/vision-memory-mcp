@@ -6,8 +6,9 @@ import { memoryCache, getCurrentBranch } from './cache.js';
 import { hammingDistance } from './hash.js';
 import { processImage, ProcessedImage } from './image-pipeline.js';
 import { metricsCollector } from './metrics.js';
+import { parseAXTreeToGroundedElements } from './grounding.js';
+import { computeTextJaccardSimilarity } from './ocr.js';
 import { VisualState, RetrievalStrategy, RetrievalResult } from '../types.js';
-
 
 export function compressAccessibilityTree(treeJson: string): string {
   if (!treeJson || treeJson.trim() === '' || treeJson === '{}') return '{}';
@@ -227,6 +228,8 @@ export async function retrieveState(params: {
             description: bestMatch.description,
             structured_data: bestMatch.structured_data,
             accessibility_tree: bestMatch.accessibility_tree,
+            grounded_elements: parseAXTreeToGroundedElements(bestMatch.accessibility_tree),
+            ocr_text: bestMatch.ocr_text,
             tags: JSON.parse(bestMatch.tags || '[]'),
             source_url: bestMatch.source_url,
           };
@@ -316,4 +319,3 @@ export async function retrieveState(params: {
     description: '',
   };
 }
-

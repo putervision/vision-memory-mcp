@@ -23,9 +23,7 @@ describe('Error Paths & Edge Case Suite', () => {
 
   it('should throw Error when processImage receives corrupt or empty buffer', async () => {
     const garbageBuffer = Buffer.from('this is not a valid image payload');
-    await expect(processImage(garbageBuffer)).rejects.toThrow(
-      /magic bytes mismatch/i
-    );
+    await expect(processImage(garbageBuffer)).rejects.toThrow(/magic bytes mismatch/i);
   });
 
   it('should handle special character SQL injection in escapeSql safely', () => {

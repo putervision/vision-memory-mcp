@@ -5,6 +5,14 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-28
+
+### Dual MCP Synergy & Governance Layer
+- **Visual Blocker Expansion**: Expanded `create_visual_blocker` tool to output explicit `link_visual_state` call instructions for establishing `blocked_by_visual_state` graph relationships in `state-memory-mcp`.
+- **Joint Trajectory Exporter**: Implemented `export_joint_trajectories` tool and CLI exporter interleaving visual observation transitions with workflow events correlated by trace ID.
+- **Privacy & Governance Layer**: Integrated sensitive data redaction helper (`src/utils/redact.ts`) masking API keys, JWT tokens, passwords, bearer headers, email addresses, and credit cards in visual descriptions, OCR text, and accessibility trees.
+- **Coordinated CLI Initialization**: Updated CLI initializer (`npx vision-memory-mcp init`) to support dual-memory scaffolding (`--with-state`) configuring both servers in `.vscode/mcp.json` and `.agents/AGENTS.md`.
+
 ## [0.5.1] - 2026-07-27
 
 ### Changed

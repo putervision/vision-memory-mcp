@@ -7,14 +7,15 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 1. **Orient**: Call `get_session_context` to align your state context at the start of work.
 2. **Search**: Call `recall_memory` (text/image search) before recreating duplicate UI state paths.
 3. **Ingest/Verify**: ALWAYS call `analyze_screenshot` before querying any front-end vision models.
-   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context.
+   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context and use `grounded_elements` (selectors, coordinates) for action target selection.
    - **Cache Miss (`is_known: false`)**: Query your vision model, then run `analyze_screenshot` with both the image and description to seed the cache.
-4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
-5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
+4. **Action Execution**: Call `predict_next_action` to retrieve `grounded_target` handles (`target_selector`, `target_coords`) for deterministic UI clicks and typing.
+5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
+6. **Privacy & Undo**: Call `forget_state` to purge sensitive or secret states, or `undo_last_visual_mutation` to revert accidental mutations.
 
-### 2. Tool Reference Summary (19 Core MCP Tools)
+### 2. Tool Reference Summary (20 Core MCP Tools)
 
-- `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description.
+- `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 - `recall_memory`: Search visual memory by description query or base64 image query.
 - `record_outcome`: Save UI action execution outcomes and transitions between states.
 - `get_navigation_paths`: Find path between states using BFS navigation graph.
@@ -23,10 +24,12 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 - `undo_last_visual_mutation`: Revert the last visual mutation.
 - `create_visual_blocker`: Generate structured visual blocker payload for `state-memory-mcp`.
-- `predict_next_action`: Predict best next UI action based on transition success rates.
+- `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates.
 - `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
 - `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
-- `export_visual_trajectories`: Export multimodal transition trajectories for fine-tuning.
+- `forget_state`: Purge a specific state and vector embedding from storage for privacy.
+- `export_visual_trajectories`: Export multimodal transition trajectories (JSON / LLaVA format) for fine-tuning.
+- `export_joint_trajectories`: Export interleaved visual observation transitions and workflow graph events.
 - `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
 - `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
 - `vision-memory-mcp doctor [--json]`: Run health checks for storage writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.

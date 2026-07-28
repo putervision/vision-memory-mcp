@@ -28,7 +28,9 @@ export async function runBenchmark(
   concurrency = 10,
   totalRequests = 100
 ): Promise<BenchmarkResults> {
-  console.log(`🚀 Starting vision-memory-mcp benchmark (Concurrency: ${concurrency}, Requests: ${totalRequests})...`);
+  console.log(
+    `🚀 Starting vision-memory-mcp benchmark (Concurrency: ${concurrency}, Requests: ${totalRequests})...`
+  );
 
   await storage.init();
   const sampleBuf = await generateSamplePng();

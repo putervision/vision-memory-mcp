@@ -1,50 +1,10 @@
 # 🧠 vision-memory-mcp
 
 [![npm version](https://img.shields.io/npm/v/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
-[![Build Status](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml)
 [![Website](https://img.shields.io/badge/Website-visionmemorymcp.com-06b6d4.svg)](https://visionmemorymcp.com)
 [![License](https://img.shields.io/npm/l/@putervision/vision-memory-mcp.svg)](https://github.com/putervision/vision-memory-mcp/blob/main/LICENSE)
 
 An MCP (Model Context Protocol) server and CLI tool designed to cache visual UI states using perceptual hashing, local CLIP embeddings, and state transitions. It helps AI agents remember seen screens, reducing frontier model token usage and execution latency by up to 90%. Official Documentation & Demos: [visionmemorymcp.com](https://visionmemorymcp.com)
-
----
-
-## 🚀 Key Features
-
-- **Zero-Token Fast Path (L1/L2):** Uses Difference Hash (dHash) and Average Hash (aHash) to recognize identical or near-duplicate layouts in <5ms without sending images to LLMs.
-- **Semantic Retrieval (L3):** Runs local CLIP ViT-B/32 model inference to find conceptually similar screens (e.g. "billing configuration form").
-- **Monorepo & Sub-Directory Discovery:** Automatically discovers nested Git repositories, submodules, and sub-directory `.vision-memory-mcp` databases, aggregating visual memory queries across packages.
-- **State Transition Graph:** Tracks agent actions (e.g., clicking a button) and transition outcomes (success/failure rates) to guide path-finding and prevent agents from repeating mistakes.
-- **Visual Checkpoints:** Save, list, and diff snapshots of memory to identify visual regressions or layout modifications.
-- **Interactive Visualizer:** Open a local force-directed graph view of the memory in your browser.
-
----
-
-## 📦 Architecture Blueprint
-
-```
-                     Incoming Screen
-                            │
-                            ▼
-             ┌──────────────────────────────┐
-             │ L1: In-Memory Cache Lookup   │ ──(Hit)──▶ Return Cached Description
-             └──────────────┬───────────────┘
-                            │ (Miss)
-                            ▼
-             ┌──────────────────────────────┐
-             │ L2: Perceptual Hash Scan     │ ──(Hit)──▶ Return Cached Description
-             └──────────────┬───────────────┘
-                            │ (Miss)
-                            ▼
-             ┌──────────────────────────────┐
-             │ L3: Local CLIP Vector Search │ ──(Hit)──▶ Return Semantically Close
-             └──────────────┬───────────────┘
-                            │ (Miss)
-                            ▼
-             ┌──────────────────────────────┐
-             │ L4: Vision LLM Fallback      │ ──(Ingest)──▶ Save New State to DB
-             └──────────────┬───────────────┘
-```
 
 ---
 
@@ -133,7 +93,51 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (19 Available)
+## 🚀 Key Features
+
+- **Zero-Token Fast Path (L1/L2):** Uses Difference Hash (dHash) and Average Hash (aHash) to recognize identical or near-duplicate layouts in <5ms without sending images to LLMs.
+- **Element Grounding & Actionability Engine:** Returns structured accessibility tree elements (`grounded_elements`) with bounding boxes, ARIA roles, CSS selectors, and target handles (`grounded_target`) for deterministic UI clicks and typing.
+- **Local OCR & Text-Layer Enrichment:** Extracts text tokens and computes n-gram Jaccard similarity to invalidate cache hits when status text differs (e.g. "Payment Succeeded" vs "Payment Failed").
+- **Sensitive-Data Redaction & Privacy Scrubbing:** Detects and masks PII/passwords (emails, SSNs, credit cards, OpenAI/GitHub API keys) with solid composite SVG rectangles before saving or embedding screenshots. `forget_state` purges sensitive states on demand.
+- **Semantic Retrieval (L3):** Runs local CLIP ViT-B/32 model inference to find conceptually similar screens (e.g. "billing configuration form").
+- **Monorepo & Sub-Directory Discovery:** Automatically discovers nested Git repositories, submodules, and sub-directory `.vision-memory-mcp` databases, aggregating visual memory queries across packages.
+- **State Transition Graph & Reliability Pathfinding:** Tracks agent actions and transition outcomes (success/failure rates, execution duration) to calculate reliable BFS/Dijkstra navigation paths.
+- **First-Class CI/CD Visual Spec Engine:** Baseline design contracts and visual spec regression testing via `vision-memory-mcp spec verify` CLI and composite GitHub Action.
+- **Visual Checkpoints:** Save, list, and diff snapshots of memory to identify visual regressions or layout modifications.
+- **Interactive Visualizer:** Open a local force-directed graph view of the memory in your browser.
+- **Dual MCP Synergy:** Deeply integrates with `@putervision/state-memory-mcp` to cross-link UI workflow tasks with perceptual caching, providing first-class bidirectional `renders_state` graph edges, synergistic token metrics, and unified multi-modal trajectory exports for agent training.
+
+---
+
+## 📦 Architecture Blueprint
+
+```
+                     Incoming Screen
+                            │
+                            ▼
+              ┌──────────────────────────────┐
+              │ L1: In-Memory Cache Lookup   │ ──(Hit)──▶ Return Cached Description & Grounded Elements
+              └──────────────┬───────────────┘
+                             │ (Miss)
+                             ▼
+              ┌──────────────────────────────┐
+              │ L2: Perceptual Hash Scan     │ ──(Hit)──▶ Return Cached Description & Grounded Elements
+              └──────────────┬───────────────┘
+                             │ (Miss)
+                             ▼
+              ┌──────────────────────────────┐
+              │ L3: Local CLIP Vector Search │ ──(Hit)──▶ Return Semantically Close
+              └──────────────┬───────────────┘
+                             │ (Miss)
+                             ▼
+              ┌──────────────────────────────┐
+              │ L4: Vision LLM Fallback      │ ──(Ingest)──▶ Save Redacted State to DB
+              └──────────────┬───────────────┘
+```
+
+---
+
+## 🔌 MCP Tools (20 Available)
 
 | Tool                        | Purpose                                                           | Key Inputs                                                                  |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -147,12 +151,13 @@ Ensure you allow:
 | `diff_visual_snapshots`     | Diff two checkpoints for visual drift                             | `snapshot_a_name` (req), `snapshot_b_name` (req)                            |
 | `undo_last_visual_mutation` | Revert the last state or edge mutation                            | `type` ('state' \| 'transition' \| 'any')                                   |
 | `create_visual_blocker`     | Generate structured visual blocker payload for `state-memory-mcp` | `visual_state_id` (req), `description` (req), `project` (opt)               |
-| `predict_next_action`       | Predict optimal next UI action from state & goal                  | `current_state_id` (req), `goal_description` (opt), `goal_state_id` (opt)   |
+| `predict_next_action`       | Predict optimal next UI action and target coordinates from state  | `current_state_id` (req), `goal_description` (opt), `goal_state_id` (opt)   |
 | `batch_analyze_screenshots` | Process batch array of 1–20 screenshots or file paths            | `items` (req array of screenshot/file_path objects), `response_format` (opt) |
 | `set_visual_spec`           | Set a screenshot/mockup as a Visual Spec design baseline contract | `name` (req), `screenshot` (opt), `file_path` (opt)                         |
 | `verify_visual_spec`        | Verify runtime screenshot against a Visual Spec baseline contract | `spec_name` (req), `screenshot` (opt), `file_path` (opt), `tolerance` (opt)  |
 | `get_visual_diff`           | Calculate perceptual dHash diff and layout region deltas          | `state_id_a` (req), `state_id_b` (req)                                      |
-| `export_visual_trajectories`| Export multimodal trajectories for local model fine-tuning        | `git_branch` (opt), `limit` (opt)                                           |
+| `forget_state`              | Purge a specific state and vector embedding from storage          | `state_id` (req)                                                            |
+| `export_visual_trajectories`| Export multimodal trajectories for local model fine-tuning        | `git_branch` (opt), `limit` (opt), `format` ('json' \| 'llava' \| 'qwen2_vl')|
 | `get_metrics`               | Query real-time cache hit ratios, token savings & latency stats   | None                                                                        |
 | `export_snapshot`           | Export standalone `.tar.gz` snapshot archive JSON payload         | `name` (req)                                                                |
 | `restore_snapshot`          | Restore visual memory database from snapshot archive              | `archive_json` (req)                                                        |
@@ -179,6 +184,7 @@ Ensure you allow:
 - **`vision-memory-mcp inspect`**: Prints an ASCII table of stored states.
 - **`vision-memory-mcp metrics`**: Displays ROI metrics, token savings, and cached sizes.
 - **`vision-memory-mcp view`**: Opens a local force-directed graph view of the memory in your browser.
+- **`vision-memory-mcp spec <set|verify>`**: Baseline visual design contract registration and live visual regression verification.
 - **`vision-memory-mcp snapshot <save|diff|list>`**: Manage visual checkpoints.
 - **`vision-memory-mcp undo`**: Revert the last visual mutation.
 - **`vision-memory-mcp optimize`**: Compacts LanceDB storage.

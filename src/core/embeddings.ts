@@ -22,6 +22,13 @@ export function cosineSimilarity(v1: number[], v2: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+export interface EmbeddingProvider {
+  name: string;
+  dimensions: number;
+  generateImageEmbedding(imageInput: string | Buffer): Promise<number[]>;
+  generateTextEmbedding(text: string): Promise<number[]>;
+}
+
 export class EmbeddingsManager {
   private processor: any = null;
   private tokenizer: any = null;
@@ -57,10 +64,7 @@ export class EmbeddingsManager {
           modelSource,
           modelOpts
         );
-        this.textModel = await CLIPTextModelWithProjection.from_pretrained(
-          modelSource,
-          modelOpts
-        );
+        this.textModel = await CLIPTextModelWithProjection.from_pretrained(modelSource, modelOpts);
 
         this.initialized = true;
         logger.info('CLIP embedding models loaded successfully.');
@@ -143,4 +147,3 @@ export class EmbeddingsManager {
 }
 
 export const embeddings = new EmbeddingsManager();
-

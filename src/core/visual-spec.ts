@@ -5,6 +5,7 @@ import { calculateDHash, hammingDistance } from './hash.js';
 import { embeddings, cosineSimilarity } from './embeddings.js';
 import { processImage } from './image-pipeline.js';
 import { logger } from '../logger.js';
+import { VisualState } from '../types.js';
 
 export interface VisualSpecResult {
   spec_name: string;
@@ -38,8 +39,8 @@ export async function setVisualSpec(params: {
   }
 
   const processed = await processImage(base64);
-  const dhash = calculateDHash(processed.rgbaData, processed.width, processed.height);
-  const vector = await embeddings.generateImageEmbedding(processed.resizedBuffer);
+  const dhash = await calculateDHash(processed.normalizedBuffer);
+  const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
 
   const id = `vspec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   const metadata = {
@@ -48,14 +49,32 @@ export async function setVisualSpec(params: {
     spec_name: params.name,
   };
 
-  storage.insertState({
+  const state: VisualState = {
     id,
-    timestamp: Date.now(),
-    thumbnail: processed.thumbnailBase64,
     dhash,
+    ahash: '0'.repeat(64),
     vector,
+    description: `Visual Spec: ${params.name}`,
     structured_data: JSON.stringify(metadata),
-  });
+    accessibility_tree: '{}',
+    thumbnail: processed.thumbnail,
+    original_dimensions: JSON.stringify({
+      width: processed.originalWidth,
+      height: processed.originalHeight,
+    }),
+    source_url: params.filePath || '',
+    source_agent: 'system',
+    trace_id: '',
+    git_branch: '',
+    tags: JSON.stringify(['visual_spec']),
+    importance_score: 1.0,
+    created_at: Date.now(),
+    last_accessed: Date.now(),
+    access_count: 1,
+    ttl: 0,
+  };
+
+  await storage.addState(state);
 
   logger.info(`Visual spec baseline set: "${params.name}" (ID: ${id})`);
 
@@ -87,8 +106,8 @@ export async function verifyVisualSpec(params: {
     throw new Error('Either screenshot base64 or filePath must be provided.');
   }
 
-  const allStates = storage.getAllStates();
-  const specState = allStates.find((s) => {
+  const allStates = await storage.listStatesAll();
+  const specState = allStates.find((s: VisualState) => {
     try {
       const meta = JSON.parse(s.structured_data || '{}');
       return meta.is_visual_spec && meta.spec_name === params.specName;
@@ -102,8 +121,8 @@ export async function verifyVisualSpec(params: {
   }
 
   const processed = await processImage(base64);
-  const liveDhash = calculateDHash(processed.rgbaData, processed.width, processed.height);
-  const liveVector = await embeddings.generateImageEmbedding(processed.resizedBuffer);
+  const liveDhash = await calculateDHash(processed.normalizedBuffer);
+  const liveVector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
 
   const distance = hammingDistance(liveDhash, specState.dhash);
   const similarity = specState.vector ? cosineSimilarity(liveVector, specState.vector) : 1.0;

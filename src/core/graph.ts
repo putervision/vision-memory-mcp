@@ -231,12 +231,11 @@ export async function findNavigationPaths(params: {
     }
   }
 
-  // Sort paths: highest success rate first, then shortest duration
+  // Sort paths by reliability score: weighted cost = (1.0 - success_rate) * 1000 + avg_duration_ms
   successfulPaths.sort((a, b) => {
-    if (b.total_success_rate !== a.total_success_rate) {
-      return b.total_success_rate - a.total_success_rate;
-    }
-    return a.avg_duration_ms - b.avg_duration_ms;
+    const costA = (1.0 - a.total_success_rate) * 10000 + a.avg_duration_ms;
+    const costB = (1.0 - b.total_success_rate) * 10000 + b.avg_duration_ms;
+    return costA - costB;
   });
 
   return {

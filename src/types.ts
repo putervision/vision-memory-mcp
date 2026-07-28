@@ -1,3 +1,23 @@
+export interface GroundedElement {
+  id: string; // Element identifier or selector
+  role: string; // "button" | "input" | "link" | "text" | "checkbox" | "combobox" | "heading" | "other"
+  label: string; // Visible label or ARIA name
+  selector: string; // CSS or XPath selector path
+  bbox: [number, number, number, number]; // [x, y, width, height]
+  center: [number, number]; // [center_x, center_y]
+  state?: 'enabled' | 'disabled' | 'focused' | 'filled';
+  value?: string; // Current value if input field
+}
+
+export interface GroundedActionTarget {
+  action: string; // "click" | "type" | "navigate" | "scroll" | "custom"
+  target_selector?: string;
+  target_coords?: { x: number; y: number };
+  element_label?: string;
+  element_role?: string;
+  suggested_input_value?: string;
+}
+
 export interface VisualState {
   id: string; // UUID v4
   dhash: string; // 64-bit binary string (dHash gradient)
@@ -6,6 +26,12 @@ export interface VisualState {
   description: string; // Natural language description of state
   structured_data: string; // JSON string: extracted UI elements, form state, etc.
   accessibility_tree: string; // JSON string: simplified AX tree
+  grounded_elements?: string; // JSON string: GroundedElement[]
+  ocr_text?: string; // JSON string: extracted OCR text tokens & bounding boxes
+  process_name?: string; // Application process identifier (e.g. "code", "chrome")
+  window_title?: string; // OS window title
+  monitor_id?: string; // Monitor/display identifier
+  is_redacted?: number; // 1 = redacted, 0 = unredacted
   thumbnail: string; // Base64 WebP, 64x64px
   original_dimensions: string; // JSON string: { width: number, height: number }
   source_url: string; // URL or app path/identifier
@@ -54,6 +80,8 @@ export interface RetrievalResult {
   description: string;
   structured_data?: string;
   accessibility_tree?: string;
+  grounded_elements?: GroundedElement[];
+  ocr_text?: string;
   tags?: string[];
   source_url?: string;
   related_states?: Array<{

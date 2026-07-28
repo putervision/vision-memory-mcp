@@ -12,4 +12,5 @@ plans/
 # vision-memory-mcp local databases
 .vision-memory/
 .vision-memory-mcp/
+.test-pipeline-db/
 

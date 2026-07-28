@@ -3,7 +3,7 @@
   "name": "io.github.putervision/vision-memory-mcp",
   "title": "Visual Memory MCP",
   "description": "Local visual UI cache for AI agents using perceptual hashing + CLIP to cut vision token use.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "license": "MIT",
   "homepage": "https://visionmemorymcp.com",
   "repository": {
@@ -16,7 +16,7 @@
     {
       "registryType": "npm",
       "identifier": "@putervision/vision-memory-mcp",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "transport": {
         "type": "stdio"
       },

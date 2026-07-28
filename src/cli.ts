@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.5.1';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.6.0';
 
 function showHelp() {
   console.log(`
@@ -19,6 +19,9 @@ Commands:
   inspect            Display an ASCII table of stored visual states and tags
   metrics            Calculate and output cache hit rate, token savings, and ROI
   view               Launch the interactive HTML force-directed graph visualizer
+  spec <action>      Manage visual design spec contract baselines & verification:
+                       spec set <name> <image-path>
+                       spec verify <spec-name> <image-path> [--tolerance <n>]
   snapshot <action>  Manage checkpoints:
                        snapshot save <name> [desc]
                        snapshot diff <nameA> <nameB>
@@ -166,6 +169,12 @@ async function runCli() {
     case 'audit': {
       const { runAudit } = await import('./cli/commands/audit.js');
       await runAudit(args);
+      break;
+    }
+
+    case 'spec': {
+      const { runSpec } = await import('./cli/commands/spec.js');
+      await runSpec(args);
       break;
     }
 

@@ -16,6 +16,7 @@ import { setVisualSpec, verifyVisualSpec } from '../core/visual-spec.js';
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
+import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
 import { VisualState, ResponseFormat } from '../types.js';
 
 function getDirSize(dirPath: string): number {
@@ -46,7 +47,11 @@ export async function resolveImageInput(screenshot?: string, filePath?: string):
     // Check system forbidden paths
     const forbidden = ['/etc', '/proc', '/sys', '/dev', '.ssh', '.aws', '.env'];
     for (const f of forbidden) {
-      if (normalized.startsWith(f) || normalized.includes(`/${f}/`) || normalized.endsWith(`/${f}`)) {
+      if (
+        normalized.startsWith(f) ||
+        normalized.includes(`/${f}/`) ||
+        normalized.endsWith(`/${f}`)
+      ) {
         throw new Error(`Access to sensitive file or path is restricted: ${filePath}`);
       }
     }
@@ -891,7 +896,7 @@ export function registerAllTools(server: McpServer): void {
         const title = `Visual Blocker: ${params.description.slice(0, 80)}`;
         const result = {
           instruction:
-            'Please execute the state-memory-mcp:add_node tool with the following parameters to log this blocker.',
+            'Please execute state-memory-mcp:add_node to log a blocker node, and state-memory-mcp:link_visual_state to establish a blocked_by_visual_state relationship.',
           mcp_tool_call: {
             server: 'state-memory-mcp',
             tool: 'add_node',
@@ -908,6 +913,18 @@ export function registerAllTools(server: McpServer): void {
                 bug_details: params.description,
               },
               tags: ['visual-regression', 'ui-bug'],
+            },
+          },
+          link_tool_call: {
+            server: 'state-memory-mcp',
+            tool: 'link_visual_state',
+            arguments: {
+              project: project || undefined,
+              target_id: 'TARGET_TASK_OR_BLOCKER_ID',
+              visual_state_id: state.id,
+              relationship: 'blocked_by_visual_state',
+              visual_description: state.description,
+              source_url: state.source_url,
             },
           },
         };
@@ -1003,6 +1020,12 @@ export function registerAllTools(server: McpServer): void {
         }
 
         const targetState = await storage.getStateAll(bestTransition.to_state_id);
+        const groundedElements = parseAXTreeToGroundedElements(currentState.accessibility_tree);
+        const groundedTarget = matchGroundedTarget(
+          groundedElements,
+          params.goal_description || bestTransition.action
+        );
+
         const result = {
           predicted_action: bestTransition.action,
           action_type: bestTransition.action_type,
@@ -1015,6 +1038,7 @@ export function registerAllTools(server: McpServer): void {
               ? bestTransition.success_count /
                 (bestTransition.success_count + bestTransition.failure_count)
               : 1.0,
+          grounded_target: groundedTarget,
         };
 
         return {
@@ -1287,14 +1311,41 @@ export function registerAllTools(server: McpServer): void {
         .number()
         .optional()
         .describe('Maximum number of trajectories to export (default: 50).'),
+      format: z
+        .enum(['json', 'llava', 'qwen2_vl'])
+        .optional()
+        .describe('Fine-tuning dataset export format (json, llava, qwen2_vl)'),
     },
-    async ({ git_branch, limit }) => {
+    async ({ git_branch, limit, format }) => {
       try {
         const branch = git_branch || getCurrentBranch();
         const states = await storage.listStatesAll(
           `git_branch = '${escapeSql(branch)}'`,
           limit || 50
         );
+
+        const exportFmt = format || 'json';
+
+        if (exportFmt === 'llava') {
+          const llavaDataset = states.map((s) => ({
+            id: s.id,
+            image: s.source_url || `state_${s.id}.webp`,
+            conversations: [
+              {
+                from: 'human',
+                value:
+                  '<image>\nDescribe the layout, active elements, and status of this UI screenshot.',
+              },
+              {
+                from: 'gpt',
+                value: s.description || 'UI layout with interactive controls.',
+              },
+            ],
+          }));
+          return {
+            content: [{ type: 'text', text: JSON.stringify(llavaDataset, null, 2) }],
+          };
+        }
 
         const trajectories = states.map((s, idx) => ({
           step: idx + 1,
@@ -1327,6 +1378,69 @@ export function registerAllTools(server: McpServer): void {
           isError: true,
           content: [
             { type: 'text', text: `Failed to export visual trajectories: ${error.message}` },
+          ],
+        };
+      }
+    }
+  );
+
+  // Tool: export_joint_trajectories
+  server.registerTool(
+    'export_joint_trajectories',
+    {
+      title: 'Export Joint Trajectories',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Export unified interleaved visual state transitions and workflow graph events correlated by session/trace ID.',
+      inputSchema: z.object({
+        trace_id: z.string().optional().describe('Optional trace ID / session ID filter'),
+        limit: z.number().optional().describe('Maximum number of states to export (default: 50)'),
+      }),
+    },
+    async (params) => {
+      try {
+        const states = await storage.listStatesAll('', params.limit || 50);
+        const filteredStates = params.trace_id
+          ? states.filter((s) => s.trace_id === params.trace_id)
+          : states;
+
+        const steps = filteredStates.map((s, idx) => ({
+          step_index: idx + 1,
+          timestamp: s.created_at || Date.now(),
+          iso_timestamp: new Date(s.created_at || Date.now()).toISOString(),
+          source: 'vision_memory',
+          session_id: s.trace_id || '',
+          visual_state_id: s.id,
+          description: s.description || '',
+          source_url: s.source_url || '',
+          importance_score: s.importance_score || 0.5,
+        }));
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  trace_id: params.trace_id || 'all',
+                  total_steps: steps.length,
+                  steps,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [
+            { type: 'text', text: `Failed to export joint trajectories: ${error.message}` },
           ],
         };
       }
@@ -1423,5 +1537,41 @@ export function registerAllTools(server: McpServer): void {
       }
     }
   );
-}
 
+  // 20. Tool: forget_state
+  server.registerTool(
+    'forget_state',
+    {
+      title: 'Forget Visual State',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+      },
+      description:
+        'Purge a specific visual state, its vector embeddings, and perceptual hashes from storage for privacy or memory reset.',
+      inputSchema: z.object({
+        state_id: z.string().describe('ID of visual state to purge'),
+      }),
+    },
+    async (params) => {
+      try {
+        await storage.deleteState(params.state_id);
+        memoryCache.clear();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ success: true, purged_state_id: params.state_id }),
+            },
+          ],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to purge state: ${error.message}` }],
+        };
+      }
+    }
+  );
+}

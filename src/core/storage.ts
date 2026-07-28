@@ -98,6 +98,16 @@ export class StorageManager {
   >();
   private compactionFailures = 0;
   private circuitTrippedUntil = 0;
+  private writeQueue: Promise<void> = Promise.resolve();
+
+  private async enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+    const res = this.writeQueue.then(() => withRetry(task));
+    this.writeQueue = res.then(
+      () => {},
+      () => {}
+    );
+    return res;
+  }
 
   async init(customDbPath?: string): Promise<void> {
     const dbPath = customDbPath ?? config.LANCEDB_PATH;
@@ -112,6 +122,9 @@ export class StorageManager {
     }
 
     try {
+      const { checkAndRunSchemaMigrations } = await import('./migrations.js');
+      await checkAndRunSchemaMigrations();
+
       this.db = await lancedb.connect(dbPath);
       await this.initTables();
       await this.createVectorIndex().catch((err) => {
@@ -314,7 +327,7 @@ export class StorageManager {
   async addState(state: VisualState): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     logger.debug(`Inserting visual state: ${state.id}`);
-    await withRetry(async () => {
+    await this.enqueueWrite(async () => {
       await this.statesTable!.add([state as any]);
     });
     this.checkStorageSizeAndEvict().catch((err) =>
@@ -498,8 +511,7 @@ export class StorageManager {
     );
 
     await withRetry(async () => {
-      await this.transitionsTable!
-        .mergeInsert('id')
+      await this.transitionsTable!.mergeInsert('id')
         .whenMatchedUpdateAll()
         .whenNotMatchedInsertAll()
         .execute([transition as any]);
@@ -737,10 +749,7 @@ export class StorageManager {
       logger.info('LanceDB optimization completed successfully.');
     } catch (err: any) {
       this.compactionFailures++;
-      logger.error(
-        `Failed to optimize database (failure ${this.compactionFailures}/3):`,
-        err
-      );
+      logger.error(`Failed to optimize database (failure ${this.compactionFailures}/3):`, err);
       if (this.compactionFailures >= 3) {
         this.circuitTrippedUntil = Date.now() + 15 * 60 * 1000;
         logger.warn(
@@ -759,4 +768,3 @@ export function transitionKey(fromId: string, toId: string, action: string): str
     .digest('hex')
     .slice(0, 32);
 }
-

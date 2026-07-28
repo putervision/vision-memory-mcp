@@ -1,13 +1,13 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.5.1)
+# 📘 @putervision/vision-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.6.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 19 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 20 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 
 ---
 
-## 1. Visual Cache & Ingestion
+## 1. Visual Cache, Ingestion & Element Grounding
 
 ### `analyze_screenshot`
-- **Overview**: Performs sub-5ms perceptual hashing (dHash/aHash) and vector embedding lookup across LanceDB for a screenshot.
+- **Overview**: Performs sub-5ms perceptual hashing (dHash/aHash) and vector embedding lookup across LanceDB for a screenshot, returning layout descriptions and structured `grounded_elements` (bounding boxes, CSS selectors, ARIA roles).
 - **How to Leverage**: Call *before* sending any screenshot to an expensive multimodal vision LLM (like Claude 3.5 Sonnet or GPT-4o). If `is_known: true`, the tool returns the cached layout description instantly in <5ms, saving 1,400+ vision tokens and 4+ seconds per turn!
 - **Request Payload**:
 ```json
@@ -25,7 +25,16 @@ This document provides formal API specifications, parameter schemas, return shap
   "state_id": "state_login_01",
   "similarity": 0.992,
   "cached_description": "User login form with email input, password input, and Sign In button.",
-  "dhash": "a8f01c3e7b9201f4"
+  "dhash": "a8f01c3e7b9201f4",
+  "grounded_elements": [
+    {
+      "role": "button",
+      "label": "Sign In",
+      "selector": "#submit-btn",
+      "bounds": [120, 340, 100, 40],
+      "center": [170, 360]
+    }
+  ]
 }
 ```
 
@@ -39,6 +48,10 @@ This document provides formal API specifications, parameter schemas, return shap
   "top_k": 3
 }
 ```
+
+### `predict_next_action`
+- **Overview**: Predicts the optimal next UI action and action target (`grounded_target`) based on transition graph success rates.
+- **How to Leverage**: Returns concrete `target_selector` and `target_coords` (`[x, y]`) so autonomous agents can click or type deterministically without guessing.
 
 ---
 
@@ -58,56 +71,32 @@ This document provides formal API specifications, parameter schemas, return shap
 ```
 
 ### `get_navigation_paths`
-- **Overview**: Calculates optimal BFS shortest navigation path between two UI screens.
+- **Overview**: Calculates optimal BFS shortest navigation path between two UI screens, weighted by success rate and execution latency.
 - **How to Leverage**: Leverage when an autonomous web agent needs to navigate from its current screen to a target goal screen. Returns the exact sequence of clicks and inputs required based on historical transition graphs.
 
 ---
 
-## 3. Layout Diffs & Spec Compliance
+## 3. Layout Diffs, Visual Specs & Privacy Scrubbing
 
 ### `set_visual_spec`
 - **Overview**: Registers a baseline visual design mockup contract for a given route.
 - **How to Leverage**: Leverage in UI testing pipelines. Store Figma design mockups as visual baseline specs before running frontend automated tests.
-- **Request Payload**:
-```json
-{
-  "route": "/checkout",
-  "baseline_image": "/path/to/figma-checkout-spec.png",
-  "title": "Figma Checkout Spec Baseline"
-}
-```
 
 ### `verify_visual_spec`
 - **Overview**: Verifies live UI rendering against stored design contract baselines.
 - **How to Leverage**: Call in Playwright / Cypress visual regression testing. Compares live UI screenshots against design baselines, returning exact region deltas and structural diff percentages.
-- **Request Payload**:
-```json
-{
-  "route": "/checkout",
-  "live_screenshot": "/path/to/live-checkout-build.png"
-}
-```
-- **Response Payload**:
-```json
-{
-  "compliant": true,
-  "structural_diff_pct": 0.8,
-  "region_deltas": [],
-  "message": "Live UI matches baseline spec contract within 1% threshold."
-}
-```
+
+### `forget_state`
+- **Overview**: Purges a specific visual state and its vector embedding from storage.
+- **How to Leverage**: Use for privacy compliance and scrubbing sensitive or secret data from disk.
 
 ---
 
 ## 4. Checkpoints & Fine-Tuning
 
 ### `export_visual_trajectories`
-- **Overview**: Exports multimodal UI state-action transition sequences in JSONL format.
-- **How to Leverage**: Leverage to create dataset fine-tuning pairs for open-source 3B–8B local models, compiling UI navigation procedures directly into weights and lowering API execution costs by 100×.
-- **Request Payload**:
-```json
-{ "format": "jsonl", "output_path": "./visual_trajectories.jsonl" }
-```
+- **Overview**: Exports multimodal UI state-action transition sequences in JSONL (standard, LLaVA, or Qwen2-VL) format.
+- **How to Leverage**: Leverage to create dataset fine-tuning pairs for open-source local vision models.
 
 ---
 

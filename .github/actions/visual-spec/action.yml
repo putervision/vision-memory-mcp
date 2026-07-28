@@ -1,0 +1,20 @@
+name: 'Vision Memory Spec Verification'
+description: 'Verify live UI screenshots against visual spec baselines in CI/CD pipelines.'
+inputs:
+  spec_name:
+    description: 'Identifier of the visual spec baseline to check against'
+    required: true
+  screenshot_path:
+    description: 'Path to live UI screenshot captured during test run'
+    required: true
+  tolerance:
+    description: 'Hamming distance tolerance threshold (default: 8)'
+    required: false
+    default: '8'
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Visual Spec Verification
+      shell: bash
+      run: |
+        npx @putervision/vision-memory-mcp spec verify "${{ inputs.spec_name }}" "${{ inputs.screenshot_path }}" --tolerance "${{ inputs.tolerance }}"

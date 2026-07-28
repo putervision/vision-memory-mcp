@@ -158,7 +158,9 @@ export async function diffSnapshots(nameA: string, nameB: string): Promise<Snaps
 /**
  * Export a visual snapshot as a full standalone archive payload.
  */
-export async function exportSnapshot(idOrName: string): Promise<import('../types.js').SnapshotArchive> {
+export async function exportSnapshot(
+  idOrName: string
+): Promise<import('../types.js').SnapshotArchive> {
   const snap = await storage.getSnapshotAll(idOrName);
   if (!snap) {
     throw new Error(`Snapshot "${idOrName}" not found.`);
@@ -178,7 +180,7 @@ export async function exportSnapshot(idOrName: string): Promise<import('../types
   );
 
   return {
-    version: '0.5.1',
+    version: '0.6.0',
     exported_at: Date.now(),
     name: snap.name,
     description: snap.description,
@@ -232,4 +234,3 @@ export async function restoreSnapshot(archive: import('../types.js').SnapshotArc
     snapshot_name: archive.snapshot.name,
   };
 }
-

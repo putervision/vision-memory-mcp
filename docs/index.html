@@ -33,7 +33,7 @@
       "operatingSystem": "Cross-platform (Node.js)",
       "applicationCategory": "DeveloperApplication",
       "description": "Persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches screenshots locally to optimize context windows and reduce vision token costs by up to 90%.",
-      "softwareVersion": "0.5.1",
+      "softwareVersion": "0.6.0",
       "author": {
         "@type": "Organization",
         "name": "PuterVision LLC",
@@ -110,7 +110,7 @@
         "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
         "applicationCategory": "DeveloperApplication",
         "description": "An MCP server that caches visual UI states using perceptual hashing, vector search, and graph transitions to optimize agent context and reduce LLM tokens.",
-        "softwareVersion": "0.5.1",
+        "softwareVersion": "0.6.0",
         "url": "https://visionmemorymcp.com/",
         "license": "https://opensource.org/licenses/MIT",
         "offers": {
@@ -189,7 +189,7 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.5.1 • 19 Core MCP Tools</span>
+        <span class="badge">Production Ready v0.6.0 • 20 Core MCP Tools</span>
         <h1><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="hero-title-icon"><span class="hero-title-text">Visual Memory MCP</span></h1>
         <p>
           A persistent visual cache and perceptual hashing server for developer
@@ -724,19 +724,19 @@
               color: var(--text-secondary);
             "
           >
-            Equipped with complete spec features including annotations, resources, and all 19 core tools.
+            Equipped with complete spec features including annotations, resources, and all 20 core tools.
           </p>
           <div style="margin-top: 1rem;">
-            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 19 MCP Tools</span></button>
+            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 20 MCP Tools</span></button>
           </div>
         </div>
 
-        <!-- Expandable Full 19 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+        <!-- Expandable Full 20 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
         <div id="full-tools-panel" class="full-tools-panel hidden">
           <div class="desc-scan-beam"></div>
           <div class="desc-content-inner">
             <div class="desc-header">
-              <span class="desc-badge">FULL 19 MCP TOOL SUITE</span>
+              <span class="desc-badge">FULL 20 MCP TOOL SUITE</span>
               <h3>Complete Tool Definitions & Function Signatures</h3>
             </div>
 
@@ -793,11 +793,11 @@
               </div>
 
               <div class="desc-box">
-                <h4>📸 Checkpoints & Fine-Tuning (8 Tools)</h4>
+                <h4>📸 Checkpoints, Privacy & Fine-Tuning (9 Tools)</h4>
                 <p>
-                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>export_visual_trajectories</code>, <code>get_metrics</code>, <code>export_snapshot</code>, <code>restore_snapshot</code>.
+                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>forget_state</code>, <code>export_visual_trajectories</code>, <code>get_metrics</code>, <code>export_snapshot</code>, <code>restore_snapshot</code>.
                   <br><br>
-                  <strong>How to Leverage:</strong> Call <code>export_snapshot</code> / <code>restore_snapshot</code> for standalone backups, query real-time performance via <code>get_metrics</code>, or call <code>export_visual_trajectories</code> to export UI interaction paths in JSONL format to fine-tune local models.
+                  <strong>How to Leverage:</strong> Scrub sensitive memory via <code>forget_state</code>, call <code>export_snapshot</code> / <code>restore_snapshot</code> for standalone backups, query real-time performance via <code>get_metrics</code>, or call <code>export_visual_trajectories</code> to export UI interaction paths in JSONL format to fine-tune local models.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
@@ -1622,7 +1622,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           } else {
             fullToolsPanel.classList.remove('phase-in-anim');
             fullToolsPanel.classList.add('hidden');
-            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 19 MCP Tools';
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 20 MCP Tools';
             toggleToolsBtn.classList.remove('active');
           }
         });

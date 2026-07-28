@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { Metadata } from 'sharp';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
@@ -43,12 +43,12 @@ export function validateImageMagicBytes(buffer: Buffer): boolean {
     return true;
   }
 
-  // GIF: GIF87a or GIF89a
-  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+  // GIF: 47 49 46 38
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
     return true;
   }
 
-  // BMP: BM (42 4D)
+  // BMP: 42 4D
   if (buffer[0] === 0x42 && buffer[1] === 0x4d) {
     return true;
   }
@@ -57,26 +57,26 @@ export function validateImageMagicBytes(buffer: Buffer): boolean {
 }
 
 /**
- * Validates and processes an incoming base64 or buffer screenshot.
- * Normalizes it to 512-aligned dimensions and generates a 64x64 WebP thumbnail.
+ * Processes an input base64 or Buffer screenshot:
+ * 1. Checks magic byte file signatures
+ * 2. Enforces input pixel limits (decompression bomb protection)
+ * 3. Aligns dimensions to 512x512 max scale preserving aspect ratio
+ * 4. Extracts 64x64 WebP thumbnail base64
  */
-export async function processImage(input: string | Buffer): Promise<ProcessedImage> {
+export async function processImage(imageInput: string | Buffer): Promise<ProcessedImage> {
   let buffer: Buffer;
-
-  // 1. Decode base64 if needed
-  if (typeof input === 'string') {
-    // Strip data URL prefix if present
-    const base64Data = input.replace(/^data:image\/\w+;base64,/, '');
-    buffer = Buffer.from(base64Data, 'base64');
+  if (typeof imageInput === 'string') {
+    const cleanBase64 = imageInput.replace(/^data:image\/\w+;base64,/, '');
+    buffer = Buffer.from(cleanBase64, 'base64');
   } else {
-    buffer = input;
+    buffer = imageInput;
   }
 
-  const originalSize = buffer.length;
+  // 1. Check max input buffer byte size
   const maxBytes = config.MAX_IMAGE_SIZE_MB * 1024 * 1024;
-  if (originalSize > maxBytes) {
+  if (buffer.length > maxBytes) {
     throw new Error(
-      `Image size (${(originalSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_IMAGE_SIZE_MB}MB.`
+      `Image size (${(buffer.length / (1024 * 1024)).toFixed(2)} MB) exceeds max threshold of ${config.MAX_IMAGE_SIZE_MB} MB.`
     );
   }
 
@@ -87,7 +87,7 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
 
   // 3. Load with sharp and enforce input pixel limit (decompression bomb protection)
   const image = sharp(buffer, { limitInputPixels: config.LIMIT_INPUT_PIXELS });
-  let metadata: sharp.Metadata;
+  let metadata: Metadata;
   try {
     metadata = await image.metadata();
   } catch (error) {
@@ -155,7 +155,6 @@ export async function processImage(input: string | Buffer): Promise<ProcessedIma
     height,
     originalWidth,
     originalHeight,
-    originalSize,
+    originalSize: buffer.length,
   };
 }
-
