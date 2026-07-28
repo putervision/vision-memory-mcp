@@ -5,7 +5,7 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2026-07-28
+## [0.6.1] - 2026-07-28
 
 ### Dual MCP Synergy & Governance Layer
 - **Visual Blocker Expansion**: Expanded `create_visual_blocker` tool to output explicit `link_visual_state` call instructions for establishing `blocked_by_visual_state` graph relationships in `state-memory-mcp`.

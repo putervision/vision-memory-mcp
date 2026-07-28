@@ -1,27 +1,29 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.putervision/vision-memory-mcp",
+  "version": "0.6.1",
   "title": "Visual Memory MCP",
   "description": "Local visual UI cache for AI agents using perceptual hashing + CLIP to cut vision token use.",
-  "version": "0.6.0",
+  "publisher": "PuterVision LLC",
   "license": "MIT",
-  "homepage": "https://visionmemorymcp.com",
+  "websiteUrl": "https://visionmemorymcp.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/putervision/vision-memory-mcp.git",
+    "url": "https://github.com/putervision/vision-memory-mcp",
     "source": "github"
   },
-  "publisher": "PuterVision LLC",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@putervision/vision-memory-mcp",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "transport": {
         "type": "stdio"
       },
       "executable": "vision-memory-mcp",
-      "args": ["run"]
+      "args": [
+        "run"
+      ]
     }
   ]
 }
