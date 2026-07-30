@@ -17,7 +17,7 @@ import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
 import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
-import { VisualState, ResponseFormat } from '../types.js';
+import { VisualState, ResponseFormat, WaitForVisualStateResult } from '../types.js';
 
 function getDirSize(dirPath: string): number {
   let size = 0;
@@ -74,10 +74,26 @@ export async function resolveImageInput(screenshot?: string, filePath?: string):
     if (!fs.existsSync(resolvedPath)) {
       throw new Error(`Specified image file does not exist: ${filePath}`);
     }
+
+    const maxBytes = (config.MAX_IMAGE_SIZE_MB || 10) * 1024 * 1024;
+    const stats = fs.statSync(resolvedPath);
+    if (stats.size > maxBytes) {
+      throw new Error(
+        `Image file size (${(stats.size / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of ${config.MAX_IMAGE_SIZE_MB} MB.`
+      );
+    }
+
     const buf = fs.readFileSync(resolvedPath);
     return buf.toString('base64');
   }
   if (screenshot && screenshot.trim().length > 0) {
+    const maxBytes = (config.MAX_IMAGE_SIZE_MB || 10) * 1024 * 1024;
+    const approxBytes = (screenshot.length * 3) / 4;
+    if (approxBytes > maxBytes) {
+      throw new Error(
+        `Base64 screenshot size (${(approxBytes / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of ${config.MAX_IMAGE_SIZE_MB} MB.`
+      );
+    }
     return screenshot;
   }
   throw new Error('Either screenshot base64 or file_path must be provided.');
@@ -124,11 +140,23 @@ function computeStructuredDiff(
   let objA: any = {};
   let objB: any = {};
   try {
-    objA = rawA ? JSON.parse(rawA) : {};
-  } catch {}
+    const parsed = rawA ? JSON.parse(rawA) : {};
+    objA =
+      typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+        ? parsed
+        : { value: parsed };
+  } catch {
+    objA = {};
+  }
   try {
-    objB = rawB ? JSON.parse(rawB) : {};
-  } catch {}
+    const parsed = rawB ? JSON.parse(rawB) : {};
+    objB =
+      typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+        ? parsed
+        : { value: parsed };
+  } catch {
+    objB = {};
+  }
 
   const keysA = new Set(Object.keys(objA));
   const keysB = new Set(Object.keys(objB));
@@ -152,6 +180,43 @@ function computeStructuredDiff(
   }
 
   return { added, removed, modified };
+}
+
+export async function handleWaitForVisualState(params: {
+  target_state_id: string;
+  timeout_ms?: number;
+  poll_interval_ms?: number;
+}): Promise<WaitForVisualStateResult> {
+  const timeoutMs = params.timeout_ms ?? 10000;
+  const pollIntervalMs = params.poll_interval_ms ?? 500;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    const state = await storage.getState(params.target_state_id);
+    if (state) {
+      return {
+        status: 'matched',
+        elapsed_ms: Date.now() - startTime,
+        state,
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+
+  const finalCheck = await storage.getState(params.target_state_id);
+  if (finalCheck) {
+    return {
+      status: 'matched',
+      elapsed_ms: Date.now() - startTime,
+      state: finalCheck,
+    };
+  }
+
+  return {
+    status: 'timeout',
+    elapsed_ms: Date.now() - startTime,
+    state: null,
+  };
 }
 
 export function registerAllTools(server: McpServer): void {
@@ -1096,76 +1161,83 @@ export function registerAllTools(server: McpServer): void {
         const results = [];
 
         for (const item of params.items) {
-          const imageB64 = await resolveImageInput(item.screenshot, item.file_path);
-          const axTree = item.accessibility_tree
-            ? compressAccessibilityTree(item.accessibility_tree)
-            : undefined;
+          try {
+            const imageB64 = await resolveImageInput(item.screenshot, item.file_path);
+            const axTree = item.accessibility_tree
+              ? compressAccessibilityTree(item.accessibility_tree)
+              : undefined;
 
-          const retrieval = await retrieveState({
-            screenshot: imageB64,
-            strategy: 'thorough',
-            gitBranch: branch,
-            accessibilityTree: axTree,
-          });
+            const retrieval = await retrieveState({
+              screenshot: imageB64,
+              strategy: 'thorough',
+              gitBranch: branch,
+              accessibilityTree: axTree,
+            });
 
-          if (retrieval.is_known && retrieval.state_id) {
-            results.push(formatResponsePayload(retrieval, format));
-            continue;
-          }
-
-          const processed = await processImage(imageB64);
-          const dhash = await calculateDHash(processed.normalizedBuffer);
-          const ahash = await calculateAHash(processed.normalizedBuffer);
-
-          let finalDesc = item.description ?? '';
-          if (!finalDesc) {
-            try {
-              finalDesc = await analyzeScreenshotWithLLM(imageB64);
-            } catch {
-              finalDesc = 'New visual state (pending analysis).';
+            if (retrieval.is_known && retrieval.state_id) {
+              results.push(formatResponsePayload(retrieval, format));
+              continue;
             }
+
+            const processed = await processImage(imageB64);
+            const dhash = await calculateDHash(processed.normalizedBuffer);
+            const ahash = await calculateAHash(processed.normalizedBuffer);
+
+            let finalDesc = item.description ?? '';
+            if (!finalDesc) {
+              try {
+                finalDesc = await analyzeScreenshotWithLLM(imageB64);
+              } catch {
+                finalDesc = 'New visual state (pending analysis).';
+              }
+            }
+
+            const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
+            const newId = crypto.randomUUID();
+            const newState: VisualState = {
+              id: newId,
+              dhash,
+              ahash,
+              vector,
+              description: finalDesc,
+              structured_data: '{}',
+              accessibility_tree: axTree ?? '{}',
+              thumbnail: processed.thumbnail,
+              original_dimensions: JSON.stringify({
+                width: processed.originalWidth,
+                height: processed.originalHeight,
+              }),
+              source_url: item.source_url ?? '',
+              source_agent: 'agent',
+              trace_id: '',
+              git_branch: branch,
+              tags: JSON.stringify(item.tags ?? []),
+              importance_score: 0.5,
+              created_at: Date.now(),
+              last_accessed: Date.now(),
+              access_count: 1,
+              ttl: 0,
+            };
+
+            await storage.addState(newState);
+            memoryCache.set(newState);
+
+            const resultObj = {
+              state_id: newId,
+              is_known: false,
+              match_type: 'new',
+              similarity_score: 0.0,
+              description: finalDesc,
+              source_url: item.source_url,
+              tags: item.tags,
+            };
+            results.push(formatResponsePayload(resultObj, format));
+          } catch (itemErr: any) {
+            results.push({
+              is_known: false,
+              error: itemErr?.message || String(itemErr),
+            });
           }
-
-          const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
-          const newId = crypto.randomUUID();
-          const newState: VisualState = {
-            id: newId,
-            dhash,
-            ahash,
-            vector,
-            description: finalDesc,
-            structured_data: '{}',
-            accessibility_tree: axTree ?? '{}',
-            thumbnail: processed.thumbnail,
-            original_dimensions: JSON.stringify({
-              width: processed.originalWidth,
-              height: processed.originalHeight,
-            }),
-            source_url: item.source_url ?? '',
-            source_agent: 'agent',
-            trace_id: '',
-            git_branch: branch,
-            tags: JSON.stringify(item.tags ?? []),
-            importance_score: 0.5,
-            created_at: Date.now(),
-            last_accessed: Date.now(),
-            access_count: 1,
-            ttl: 0,
-          };
-
-          await storage.addState(newState);
-          memoryCache.set(newState);
-
-          const resultObj = {
-            state_id: newId,
-            is_known: false,
-            match_type: 'new',
-            similarity_score: 0.0,
-            description: finalDesc,
-            thumbnail: processed.thumbnail,
-          };
-
-          results.push(formatResponsePayload(resultObj, format));
         }
 
         return {
@@ -1195,17 +1267,30 @@ export function registerAllTools(server: McpServer): void {
   );
 
   // set_visual_spec
-  server.tool(
+  server.registerTool(
     'set_visual_spec',
-    'Set a screenshot or mockup design as a Visual Spec baseline for UI compliance testing.',
     {
-      name: z.string().describe('Name identifier for the visual spec.'),
-      screenshot: z.string().optional().describe('Base64 encoded screenshot image.'),
-      file_path: z.string().optional().describe('Absolute file path to mockup image.'),
+      title: 'Set Visual Spec',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+      description:
+        'Set a screenshot or mockup design as a Visual Spec baseline for UI compliance testing.',
+      inputSchema: z.object({
+        name: z.string().describe('Name identifier for the visual spec.'),
+        screenshot: z.string().optional().describe('Base64 encoded screenshot image.'),
+        file_path: z.string().optional().describe('Absolute file path to mockup image.'),
+      }),
     },
-    async ({ name, screenshot, file_path }) => {
+    async (params) => {
       try {
-        const res = await setVisualSpec({ name, screenshot, filePath: file_path });
+        const res = await setVisualSpec({
+          name: params.name,
+          screenshot: params.screenshot,
+          filePath: params.file_path,
+        });
         return {
           content: [{ type: 'text', text: JSON.stringify(res) }],
         };
@@ -1219,25 +1304,41 @@ export function registerAllTools(server: McpServer): void {
   );
 
   // verify_visual_spec
-  server.tool(
+  server.registerTool(
     'verify_visual_spec',
-    'Verify a live captured UI screenshot against a registered Visual Spec baseline.',
     {
-      spec_name: z.string().describe('Name identifier of the visual spec baseline.'),
-      screenshot: z.string().optional().describe('Base64 encoded live screenshot image.'),
-      file_path: z.string().optional().describe('Absolute file path to live screenshot image.'),
-      tolerance: z
-        .number()
-        .optional()
-        .describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
+      title: 'Verify Visual Spec',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Verify a live captured UI screenshot against a registered Visual Spec baseline.',
+      inputSchema: z.object({
+        spec_name: z.string().describe('Name identifier of the visual spec baseline.'),
+        screenshot: z.string().optional().describe('Base64 encoded live screenshot image.'),
+        file_path: z.string().optional().describe('Absolute file path to live screenshot image.'),
+        tolerance: z
+          .number()
+          .optional()
+          .describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
+        sdd_requirement_id: z
+          .string()
+          .optional()
+          .describe(
+            'Optional state-memory-mcp SDD requirement node ID to link verification result.'
+          ),
+      }),
     },
-    async ({ spec_name, screenshot, file_path, tolerance }) => {
+    async (params) => {
       try {
         const res = await verifyVisualSpec({
-          specName: spec_name,
-          screenshot,
-          filePath: file_path,
-          tolerance,
+          specName: params.spec_name,
+          screenshot: params.screenshot,
+          filePath: params.file_path,
+          tolerance: params.tolerance,
+          sddRequirementId: params.sdd_requirement_id,
         });
         return {
           content: [{ type: 'text', text: JSON.stringify(res) }],
@@ -1252,20 +1353,30 @@ export function registerAllTools(server: McpServer): void {
   );
 
   // get_visual_diff
-  server.tool(
+  server.registerTool(
     'get_visual_diff',
-    'Calculate perceptual dHash diff and region deltas between two visual states (Armstrong 2026, Section 7).',
     {
-      state_id_a: z.string().describe('ID of the first visual state baseline.'),
-      state_id_b: z.string().describe('ID of the second visual state target.'),
+      title: 'Get Visual Diff',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description: 'Calculate perceptual dHash diff and region deltas between two visual states.',
+      inputSchema: z.object({
+        state_id_a: z.string().describe('ID of the first visual state baseline.'),
+        state_id_b: z.string().describe('ID of the second visual state target.'),
+      }),
     },
-    async ({ state_id_a, state_id_b }) => {
+    async (params) => {
       try {
-        const stateA = await storage.getState(state_id_a);
-        const stateB = await storage.getState(state_id_b);
+        const stateA = await storage.getState(params.state_id_a);
+        const stateB = await storage.getState(params.state_id_b);
 
         if (!stateA || !stateB) {
-          throw new Error(`One or both visual states not found: ${state_id_a}, ${state_id_b}`);
+          throw new Error(
+            `One or both visual states not found: ${params.state_id_a}, ${params.state_id_b}`
+          );
         }
 
         const distance = hammingDistance(stateA.dhash, stateB.dhash);
@@ -1277,8 +1388,8 @@ export function registerAllTools(server: McpServer): void {
               type: 'text',
               text: JSON.stringify(
                 {
-                  state_id_a,
-                  state_id_b,
+                  state_id_a: params.state_id_a,
+                  state_id_b: params.state_id_b,
                   dhash_distance: distance,
                   similarity_score: Math.round(similarity * 1000) / 1000,
                   has_layout_change: distance > 3,
@@ -1302,29 +1413,38 @@ export function registerAllTools(server: McpServer): void {
   );
 
   // export_visual_trajectories
-  server.tool(
+  server.registerTool(
     'export_visual_trajectories',
-    'Export multimodal visual state transition trajectories for local model fine-tuning.',
     {
-      git_branch: z.string().optional().describe('Optional git branch filter.'),
-      limit: z
-        .number()
-        .optional()
-        .describe('Maximum number of trajectories to export (default: 50).'),
-      format: z
-        .enum(['json', 'llava', 'qwen2_vl'])
-        .optional()
-        .describe('Fine-tuning dataset export format (json, llava, qwen2_vl)'),
+      title: 'Export Visual Trajectories',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Export multimodal visual state transition trajectories for local model fine-tuning.',
+      inputSchema: z.object({
+        git_branch: z.string().optional().describe('Optional git branch filter.'),
+        limit: z
+          .number()
+          .optional()
+          .describe('Maximum number of trajectories to export (default: 50).'),
+        format: z
+          .enum(['json', 'llava', 'qwen2_vl'])
+          .optional()
+          .describe('Fine-tuning dataset export format (json, llava, qwen2_vl)'),
+      }),
     },
-    async ({ git_branch, limit, format }) => {
+    async (params) => {
       try {
-        const branch = git_branch || getCurrentBranch();
+        const branch = params.git_branch || getCurrentBranch();
         const states = await storage.listStatesAll(
           `git_branch = '${escapeSql(branch)}'`,
-          limit || 50
+          params.limit || 50
         );
 
-        const exportFmt = format || 'json';
+        const exportFmt = params.format || 'json';
 
         if (exportFmt === 'llava') {
           const llavaDataset = states.map((s) => ({
@@ -1408,17 +1528,33 @@ export function registerAllTools(server: McpServer): void {
           ? states.filter((s) => s.trace_id === params.trace_id)
           : states;
 
-        const steps = filteredStates.map((s, idx) => ({
-          step_index: idx + 1,
-          timestamp: s.created_at || Date.now(),
-          iso_timestamp: new Date(s.created_at || Date.now()).toISOString(),
-          source: 'vision_memory',
-          session_id: s.trace_id || '',
-          visual_state_id: s.id,
-          description: s.description || '',
-          source_url: s.source_url || '',
-          importance_score: s.importance_score || 0.5,
-        }));
+        const steps = filteredStates.map((s, idx) => {
+          let groundedElements: any[] = [];
+          if (s.grounded_elements) {
+            try {
+              groundedElements = JSON.parse(s.grounded_elements);
+            } catch (_) {}
+          }
+          let parsedTags: string[] = [];
+          if (s.tags) {
+            try {
+              parsedTags = JSON.parse(s.tags);
+            } catch (_) {}
+          }
+          return {
+            step_index: idx + 1,
+            timestamp: s.created_at || Date.now(),
+            iso_timestamp: new Date(s.created_at || Date.now()).toISOString(),
+            source: 'vision_memory',
+            session_id: s.trace_id || '',
+            visual_state_id: s.id,
+            description: s.description || '',
+            source_url: s.source_url || '',
+            importance_score: s.importance_score || 0.5,
+            grounded_elements: groundedElements,
+            tags: parsedTags,
+          };
+        });
 
         return {
           content: [
@@ -1570,6 +1706,43 @@ export function registerAllTools(server: McpServer): void {
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to purge state: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 21. Tool: wait_for_visual_state
+  server.registerTool(
+    'wait_for_visual_state',
+    {
+      title: 'Wait For Visual State',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Poll for a target visual state ID until it exists in memory or timeout occurs, avoiding spinning agent loops.',
+      inputSchema: z.object({
+        target_state_id: z.string().describe('Target visual state ID to wait for'),
+        timeout_ms: z.number().optional().describe('Maximum timeout in ms (default: 10000)'),
+        poll_interval_ms: z.number().optional().describe('Polling interval in ms (default: 500)'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleWaitForVisualState({
+          target_state_id: params.target_state_id,
+          timeout_ms: params.timeout_ms,
+          poll_interval_ms: params.poll_interval_ms,
+        });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to wait for visual state: ${error.message}` }],
         };
       }
     }

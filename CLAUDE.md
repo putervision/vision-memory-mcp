@@ -13,7 +13,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 6. **Privacy & Undo**: Call `forget_state` to purge sensitive or secret states, or `undo_last_visual_mutation` to revert accidental mutations.
 
-### 2. Tool Reference Summary (20 Core MCP Tools)
+### 2. Tool Reference Summary (22 Core MCP Tools)
 
 - `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 - `recall_memory`: Search visual memory by description query or base64 image query.
@@ -32,6 +32,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `export_joint_trajectories`: Export interleaved visual observation transitions and workflow graph events.
 - `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
 - `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
+- `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
 - `vision-memory-mcp doctor [--json]`: Run health checks for storage writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
 - `vision-memory-mcp audit [--json]`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
 

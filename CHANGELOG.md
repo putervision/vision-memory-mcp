@@ -5,6 +5,26 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-29
+
+### Added
+- **`wait_for_visual_state` MCP Tool (Tool #21)**: Added polling mechanism with configurable timeout and interval to await UI state transitions without agent spinning loops.
+- **SDD Visual Verification Bridge**: Connected `verify_visual_spec` results to `state-memory-mcp` SDD requirement nodes (`sdd_requirement_id` parameter).
+- **Unified Tool Registration**: Standardized tool registration syntax to `server.registerTool()` across all 21 Core MCP Tools.
+
+### Security & Hardening
+- **Command Injection Prevention**: Replaced `exec()` shell invocation with parameterized `execFile()` in `src/cli/commands/view.ts`.
+- **DOM XSS Sanitization**: Applied `escapeHtml()` sanitization to `node.id`, `link.source.id`, `link.target.id`, and `link.action` rendering in `viewer.html` and `view.ts`.
+- **Image Input Security**: Added workspace path bounds validation and `MAX_IMAGE_SIZE_MB` image/base64 payload size limit enforcement in `resolveImageInput`.
+- **Web & Script Security**: Added CSP headers, SRI hashes, and consolidated JSON-LD schemas in `docs/index.html`.
+
+### Performance & Error Resilience
+- **Non-Blocking I/O**: Refactored directory size calculations and lock cleanup to async non-blocking execution.
+- **Vision API Request Timeout**: Added 30-second `AbortSignal` timeout to LLM fetch calls in `src/vision/analyzer.ts`.
+- **Memory Cache TTL Eviction Sweep**: Implemented background sweep for expired TTL cache entries in `MemoryCache`.
+- **Per-Item Batch Error Resilience**: Wrapped `batch_analyze_screenshots` processing in per-item try-catch blocks to prevent single item failures from aborting the entire batch.
+- **Defensive Structured Diff Parsing**: Enhanced `computeStructuredDiff` to handle non-object/array JSON primitives defensively.
+
 ## [0.6.2] - 2026-07-28
 
 ### Fixes & Stability
@@ -62,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.4] - 2026-07-24
 
 ### Added & Improved
-- **First-Hop Visual Determinism Grounding** (Armstrong 2026, Section 7):
+- **First-Hop Visual Determinism Grounding**:
   - Updated visual cache architecture and documentation to highlight first-hop perceptual determinism and sub-5ms dHash fast-pathing.
   - Bumped project version to 0.4.4 across codebase, CLI, documentation, and package manifests.
 

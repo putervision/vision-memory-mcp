@@ -155,3 +155,16 @@ export interface BenchmarkResults {
   ops_per_second: number;
 }
 
+export interface WaitForVisualStateArgs {
+  target_state_id: string;
+  timeout_ms?: number;
+  poll_interval_ms?: number;
+}
+
+export interface WaitForVisualStateResult {
+  status: 'matched' | 'timeout';
+  elapsed_ms: number;
+  state: VisualState | null;
+}
+
+

@@ -18,7 +18,7 @@ This project utilizes \`vision-memory-mcp\` to cache visual states, record layou
 5. **Transitions**: Call \`record_outcome\` after every click/type/scroll action to construct navigation paths.
 6. **Privacy & Cleanup**: Call \`forget_state\` to purge sensitive or secret states from storage.
 
-### 2. Tool Reference Summary (20 Core MCP Tools)
+### 2. Tool Reference Summary (22 Core MCP Tools)
 * \`analyze_screenshot\`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 * \`recall_memory\`: Search visual memory by description query or base64 image query.
 * \`record_outcome\`: Save UI action execution outcomes and transitions between states.
@@ -31,9 +31,10 @@ This project utilizes \`vision-memory-mcp\` to cache visual states, record layou
 * \`save_visual_snapshot\` / \`diff_visual_snapshots\`: Manage visual checkpoints and detect visual regression.
 * \`undo_last_visual_mutation\`: Revert accidental state or transition edge ingestions.
 * \`forget_state\`: Purge a specific state and vector embedding from storage for privacy.
-* \`export_visual_trajectories\`: Export multimodal transition trajectories (JSON / LLaVA format) for fine-tuning.
+* \`export_visual_trajectories\` / \`export_joint_trajectories\`: Export multimodal transition & joint workflow trajectories.
 * \`get_metrics\`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
 * \`export_snapshot\` / \`restore_snapshot\`: Export and restore full standalone snapshot archives.
+* \`wait_for_visual_state\`: Poll for target visual state until present or timeout occurs.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
@@ -361,6 +362,7 @@ Run these commands in the terminal for management and analytics:
   const mcpVscode = {
     servers: {
       'vision-memory-mcp': {
+        type: 'stdio',
         command: 'vision-memory-mcp',
         args: ['run'],
         env: {
@@ -451,4 +453,21 @@ Run these commands in the terminal for management and analytics:
   console.log(
     '\n🎉 Initialization complete! Restart or reload your IDE / Agent Manager for the new MCP server and rule configurations to take effect.'
   );
+}
+
+/**
+ * Lightweight auto-initialization sequence executed on server start.
+ * Scaffolds project files and registers workspace configurations without prompting.
+ */
+export async function runAutoInit(root: string = process.cwd()): Promise<void> {
+  const originalLog = console.log;
+  console.log = (...args) => console.error(...args);
+
+  try {
+    await runInit(['--yes']);
+  } catch (err: any) {
+    console.error('Auto-initialization skipped:', err?.message || String(err));
+  } finally {
+    console.log = originalLog;
+  }
 }

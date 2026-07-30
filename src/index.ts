@@ -8,14 +8,22 @@ import { embeddings } from './core/embeddings.js';
 import { registerAllTools } from './tools/handlers.js';
 import { registerAllPrompts } from './tools/prompts.js';
 import { logger } from './logger.js';
+import { runAutoInit } from './cli/init.js';
 
 declare const __APP_VERSION__: string;
-const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.6.2';
+const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.0';
 
 async function main() {
   logger.info(`Starting vision-memory-mcp server v${SERVER_VERSION}...`);
 
   try {
+    // 0. Auto-scaffold workspace configurations and copilot instructions
+    try {
+      await runAutoInit();
+    } catch (err: any) {
+      logger.warn(`Auto-initialization skipped: ${err?.message || String(err)}`);
+    }
+
     // 1. Initialize Database Storage & Pre-warm CLIP Embeddings
     await storage.init();
     embeddings.init().catch((err) => {

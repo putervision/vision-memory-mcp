@@ -290,4 +290,47 @@ describe('MCP Tool Handlers', { timeout: 30000 }, () => {
     expect(payload.batch_count).toBe(2);
     expect(payload.results.length).toBe(2);
   });
+
+  it('should wait for visual state and return matched state', async () => {
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    const ingestRes = await ingestHandler({ screenshot: redBase64, git_branch: 'main' });
+    const stateId = JSON.parse(ingestRes.content[0].text).state_id;
+
+    const waitHandler = getToolHandler(server, 'wait_for_visual_state');
+    const result = await waitHandler({
+      target_state_id: stateId,
+      timeout_ms: 1000,
+      poll_interval_ms: 100,
+    });
+
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.status).toBe('matched');
+    expect(payload.state.id).toBe(stateId);
+  });
+
+  it('should timeout when waiting for non-existent visual state', async () => {
+    const waitHandler = getToolHandler(server, 'wait_for_visual_state');
+    const result = await waitHandler({
+      target_state_id: 'non-existent-state-12345',
+      timeout_ms: 200,
+      poll_interval_ms: 50,
+    });
+
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.status).toBe('timeout');
+    expect(payload.state).toBeNull();
+  });
+
+  it('should export joint trajectories payload', async () => {
+    const exportJointHandler = getToolHandler(server, 'export_joint_trajectories');
+    const result = await exportJointHandler({
+      limit: 10,
+    });
+
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.steps).toBeDefined();
+  });
 });

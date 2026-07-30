@@ -180,7 +180,7 @@ export async function exportSnapshot(
   );
 
   return {
-    version: '0.6.2',
+    version: '0.7.0',
     exported_at: Date.now(),
     name: snap.name,
     description: snap.description,

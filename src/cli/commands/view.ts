@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { storage, escapeSql } from '../../core/storage.js';
@@ -441,7 +441,7 @@ export function buildHtmlVisualizer(
 
       const meta = document.getElementById('detail-meta');
       meta.innerHTML = \`
-        <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${node.id}">\${node.id}</span></div>
+        <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${escapeHtml(node.id)}">\${escapeHtml(node.id)}</span></div>
         <div class="meta-item"><span class="meta-label">Access Hits</span><span class="meta-value">\${node.access_count} times</span></div>
         <div class="meta-item"><span class="meta-label">Source URL</span><span class="meta-value" title="\${escapeHtml(node.source_url || 'Unknown')}">\${escapeHtml(node.source_url || 'Unknown')}</span></div>
         <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">\${escapeHtml(new Date(node.created_at).toLocaleDateString())}</span></div>
@@ -477,8 +477,8 @@ export function buildHtmlVisualizer(
       
       const meta = document.getElementById('detail-meta');
       meta.innerHTML = \`
-        <div class="meta-item"><span class="meta-label">From State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${link.source.id}">\${link.source.id}</span></div>
-        <div class="meta-item"><span class="meta-label">To State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${link.target.id}">\${link.target.id}</span></div>
+        <div class="meta-item"><span class="meta-label">From State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${escapeHtml(link.source.id)}">\${escapeHtml(link.source.id)}</span></div>
+        <div class="meta-item"><span class="meta-label">To State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="\${escapeHtml(link.target.id)}">\${escapeHtml(link.target.id)}</span></div>
         <div class="meta-item"><span class="meta-label">Success Rate</span><span class="meta-value" style="color: \${link.success_rate >= 0.8 ? '#34d399' : '#fbbf24'}">\${ratePercentage}% (\${link.success_count}/\${totalCount})</span></div>
         <div class="meta-item"><span class="meta-label">Failures</span><span class="meta-value" style="color:#f87171">\${link.failure_count} times</span></div>
       \`;
@@ -630,5 +630,10 @@ export async function runView(args: string[] = []) {
       : process.platform === 'win32'
         ? 'start'
         : 'xdg-open';
-  exec(`${openCmd} "${htmlPath}"`);
+
+  execFile(openCmd, [htmlPath], (err) => {
+    if (err) {
+      console.warn(`Failed to auto-open viewer: ${err.message}`);
+    }
+  });
 }

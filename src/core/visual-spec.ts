@@ -15,6 +15,7 @@ export interface VisualSpecResult {
   similarity_score: number;
   tolerance_threshold: number;
   message: string;
+  sdd_requirement_id?: string;
 }
 
 /**
@@ -40,46 +41,46 @@ export async function setVisualSpec(params: {
 
   const processed = await processImage(base64);
   const dhash = await calculateDHash(processed.normalizedBuffer);
+  const ahash = await calculateAHash(processed.normalizedBuffer);
   const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
 
-  const id = `vspec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  const metadata = {
-    ...(params.metadata || {}),
-    is_visual_spec: true,
-    spec_name: params.name,
-  };
+  const stateId = `spec-${params.name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
+  const now = Date.now();
 
   const state: VisualState = {
-    id,
+    id: stateId,
     dhash,
-    ahash: '0'.repeat(64),
+    ahash,
     vector,
-    description: `Visual Spec: ${params.name}`,
-    structured_data: JSON.stringify(metadata),
-    accessibility_tree: '{}',
-    thumbnail: processed.thumbnail,
-    original_dimensions: JSON.stringify({
-      width: processed.originalWidth,
-      height: processed.originalHeight,
+    description: `Visual Spec Baseline: ${params.name}`,
+    structured_data: JSON.stringify({
+      is_visual_spec: true,
+      spec_name: params.name,
+      ...params.metadata,
     }),
-    source_url: params.filePath || '',
+    accessibility_tree: '',
+    thumbnail: processed.thumbnailBuffer.toString('base64'),
+    original_dimensions: JSON.stringify({
+      width: processed.width,
+      height: processed.height,
+    }),
+    source_url: `spec://${params.name}`,
     source_agent: 'system',
-    trace_id: '',
-    git_branch: '',
-    tags: JSON.stringify(['visual_spec']),
+    trace_id: 'spec-baseline',
+    git_branch: 'main',
+    tags: JSON.stringify(['visual-spec', 'baseline', params.name]),
     importance_score: 1.0,
-    created_at: Date.now(),
-    last_accessed: Date.now(),
+    created_at: now,
+    last_accessed: now,
     access_count: 1,
     ttl: 0,
   };
 
-  await storage.addState(state);
-
-  logger.info(`Visual spec baseline set: "${params.name}" (ID: ${id})`);
+  await storage.saveState(state);
+  logger.info(`Registered Visual Spec baseline "${params.name}" (ID: ${stateId})`);
 
   return {
-    id,
+    id: stateId,
     name: params.name,
     dhash,
   };
@@ -93,6 +94,7 @@ export async function verifyVisualSpec(params: {
   screenshot?: string;
   filePath?: string;
   tolerance?: number;
+  sddRequirementId?: string;
 }): Promise<VisualSpecResult> {
   let base64 = params.screenshot;
   if (params.filePath) {
@@ -143,5 +145,6 @@ export async function verifyVisualSpec(params: {
     similarity_score: similarity,
     tolerance_threshold: threshold,
     message,
+    sdd_requirement_id: params.sddRequirementId,
   };
 }

@@ -137,7 +137,7 @@ Ensure you allow:
 
 ---
 
-## 🔌 MCP Tools (20 Available)
+## 🔌 MCP Tools (22 Available)
 
 | Tool                        | Purpose                                                           | Key Inputs                                                                  |
 | --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------- |
@@ -158,9 +158,11 @@ Ensure you allow:
 | `get_visual_diff`           | Calculate perceptual dHash diff and layout region deltas          | `state_id_a` (req), `state_id_b` (req)                                      |
 | `forget_state`              | Purge a specific state and vector embedding from storage          | `state_id` (req)                                                            |
 | `export_visual_trajectories`| Export multimodal trajectories for local model fine-tuning        | `git_branch` (opt), `limit` (opt), `format` ('json' \| 'llava' \| 'qwen2_vl')|
+| `export_joint_trajectories` | Export joint workflow state memory + visual state transitions     | `trace_id` (opt), `limit` (opt)                                             |
 | `get_metrics`               | Query real-time cache hit ratios, token savings & latency stats   | None                                                                        |
 | `export_snapshot`           | Export standalone `.tar.gz` snapshot archive JSON payload         | `name` (req)                                                                |
 | `restore_snapshot`          | Restore visual memory database from snapshot archive              | `archive_json` (req)                                                        |
+| `wait_for_visual_state`     | Poll for target visual state ID until matched or timeout occurs   | `target_state_id` (req), `timeout_ms` (opt), `poll_interval_ms` (opt)       |
 
 ---
 

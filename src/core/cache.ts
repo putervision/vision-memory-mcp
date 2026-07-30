@@ -99,6 +99,8 @@ export class MemoryCache {
     const branch = state.git_branch || getCurrentBranch();
     const key = this.makeKey(state.id, branch);
 
+    this.sweepExpired();
+
     if (this.cache.has(key)) {
       this.cache.delete(key);
     } else if (this.cache.size >= this.maxSize) {
@@ -116,6 +118,18 @@ export class MemoryCache {
       ttl: ttlMs,
     });
     logger.debug(`LRU Cache: Cached state ${state.id} on branch ${branch}`);
+  }
+
+  /**
+   * Sweeps expired TTL items from the cache.
+   */
+  sweepExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.ttl > 0 && now - entry.insertedAt > entry.ttl) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   /**
