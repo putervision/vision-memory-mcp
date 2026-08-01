@@ -63,11 +63,13 @@ export class MemoryCache {
     const targetBranch = branch || getCurrentBranch();
     const key = this.makeKey(id, targetBranch);
     let entry = this.cache.get(key);
+    let matchedKey = key;
 
     if (!entry && !branch) {
       for (const [k, e] of this.cache.entries()) {
         if (k.endsWith(`:${id}`)) {
           entry = e;
+          matchedKey = k;
           break;
         }
       }
@@ -80,12 +82,12 @@ export class MemoryCache {
     // Check expiration
     if (entry.ttl > 0 && Date.now() - entry.insertedAt > entry.ttl) {
       logger.debug(`LRU Cache: Evicting expired state ${id}`);
-      this.cache.delete(key);
+      this.cache.delete(matchedKey);
       return null;
     }
 
-    // Refresh LRU position by deleting and re-inserting
-    this.cache.delete(key);
+    // Refresh LRU position by deleting matched key and re-inserting under current key
+    this.cache.delete(matchedKey);
     this.cache.set(key, entry);
 
     return entry.state;

@@ -44,8 +44,12 @@ export async function recordTransition(params: {
   if (existing) {
     successCount = existing.success_count + successVal;
     failureCount = existing.failure_count + (params.success ? 0 : 1);
+    const previousCount = existing.success_count + existing.failure_count;
     const totalCount = successCount + failureCount;
-    avgDuration = Math.round((existing.duration_ms * (totalCount - 1) + duration) / totalCount);
+    avgDuration =
+      previousCount > 0
+        ? Math.round((existing.duration_ms * previousCount + duration) / totalCount)
+        : duration;
   }
 
   const transition: StateTransition = {

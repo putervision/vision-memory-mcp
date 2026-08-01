@@ -17,27 +17,8 @@ import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
 import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
+import { getCachedDirSize } from '../utils/fs.js';
 import { VisualState, ResponseFormat, WaitForVisualStateResult } from '../types.js';
-
-function getDirSize(dirPath: string): number {
-  let size = 0;
-  if (!fs.existsSync(dirPath)) return 0;
-  const files = fs.readdirSync(dirPath);
-  for (const file of files) {
-    const filePath = path.join(dirPath, file);
-    try {
-      const stats = fs.statSync(filePath);
-      if (stats.isDirectory()) {
-        size += getDirSize(filePath);
-      } else {
-        size += stats.size;
-      }
-    } catch {
-      // Ignore unreadable files
-    }
-  }
-  return size;
-}
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
   if (filePath) {
@@ -732,7 +713,8 @@ export function registerAllTools(server: McpServer): void {
           memory_stats: {
             total_states: allStatesCount,
             total_transitions: allTransCount,
-            db_size_mb: Math.round((getDirSize(config.LANCEDB_PATH) / (1024 * 1024)) * 100) / 100,
+            db_size_mb:
+              Math.round((getCachedDirSize(config.LANCEDB_PATH) / (1024 * 1024)) * 100) / 100,
           },
         };
 
@@ -1660,8 +1642,31 @@ export function registerAllTools(server: McpServer): void {
     },
     async (params) => {
       try {
-        const archive = JSON.parse(params.archive_json);
-        const result = await restoreSnapshot(archive);
+        const rawParsed = JSON.parse(params.archive_json);
+        const SnapshotArchiveSchema = z.object({
+          version: z.string().optional(),
+          name: z.string().optional(),
+          snapshot: z.object({
+            id: z.string(),
+            name: z.string(),
+            git_branch: z.string().optional(),
+            created_at: z.number().optional(),
+            state_ids: z.string(),
+          }),
+          states: z.array(
+            z.object({
+              id: z.string(),
+              dhash: z.string(),
+              ahash: z.string(),
+              vector: z.array(z.number()),
+              description: z.string(),
+            })
+          ),
+          transitions: z.array(z.any()).optional(),
+        });
+
+        const archive = SnapshotArchiveSchema.parse(rawParsed);
+        const result = await restoreSnapshot(archive as any);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };

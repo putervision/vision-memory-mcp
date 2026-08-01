@@ -11,7 +11,7 @@ import { logger } from './logger.js';
 import { runAutoInit } from './cli/init.js';
 
 declare const __APP_VERSION__: string;
-const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.0';
+const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.1';
 
 async function main() {
   logger.info(`Starting vision-memory-mcp server v${SERVER_VERSION}...`);

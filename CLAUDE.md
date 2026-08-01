@@ -48,7 +48,7 @@ To allow cache query and ingestion commands to run automatically without prompti
 
 ## State Memory (state-memory-mcp)
 
-This project tracks workflow state, tasks, design decisions, and blockers using `state-memory-mcp` with project slug `"vision-memory-mcp"`.
+This project tracks workflow state, tasks, design decisions, and blockers using `state-memory-mcp` with project slug `"state-memory-mcp"`.
 
 ### 1. Priority Order
 

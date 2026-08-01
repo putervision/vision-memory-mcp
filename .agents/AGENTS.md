@@ -75,6 +75,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 * `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
 * `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
 * `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
+* `create_visual_blocker`: Generate structured visual blocker payload for state-memory-mcp.
 * `undo_last_visual_mutation`: Revert accidental state or transition edge ingestions.
 * `forget_state`: Purge a specific state and vector embedding from storage for privacy.
 * `export_visual_trajectories` / `export_joint_trajectories`: Export multimodal transition & joint workflow trajectories.

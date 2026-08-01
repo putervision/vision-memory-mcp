@@ -14,3 +14,8 @@ plans/
 .vision-memory-mcp/
 .test-pipeline-db/
 
+# Build artifacts & coverage
+coverage/
+.env.local
+*.env.*
+

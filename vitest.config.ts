@@ -5,5 +5,17 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     globals: true,
+    coverage: {
+      provider: 'v8',
+      include: [
+        'src/core/**/*.ts',
+        'src/tools/**/*.ts',
+        'src/utils/**/*.ts',
+        'src/vision/**/*.ts',
+        'src/config.ts',
+        'src/logger.ts',
+      ],
+      exclude: ['src/cli/commands/view.ts', 'src/cli/benchmark.ts'],
+    },
   },
 });

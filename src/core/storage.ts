@@ -81,9 +81,13 @@ function getDirSize(dirPath: string): number {
         } else {
           size += stats.size;
         }
-      } catch {}
+      } catch (err) {
+        logger.debug('Error checking dir item size:', err);
+      }
     }
-  } catch {}
+  } catch (err) {
+    logger.debug('Error opening directory for size calculation:', err);
+  }
   return size;
 }
 
@@ -207,7 +211,9 @@ export class StorageManager {
       });
       try {
         await this.statesTable.delete("id = 'dummy-state-id'");
-      } catch {}
+      } catch (err) {
+        logger.debug('Ignored dummy state cleanup error:', err);
+      }
       logger.debug('Created and cleaned visual_states table.');
     }
 
@@ -238,7 +244,9 @@ export class StorageManager {
       );
       try {
         await this.transitionsTable.delete("id = 'dummy-transition-id'");
-      } catch {}
+      } catch (err) {
+        logger.debug('Ignored dummy transition cleanup error:', err);
+      }
       logger.debug('Created and cleaned state_transitions table.');
     }
 
@@ -261,7 +269,9 @@ export class StorageManager {
       });
       try {
         await this.snapshotsTable.delete("id = 'dummy-snapshot-id'");
-      } catch {}
+      } catch (err) {
+        logger.debug('Ignored dummy snapshot cleanup error:', err);
+      }
       logger.debug('Created and cleaned visual_snapshots table.');
     }
 
@@ -433,6 +443,143 @@ export class StorageManager {
     return deduplicated.slice(0, limit);
   }
 
+  /**
+   * Lightweight query that projects only essential state columns (omitting vector arrays and large thumbnail buffers).
+   */
+  async listStateHashes(
+    filter?: string,
+    limit: number = 1000
+  ): Promise<
+    Array<
+      Pick<
+        VisualState,
+        | 'id'
+        | 'dhash'
+        | 'ahash'
+        | 'git_branch'
+        | 'accessibility_tree'
+        | 'access_count'
+        | 'description'
+        | 'structured_data'
+        | 'tags'
+        | 'source_url'
+      >
+    >
+  > {
+    if (!this.statesTable) throw new Error('States table not initialized.');
+    let q = this.statesTable
+      .query()
+      .select([
+        'id',
+        'dhash',
+        'ahash',
+        'git_branch',
+        'accessibility_tree',
+        'access_count',
+        'description',
+        'structured_data',
+        'tags',
+        'source_url',
+      ]);
+    if (filter) {
+      q = q.where(filter);
+    }
+    const results = await q.limit(limit).toArray();
+    return results as unknown as Array<
+      Pick<
+        VisualState,
+        | 'id'
+        | 'dhash'
+        | 'ahash'
+        | 'git_branch'
+        | 'accessibility_tree'
+        | 'access_count'
+        | 'description'
+        | 'structured_data'
+        | 'tags'
+        | 'source_url'
+      >
+    >;
+  }
+
+  /**
+   * Lightweight query across primary and auxiliary DBs.
+   */
+  async listStateHashesAll(
+    filter?: string,
+    limit: number = 1000
+  ): Promise<
+    Array<
+      Pick<
+        VisualState,
+        | 'id'
+        | 'dhash'
+        | 'ahash'
+        | 'git_branch'
+        | 'accessibility_tree'
+        | 'access_count'
+        | 'description'
+        | 'structured_data'
+        | 'tags'
+        | 'source_url'
+      >
+    >
+  > {
+    const combined: Array<any> = [];
+    const primary = await this.listStateHashes(filter, limit);
+    combined.push(...primary);
+
+    for (const [dbPath, aux] of this.auxiliaryDbs.entries()) {
+      if (!aux.statesTable) continue;
+      try {
+        let q = aux.statesTable
+          .query()
+          .select([
+            'id',
+            'dhash',
+            'ahash',
+            'git_branch',
+            'accessibility_tree',
+            'access_count',
+            'description',
+            'structured_data',
+            'tags',
+            'source_url',
+          ]);
+        if (filter) {
+          q = q.where(filter);
+        }
+        const auxStates = (await q.limit(limit).toArray()) as unknown as any[];
+        const relativeSubdir = path.relative(process.cwd(), path.dirname(dbPath));
+        for (const s of auxStates) {
+          s.source_subdir = relativeSubdir || '.';
+        }
+        combined.push(...auxStates);
+      } catch (err) {
+        logger.debug(`Failed to query auxiliary state hashes from ${dbPath}:`, err);
+      }
+    }
+
+    const seen = new Set<string>();
+    const deduplicated: Array<any> = [];
+    for (const s of combined) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        deduplicated.push(s);
+      }
+    }
+    return deduplicated.slice(0, limit);
+  }
+
+  /**
+   * Batch fetches states by ID list in a single query.
+   */
+  async getStatesByIds(ids: string[]): Promise<VisualState[]> {
+    if (!ids || ids.length === 0) return [];
+    const escapedIds = ids.map((id) => `'${escapeSql(id)}'`).join(',');
+    return await this.listStatesAll(`id IN (${escapedIds})`, ids.length);
+  }
+
   async countStates(filter?: string): Promise<number> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     return await this.statesTable.countRows(filter);
@@ -444,7 +591,9 @@ export class StorageManager {
       if (aux.statesTable) {
         try {
           total += await aux.statesTable.countRows(filter);
-        } catch {}
+        } catch (err) {
+          logger.debug('Ignored aux db countRows error:', err);
+        }
       }
     }
     return total;
@@ -585,7 +734,9 @@ export class StorageManager {
           const auxTable = await aux.db.openTable('state_transitions');
           total += await auxTable.countRows(filter);
         }
-      } catch {}
+      } catch (err) {
+        logger.debug('Ignored aux db countTransitions error:', err);
+      }
     }
     return total;
   }

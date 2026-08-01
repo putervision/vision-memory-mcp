@@ -30,10 +30,10 @@ export interface EmbeddingProvider {
 }
 
 export class EmbeddingsManager {
-  private processor: any = null;
-  private tokenizer: any = null;
-  private visionModel: any = null;
-  private textModel: any = null;
+  private processor: unknown = null;
+  private tokenizer: unknown = null;
+  private visionModel: unknown = null;
+  private textModel: unknown = null;
   private initialized = false;
   private fallbackMode = false;
   private initPromise: Promise<void> | null = null;
@@ -49,7 +49,7 @@ export class EmbeddingsManager {
       );
 
       try {
-        const modelOpts: any = {
+        const modelOpts: Record<string, unknown> = {
           quantized: true,
         };
 
@@ -68,9 +68,10 @@ export class EmbeddingsManager {
 
         this.initialized = true;
         logger.info('CLIP embedding models loaded successfully.');
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         logger.warn(
-          `Failed to load CLIP embedding model (${error.message || error}). Entering graceful fallback mode (dHash matching enabled, vector features degraded).`
+          `Failed to load CLIP embedding model (${errMsg}). Entering graceful fallback mode (dHash matching enabled, vector features degraded).`
         );
         this.fallbackMode = true;
         this.initialized = false;
@@ -99,8 +100,8 @@ export class EmbeddingsManager {
       const blob = new Blob([buffer], { type: mimeType });
       const image = await RawImage.fromBlob(blob);
 
-      const imageInputs = await this.processor(image);
-      const visionOutputs = await this.visionModel(imageInputs);
+      const imageInputs = await (this.processor as CallableFunction)(image);
+      const visionOutputs: any = await (this.visionModel as CallableFunction)(imageInputs);
       const embeds = visionOutputs.image_embeds;
 
       const list = embeds.tolist();
@@ -126,12 +127,12 @@ export class EmbeddingsManager {
     }
 
     try {
-      const textInputs = await this.tokenizer([text], {
+      const textInputs = await (this.tokenizer as CallableFunction)([text], {
         padding: true,
         truncation: true,
       });
 
-      const textOutputs = await this.textModel(textInputs);
+      const textOutputs: any = await (this.textModel as CallableFunction)(textInputs);
       const embeds = textOutputs.text_embeds;
 
       const list = embeds.tolist();

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { storage } from '../../src/core/storage.js';
-import { retrieveState } from '../../src/core/retrieval.js';
+import { retrieveState, compressAccessibilityTree } from '../../src/core/retrieval.js';
 import { calculateDHash, calculateAHash } from '../../src/core/hash.js';
 import { VisualState } from '../../src/types.js';
 import sharp from 'sharp';
@@ -22,13 +22,11 @@ describe('Tiered Retrieval Engine', () => {
 
     await storage.init(TEST_DB_PATH);
 
-    // Clear existing data
     try {
       await storage.deleteState("id != ''");
       await storage.deleteTransition("id != ''");
     } catch {}
 
-    // Create a plain solid red image for testing
     redBuffer = await sharp({
       create: {
         width: 100,
@@ -43,12 +41,11 @@ describe('Tiered Retrieval Engine', () => {
     dhashRed = await calculateDHash(redBuffer);
     ahashRed = await calculateAHash(redBuffer);
 
-    // Save a state with this red image hashes
     const state: VisualState = {
       id: 'state-red',
       dhash: dhashRed,
       ahash: ahashRed,
-      vector: new Array(512).fill(0.1), // dummy vector
+      vector: new Array(512).fill(0.1),
       description: 'Solid Red Screen',
       structured_data: '{}',
       accessibility_tree: '{"nodes": []}',
@@ -58,7 +55,7 @@ describe('Tiered Retrieval Engine', () => {
       source_agent: '',
       trace_id: '',
       git_branch: 'main',
-      tags: '[]',
+      tags: '["red","test"]',
       importance_score: 0.5,
       created_at: Date.now(),
       last_accessed: Date.now(),
@@ -93,10 +90,9 @@ describe('Tiered Retrieval Engine', () => {
       screenshot: redBuffer,
       strategy: 'thorough',
       gitBranch: 'main',
-      accessibilityTree: '{"nodes": [{"id": 1}]}', // different AX tree
+      accessibilityTree: '{"nodes": [{"id": 1}]}',
     });
 
-    // In 'fast' strategy (L1+L2 only), invalidation means it returns is_known: false
     expect(result.is_known).toBe(false);
     expect(result.match_type).toBe('new');
   });
@@ -110,5 +106,14 @@ describe('Tiered Retrieval Engine', () => {
 
     expect(result.state_id).toBe('state-red');
     expect(result.match_type).toBe('vector_similar');
+  });
+
+  it('should compress accessibility trees cleanly', () => {
+    const emptyComp = compressAccessibilityTree('');
+    expect(emptyComp).toBe('{}');
+
+    const tree = JSON.stringify({ role: 'button', name: 'Submit' });
+    const compressed = compressAccessibilityTree(tree);
+    expect(compressed).toContain('button');
   });
 });

@@ -58,9 +58,12 @@ describe('MCP Tool Handlers', { timeout: 30000 }, () => {
   });
 
   afterAll(async () => {
-    if (fs.existsSync(TEST_DB_PATH)) {
-      fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    }
+    await new Promise((r) => setTimeout(r, 100));
+    try {
+      if (fs.existsSync(TEST_DB_PATH)) {
+        fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      }
+    } catch {}
   });
 
   it('should register all tools on the McpServer', () => {
@@ -332,5 +335,121 @@ describe('MCP Tool Handlers', { timeout: 30000 }, () => {
     expect(result.content).toBeDefined();
     const payload = JSON.parse(result.content[0].text);
     expect(payload.steps).toBeDefined();
+  });
+
+  it('should handle get_metrics tool', async () => {
+    const metricsHandler = getToolHandler(server, 'get_metrics');
+    const result = await metricsHandler({});
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.total_queries).toBeDefined();
+  });
+
+  it('should handle export_snapshot and restore_snapshot tools', async () => {
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    await ingestHandler({ screenshot: redBase64, git_branch: 'main' });
+
+    const saveSnapHandler = getToolHandler(server, 'save_visual_snapshot');
+    await saveSnapHandler({ name: 'snap-for-export', description: 'Export test' });
+
+    const exportSnapHandler = getToolHandler(server, 'export_snapshot');
+    const exportRes = await exportSnapHandler({ name: 'snap-for-export' });
+    expect(exportRes.content).toBeDefined();
+    const exportPayload = JSON.parse(exportRes.content[0].text);
+    expect(exportPayload.snapshot).toBeDefined();
+
+    const restoreSnapHandler = getToolHandler(server, 'restore_snapshot');
+    const restoreRes = await restoreSnapHandler({ archive_json: JSON.stringify(exportPayload) });
+    expect(restoreRes.content).toBeDefined();
+    expect(restoreRes.content[0].text).toContain('restored_states');
+  });
+
+  it('should handle export_visual_trajectories tool', async () => {
+    const exportTrajHandler = getToolHandler(server, 'export_visual_trajectories');
+    const result = await exportTrajHandler({ format: 'json', limit: 5 });
+    expect(result.content).toBeDefined();
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload.trajectories).toBeDefined();
+  });
+
+  it('should handle get_visual_diff tool', async () => {
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    const resA = await ingestHandler({ screenshot: redBase64, git_branch: 'main' });
+    const resB = await ingestHandler({ screenshot: blueBase64, git_branch: 'main' });
+    const idA = JSON.parse(resA.content[0].text).state_id;
+    const idB = JSON.parse(resB.content[0].text).state_id;
+
+    const diffHandler = getToolHandler(server, 'get_visual_diff');
+    const diffRes = await diffHandler({ state_id_a: idA, state_id_b: idB });
+    expect(diffRes.content).toBeDefined();
+    const payload = JSON.parse(diffRes.content[0].text);
+    expect(payload.dhash_distance).toBeDefined();
+  });
+
+  it('should handle forget_state tool', async () => {
+    const ingestHandler = getToolHandler(server, 'analyze_screenshot');
+    const ingestRes = await ingestHandler({ screenshot: redBase64, git_branch: 'main' });
+    const stateId = JSON.parse(ingestRes.content[0].text).state_id;
+
+    const forgetHandler = getToolHandler(server, 'forget_state');
+    const forgetRes = await forgetHandler({ state_id: stateId });
+    expect(forgetRes.content).toBeDefined();
+    expect(forgetRes.content[0].text).toContain('purged_state_id');
+  });
+
+  it('should handle set_visual_spec and verify_visual_spec tools', async () => {
+    const setSpecHandler = getToolHandler(server, 'set_visual_spec');
+    const setRes = await setSpecHandler({
+      name: 'Handler Spec',
+      screenshot: redBase64,
+    });
+    expect(setRes.content).toBeDefined();
+
+    const verifySpecHandler = getToolHandler(server, 'verify_visual_spec');
+    const verifyRes = await verifySpecHandler({
+      spec_name: 'Handler Spec',
+      screenshot: redBase64,
+      tolerance: 64,
+      sdd_requirement_id: 'REQ-HANDLERS-1',
+    });
+    expect(verifyRes.content).toBeDefined();
+    const payload = JSON.parse(verifyRes.content[0].text);
+    expect(payload.is_compliant).toBe(true);
+  });
+
+  it('should return error response in set_visual_spec if image missing', async () => {
+    const setSpecHandler = getToolHandler(server, 'set_visual_spec');
+    const res = await setSpecHandler({ name: 'Missing' });
+    expect(res.isError).toBe(true);
+  });
+
+  it('should return error response in verify_visual_spec if spec not found', async () => {
+    const verifySpecHandler = getToolHandler(server, 'verify_visual_spec');
+    const res = await verifySpecHandler({ spec_name: 'DoesNotExist', screenshot: redBase64 });
+    expect(res.isError).toBe(true);
+  });
+
+  it('should return error response in get_visual_diff if states not found', async () => {
+    const diffHandler = getToolHandler(server, 'get_visual_diff');
+    const res = await diffHandler({ state_id_a: 'bad-1', state_id_b: 'bad-2' });
+    expect(res.isError).toBe(true);
+  });
+
+  it('should return error response in export_snapshot if snapshot not found', async () => {
+    const exportSnapHandler = getToolHandler(server, 'export_snapshot');
+    const res = await exportSnapHandler({ name: 'no-such-snapshot' });
+    expect(res.isError).toBe(true);
+  });
+
+  it('should handle recall_memory with screenshot parameter', async () => {
+    const recallHandler = getToolHandler(server, 'recall_memory');
+    const res = await recallHandler({ screenshot: redBase64, limit: 2 });
+    expect(res.content).toBeDefined();
+  });
+
+  it('should handle undo_last_visual_mutation with transition type', async () => {
+    const undoHandler = getToolHandler(server, 'undo_last_visual_mutation');
+    const res = await undoHandler({ type: 'transition' });
+    expect(res.content).toBeDefined();
   });
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.0';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.1';
 
 function showHelp() {
   console.log(`
@@ -13,6 +13,7 @@ Usage:
 Commands:
   run                Start the MCP server on stdio transport (Default)
   init [-y|--yes]    Scaffold the workspace, .gitignore, .env, and Cursor rules
+  init-global        Re-initialize across all projects registered in ~/.vision-memory-mcp/projects.json
   doctor             Run environment health checks (LanceDB, sharp, git, Node)
   update             Check npm registry and update @putervision/vision-memory-mcp globally
   audit              Audit sub-directory Git repos and multi-database memory status
@@ -71,6 +72,12 @@ async function runCli() {
     case 'init': {
       const { runInit } = await import('./cli/init.js');
       await runInit(args);
+      break;
+    }
+
+    case 'init-global': {
+      const { runInitGlobal } = await import('./cli/init.js');
+      await runInitGlobal(args);
       break;
     }
 

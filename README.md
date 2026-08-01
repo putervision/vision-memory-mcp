@@ -31,10 +31,13 @@ npm install -g .
 Run the following command in your target project root:
 
 ```bash
+# Initialize workspace — scaffolds .vision-memory-mcp/, registers path in ~/.vision-memory-mcp/projects.json,
+# and generates default .env, .gitignore, and IDE agent rules
 vision-memory-mcp init
-```
 
-This scaffolds `.vision-memory-mcp`, generates a default `.env` template, and adds configuration properties to your `.gitignore`.
+# Multi-project global init — re-initializes across all registered projects in ~/.vision-memory-mcp/projects.json
+vision-memory-mcp init-global
+```
 
 ### 3. Configure MCP Clients
 
@@ -179,7 +182,8 @@ Ensure you allow:
 ## 💻 CLI Commands
 
 - **`vision-memory-mcp run`**: Launches the MCP stdio server.
-- **`vision-memory-mcp init`**: Bootstraps environment and IDE rules.
+- **`vision-memory-mcp init [-y|--yes]`**: Bootstraps environment, registers path in `~/.vision-memory-mcp/projects.json`, and scaffolds IDE rules.
+- **`vision-memory-mcp init-global [--clean-stale] [--scan <dir>]`**: Re-initializes across all registered projects in `~/.vision-memory-mcp/projects.json`.
 - **`vision-memory-mcp doctor [--json]`**: Health checks LanceDB writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
 - **`vision-memory-mcp update`**: Checks the npm registry and updates `@putervision/vision-memory-mcp` globally to the latest version.
 - **`vision-memory-mcp audit [--json]`**: Performs a deep workspace audit of Git repos, submodules, database locations, and state counts.

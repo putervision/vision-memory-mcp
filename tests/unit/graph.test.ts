@@ -10,20 +10,17 @@ const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-graph-db');
 
 describe('Graph Navigation and Transitions', () => {
   beforeAll(async () => {
-    // Clean up if exists
     if (fs.existsSync(TEST_DB_PATH)) {
       fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
 
     await storage.init(TEST_DB_PATH);
 
-    // Clear existing data
     try {
       await storage.deleteState("id != ''");
       await storage.deleteTransition("id != ''");
     } catch {}
 
-    // Insert mock states to link transitions
     const mockVector = new Array(512).fill(0.1);
 
     const states: VisualState[] = [
@@ -98,14 +95,12 @@ describe('Graph Navigation and Transitions', () => {
   });
 
   afterAll(async () => {
-    // Cleanup test database
     if (fs.existsSync(TEST_DB_PATH)) {
       fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
   it('should record transitions and update counters correctly', async () => {
-    // 1. Record transition A -> B (success)
     const t1 = await recordTransition({
       fromStateId: 'state-a',
       toStateId: 'state-b',
@@ -118,7 +113,6 @@ describe('Graph Navigation and Transitions', () => {
     expect(t1.failure_count).toBe(0);
     expect(t1.duration_ms).toBe(500);
 
-    // 2. Record same transition again (failure)
     const t2 = await recordTransition({
       fromStateId: 'state-a',
       toStateId: 'state-b',
@@ -129,11 +123,32 @@ describe('Graph Navigation and Transitions', () => {
 
     expect(t2.success_count).toBe(1);
     expect(t2.failure_count).toBe(1);
-    expect(t2.duration_ms).toBe(1000); // moving average: (500 + 1500) / 2
+    expect(t2.duration_ms).toBe(1000);
+  });
+
+  it('should throw error when recording transition with missing fromState', async () => {
+    await expect(
+      recordTransition({
+        fromStateId: 'non-existent-state-1',
+        toStateId: 'state-b',
+        action: 'click invalid',
+        success: true,
+      })
+    ).rejects.toThrow('Starting state with ID "non-existent-state-1" does not exist in storage.');
+  });
+
+  it('should throw error when recording transition with missing toState', async () => {
+    await expect(
+      recordTransition({
+        fromStateId: 'state-a',
+        toStateId: 'non-existent-state-2',
+        action: 'click invalid',
+        success: true,
+      })
+    ).rejects.toThrow('Target state with ID "non-existent-state-2" does not exist in storage.');
   });
 
   it('should find navigation paths via BFS', async () => {
-    // Build path: B -> C (success)
     await recordTransition({
       fromStateId: 'state-b',
       toStateId: 'state-c',
@@ -155,6 +170,16 @@ describe('Graph Navigation and Transitions', () => {
     expect(topPath.steps[0].action).toBe('click settings');
     expect(topPath.steps[1].state_id).toBe('state-b');
     expect(topPath.steps[1].action).toBe('click billing link');
+  });
+
+  it('should resolve navigation target using description parameter', async () => {
+    const result = await findNavigationPaths({
+      fromStateId: 'state-a',
+      toDescription: 'Billing Section',
+      maxHops: 3,
+    });
+
+    expect(result.paths).toBeDefined();
   });
 
   it('should store traceId in metadata when recording transition', async () => {

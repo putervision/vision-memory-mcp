@@ -5,6 +5,12 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-08-01
+
+### Changed
+- **Patch Version Bump (0.7.0 -> 0.7.1)**: Updated version across all 11 manifests, code constants, documentation files, and state-memory nodes.
+- **Updated Project Remediation Plan (`PLAN-8-1-26.md`)**: Added P0 task for `src/core/visual-spec.ts` TypeScript compilation fix, corrected PII regex file path (`src/core/privacy.ts`), and synced state memory completion stats.
+
 ## [0.7.0] - 2026-07-29
 
 ### Added

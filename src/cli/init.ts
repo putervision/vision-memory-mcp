@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { registerProject, getRegistry, unregisterProject } from '../core/registry.js';
 
 function getInstructionsTemplate(): string {
   return `
@@ -136,7 +137,7 @@ function upsertInstructionBlock(
   return { updatedContent: `${content}${separator}${newBlock.trim()}\n`, status: 'appended' };
 }
 
-export async function runInit(args: string[] = []) {
+export async function runInit(args: string[] = [], targetRoot?: string) {
   console.log('🔧 Scaffolding vision-memory-mcp workspace...');
   const skipConfirm = args.includes('--yes') || args.includes('-y') || !process.stdin.isTTY;
   if (!skipConfirm) {
@@ -144,7 +145,9 @@ export async function runInit(args: string[] = []) {
       '  ℹ️  Notice: init configures local workspace & global user rules (~/). Pass --yes to confirm.'
     );
   }
-  const root = process.cwd();
+  const root = targetRoot ? path.resolve(targetRoot) : process.cwd();
+  const projectName = path.basename(root);
+  registerProject(projectName, root);
 
   // 1. Create data directory
   const dataPath = path.resolve(root, '.vision-memory-mcp');
@@ -308,6 +311,8 @@ To bypass confirmation dialogs when running CLI cache commands or reading/writin
 
 ### 4. CLI Commands Reference
 Run these commands in the terminal for management and analytics:
+* \`vision-memory-mcp init [-y|--yes]\`: Scaffold workspace .vision-memory-mcp/, .gitignore, .env, and IDE agent rules.
+* \`vision-memory-mcp init-global\`: Re-initialize across all projects registered in ~/.vision-memory-mcp/projects.json.
 * \`vision-memory-mcp doctor\`: Health check storage writability, sharp bindings, Node runtime, and sub-directory Git repos.
 * \`vision-memory-mcp audit\`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
 * \`vision-memory-mcp inspect\`: Display stored visual states in an ASCII table.
@@ -470,4 +475,68 @@ export async function runAutoInit(root: string = process.cwd()): Promise<void> {
   } finally {
     console.log = originalLog;
   }
+}
+
+/**
+ * Re-initializes vision-memory-mcp across all projects registered in the global index (~/.vision-memory-mcp/projects.json).
+ */
+export async function runInitGlobal(args: string[] = []): Promise<void> {
+  console.log('\n🌐 Running global init for all vision-memory-mcp registered projects...\n');
+
+  const cleanStale = args.includes('--clean-stale');
+  const scanIndex = args.indexOf('--scan');
+  if (scanIndex !== -1 && args[scanIndex + 1]) {
+    const scanDir = path.resolve(args[scanIndex + 1]);
+    if (fs.existsSync(scanDir)) {
+      console.log(`🔎 Scanning directory "${scanDir}" for vision-memory-mcp projects...`);
+      const entries = fs.readdirSync(scanDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const projectPath = path.join(scanDir, entry.name);
+          const visionDir = path.join(projectPath, '.vision-memory-mcp');
+          if (fs.existsSync(visionDir)) {
+            registerProject(entry.name, projectPath);
+          }
+        }
+      }
+    }
+  }
+
+  const registry = getRegistry();
+  const entries = Object.entries(registry);
+
+  if (entries.length === 0) {
+    console.log('  ⚠️  No registered projects found in ~/.vision-memory-mcp/projects.json.');
+    console.log('  Run "vision-memory-mcp init" in a project root first to register it.\n');
+    return;
+  }
+
+  console.log(`📋 Found ${entries.length} registered project(s) in global index.\n`);
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const [name, projectPath] of entries) {
+    const resolvedPath = path.resolve(projectPath);
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`  ❌ [${name}] Path no longer exists: ${resolvedPath}`);
+      if (cleanStale) {
+        unregisterProject(name);
+        console.log(`     🧹 Pruned stale registration for "${name}"`);
+      } else {
+        skippedCount++;
+      }
+      continue;
+    }
+
+    console.log(`  🔄 Re-initializing project "${name}" at ${resolvedPath}...`);
+    try {
+      await runInit([...args, '--yes'], resolvedPath);
+      updatedCount++;
+    } catch (err: any) {
+      console.error(`  ⚠️  Failed to re-initialize "${name}": ${err.message}`);
+      skippedCount++;
+    }
+  }
+
+  console.log(`\n✅ Global init completed: ${updatedCount} updated, ${skippedCount} skipped.\n`);
 }

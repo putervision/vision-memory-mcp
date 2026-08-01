@@ -13,7 +13,11 @@ const PII_PATTERNS: Array<{ name: string; regex: RegExp }> = [
   { name: 'SSN', regex: /\b\d{3}-\d{2}-\d{4}\b/g },
   { name: 'OpenAI API Key', regex: /\bsk-[a-zA-Z0-9_\-]{32,}\b/g },
   { name: 'GitHub Token', regex: /\bghp_[a-zA-Z0-9]{36}\b/g },
-  { name: 'Generic Secret Key', regex: /\b[A-Za-z0-9+/]{40}={0,2}\b/g },
+  {
+    name: 'Generic Secret Key',
+    regex:
+      /(?:secret|token|api[_-]?key|private[_-]?key)\s*[:=]\s*["']?[A-Za-z0-9+/]{32,}={0,2}["']?/gi,
+  },
 ];
 
 /**

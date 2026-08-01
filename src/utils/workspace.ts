@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { logger } from '../logger.js';
 
 export interface DiscoveredGitRepo {
   path: string;

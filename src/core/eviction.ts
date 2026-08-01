@@ -30,11 +30,13 @@ export class EvictionManager {
 
     try {
       const allStates = await storage.listStatesAll(undefined, 5000);
-      for (const s of allStates) {
-        if (s.ttl > 0 && s.created_at + s.ttl < now) {
-          await storage.deleteState(s.id);
-          expiredCount++;
-        }
+      const expiredIds = allStates
+        .filter((s) => s.ttl > 0 && s.created_at + s.ttl < now)
+        .map((s) => s.id);
+
+      if (expiredIds.length > 0) {
+        await Promise.all(expiredIds.map((id) => storage.deleteState(id)));
+        expiredCount = expiredIds.length;
       }
 
       await storage.checkStorageSizeAndEvict();

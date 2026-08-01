@@ -13,7 +13,8 @@ export interface OCRResult {
 
 /**
  * Extracts visible text tokens and layout bounding boxes from screenshot buffers.
- * Uses a pure JS lightweight heuristic layout parser with pluggable WASM Tesseract fallback.
+ * Uses a fast UTF-8 byte stream heuristic for embedded metadata text extraction
+ * when full WASM/Tesseract OCR engine is uninitialized.
  */
 export async function extractTextFromImage(buffer: Buffer): Promise<OCRResult> {
   if (!buffer || buffer.length === 0) {

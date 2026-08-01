@@ -22,6 +22,19 @@ export async function analyzeScreenshotWithLLM(base64Image: string): Promise<str
       : `${endpoint}/chat/completions`;
   }
 
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(endpoint);
+  } catch {
+    throw new Error(`Invalid VISION_MODEL_ENDPOINT URL: "${endpoint}"`);
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error(
+      `Restricted protocol "${parsedUrl.protocol}" in VISION_MODEL_ENDPOINT. Only http: and https: are allowed.`
+    );
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY environment variable is required for vision analysis.');
   }

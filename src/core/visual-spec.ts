@@ -1,7 +1,6 @@
 import fs from 'fs';
-import path from 'path';
 import { storage } from './storage.js';
-import { calculateDHash, hammingDistance } from './hash.js';
+import { calculateDHash, calculateAHash, hammingDistance } from './hash.js';
 import { embeddings, cosineSimilarity } from './embeddings.js';
 import { processImage } from './image-pipeline.js';
 import { logger } from '../logger.js';
@@ -25,7 +24,7 @@ export async function setVisualSpec(params: {
   name: string;
   screenshot?: string;
   filePath?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }): Promise<{ id: string; name: string; dhash: string }> {
   let base64 = params.screenshot;
   if (params.filePath) {
@@ -59,7 +58,7 @@ export async function setVisualSpec(params: {
       ...params.metadata,
     }),
     accessibility_tree: '',
-    thumbnail: processed.thumbnailBuffer.toString('base64'),
+    thumbnail: processed.thumbnail,
     original_dimensions: JSON.stringify({
       width: processed.width,
       height: processed.height,
@@ -76,7 +75,7 @@ export async function setVisualSpec(params: {
     ttl: 0,
   };
 
-  await storage.saveState(state);
+  await storage.addState(state);
   logger.info(`Registered Visual Spec baseline "${params.name}" (ID: ${stateId})`);
 
   return {
@@ -126,8 +125,21 @@ export async function verifyVisualSpec(params: {
   const liveDhash = await calculateDHash(processed.normalizedBuffer);
   const liveVector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
 
+  const isZeroVec = (v?: any) => {
+    if (!v) return true;
+    const arr = Array.from(v) as number[];
+    if (arr.length === 0) return true;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] !== 0) return false;
+    }
+    return true;
+  };
   const distance = hammingDistance(liveDhash, specState.dhash);
-  const similarity = specState.vector ? cosineSimilarity(liveVector, specState.vector) : 1.0;
+  const rawSim =
+    isZeroVec(liveVector) || isZeroVec(specState.vector)
+      ? 1.0
+      : cosineSimilarity(liveVector, specState.vector);
+  const similarity = isNaN(rawSim) ? 1.0 : rawSim;
 
   const threshold = params.tolerance !== undefined ? params.tolerance : 8;
   const isCompliant = distance <= threshold && similarity >= 0.8;

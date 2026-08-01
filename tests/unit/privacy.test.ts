@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import sharp from 'sharp';
 import { redactSensitiveText, redactImageRegions } from '../../src/core/privacy.js';
 
 describe('Privacy & Sensitive-Data Redaction Module', () => {
@@ -14,10 +15,31 @@ describe('Privacy & Sensitive-Data Redaction Module', () => {
     expect(result.redactedText).toContain('[REDACTED_OPENAI_API_KEY]');
   });
 
-  it('should perform solid rectangle composite masking on buffer', async () => {
-    const rawBuffer = Buffer.from('mock-png-buffer');
-    const masked = await redactImageRegions(rawBuffer, [[10, 10, 100, 40]]);
+  it('should handle empty input in redactSensitiveText', () => {
+    const res = redactSensitiveText('');
+    expect(res.isRedacted).toBe(false);
+  });
+
+  it('should perform solid rectangle composite masking on a valid image buffer', async () => {
+    const validBuffer = await sharp({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const masked = await redactImageRegions(validBuffer, [[10, 10, 50, 50]]);
     expect(masked).toBeDefined();
     expect(masked.length).toBeGreaterThan(0);
+  });
+
+  it('should return original buffer if bboxes is empty or buffer is null', async () => {
+    const buf = Buffer.from('test');
+    const res = await redactImageRegions(buf, []);
+    expect(res).toBe(buf);
   });
 });

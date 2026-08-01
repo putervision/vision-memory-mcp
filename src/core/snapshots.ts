@@ -4,7 +4,7 @@ import { cosineSimilarity } from './embeddings.js';
 import { getCurrentBranch } from './cache.js';
 import { logger } from '../logger.js';
 import { hammingDistance } from './hash.js';
-import { VisualSnapshot, VisualState } from '../types.js';
+import { VisualSnapshot } from '../types.js';
 
 /**
  * Save current visual states as a named checkpoint snapshot.
@@ -65,18 +65,9 @@ export async function diffSnapshots(nameA: string, nameB: string): Promise<Snaps
   const idsA: string[] = JSON.parse(snapA.state_ids);
   const idsB: string[] = JSON.parse(snapB.state_ids);
 
-  // Fetch all states for both snapshots
-  const statesA: VisualState[] = [];
-  for (const id of idsA) {
-    const s = await storage.getStateAll(id);
-    if (s) statesA.push(s);
-  }
-
-  const statesB: VisualState[] = [];
-  for (const id of idsB) {
-    const s = await storage.getStateAll(id);
-    if (s) statesB.push(s);
-  }
+  // Fetch all states for both snapshots in batch queries
+  const statesA = await storage.getStatesByIds(idsA);
+  const statesB = await storage.getStatesByIds(idsB);
 
   const added: SnapshotDiffResult['added_states'] = [];
   const removed: SnapshotDiffResult['removed_states'] = [];
@@ -167,11 +158,7 @@ export async function exportSnapshot(
   }
 
   const stateIds: string[] = JSON.parse(snap.state_ids);
-  const states: VisualState[] = [];
-  for (const id of stateIds) {
-    const s = await storage.getStateAll(id);
-    if (s) states.push(s);
-  }
+  const states = await storage.getStatesByIds(stateIds);
 
   const branch = snap.git_branch || getCurrentBranch();
   const transitions = await storage.listTransitionsAll(
@@ -180,7 +167,7 @@ export async function exportSnapshot(
   );
 
   return {
-    version: '0.7.0',
+    version: '0.7.1',
     exported_at: Date.now(),
     name: snap.name,
     description: snap.description,

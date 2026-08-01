@@ -9,8 +9,17 @@ export function parseAXTreeToGroundedElements(
 ): GroundedElement[] {
   if (!axTreeInput) return [];
 
+  const MAX_STRING_LENGTH = 1024 * 1024; // 1 MB
+  const MAX_RECURSION_DEPTH = 50;
+
   let rawTree: any;
   if (typeof axTreeInput === 'string') {
+    if (axTreeInput.length > MAX_STRING_LENGTH) {
+      logger.warn(
+        `Accessibility tree JSON length (${axTreeInput.length} chars) exceeds max limit of ${MAX_STRING_LENGTH}. Skipping parsing.`
+      );
+      return [];
+    }
     try {
       rawTree = JSON.parse(axTreeInput);
     } catch {
@@ -23,8 +32,12 @@ export function parseAXTreeToGroundedElements(
 
   const results: GroundedElement[] = [];
 
-  function traverse(node: any, path: string = '') {
+  function traverse(node: any, path: string = '', depth: number = 0) {
     if (!node || typeof node !== 'object') return;
+    if (depth > MAX_RECURSION_DEPTH) {
+      logger.warn(`Accessibility tree traversal exceeded maximum depth of ${MAX_RECURSION_DEPTH}.`);
+      return;
+    }
 
     const role = (node.role || node.type || node.nodeType || 'other').toLowerCase();
     const label = (
@@ -103,7 +116,7 @@ export function parseAXTreeToGroundedElements(
     const children = node.children || node.nodes || node.childNodes;
     if (Array.isArray(children)) {
       children.forEach((child, index) => {
-        traverse(child, `${selector || role} > *:nth-child(${index + 1})`);
+        traverse(child, `${selector || role} > *:nth-child(${index + 1})`, depth + 1);
       });
     }
   }
