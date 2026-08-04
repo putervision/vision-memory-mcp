@@ -8,7 +8,7 @@ export function redactText(text: string): string {
 
   redacted = redacted.replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/g, 'Bearer [REDACTED]');
   redacted = redacted.replace(
-    /(?:sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{30,}|AKIA[0-9A-Z]{16})/g,
+    /(?:sk-[a-zA-Z0-9_\-]{20,}|ghp_[a-zA-Z0-9]{30,}|AKIA[0-9A-Z]{16})/g,
     '[REDACTED_API_KEY]'
   );
   redacted = redacted.replace(
@@ -43,4 +43,25 @@ export function redactData<T>(data: T): T {
     return result as unknown as T;
   }
   return data;
+}
+
+export function redactUrl(urlStr: string): string {
+  if (!urlStr) return urlStr;
+  try {
+    const url = new URL(urlStr);
+    const sensitiveParamRegex = /password|passwd|secret|key|token|auth|credential|session|access/i;
+    let modified = false;
+
+    for (const paramKey of Array.from(url.searchParams.keys())) {
+      if (sensitiveParamRegex.test(paramKey)) {
+        url.searchParams.set(paramKey, '[REDACTED]');
+        modified = true;
+      }
+    }
+
+    const sanitizedUrlStr = modified ? url.toString() : urlStr;
+    return redactText(sanitizedUrlStr);
+  } catch {
+    return redactText(urlStr);
+  }
 }

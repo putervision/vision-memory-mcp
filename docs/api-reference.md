@@ -1,6 +1,6 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.7.1)
+# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.7.2)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 22 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 23 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 
 ---
 
@@ -118,10 +118,15 @@ This document provides formal API specifications, parameter schemas, return shap
 
 ## 5. Synchronization & Polling
 
-### `wait_for_visual_state` (Tool #21)
+### `wait_for_visual_state`
 - **Overview**: Polls for a target visual state ID until it exists in storage or timeout occurs.
 - **How to Leverage**: Eliminates agent spinning loops when awaiting UI rendering transitions.
 - **Parameters**: `target_state_id` (required string), `timeout_ms` (opt number, default 10000), `poll_interval_ms` (opt number, default 500).
+
+### `app_version`
+- **Overview**: Returns server package name, MCP identifier string (`io.github.putervision/vision-memory-mcp`), build version, server description, and runtime environment.
+- **How to Leverage**: Allows agents to programmatically verify server identity and capability versioning.
+- **Parameters**: None.
 
 ---
 

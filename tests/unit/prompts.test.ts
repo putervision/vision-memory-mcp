@@ -4,7 +4,7 @@ import { registerAllPrompts } from '../../src/tools/prompts.js';
 
 describe('MCP Prompts Module', () => {
   it('should register and execute all prompt callbacks with McpServer', () => {
-    const server = new McpServer({ name: 'test-server', version: '0.7.1' });
+    const server = new McpServer({ name: 'test-server', version: '0.7.2' });
     let analyzeCb: any;
     let diagnoseCb: any;
     let navigateCb: any;

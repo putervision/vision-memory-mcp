@@ -35,7 +35,7 @@ export class EvictionManager {
         .map((s) => s.id);
 
       if (expiredIds.length > 0) {
-        await Promise.all(expiredIds.map((id) => storage.deleteState(id)));
+        await storage.deleteStates(expiredIds);
         expiredCount = expiredIds.length;
       }
 

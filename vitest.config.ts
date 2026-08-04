@@ -15,7 +15,7 @@ export default defineConfig({
         'src/config.ts',
         'src/logger.ts',
       ],
-      exclude: ['src/cli/commands/view.ts', 'src/cli/benchmark.ts'],
+      exclude: ['src/cli/**/*.ts', 'src/cli.ts'],
     },
   },
 });

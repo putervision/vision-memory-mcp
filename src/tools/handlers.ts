@@ -12,12 +12,13 @@ import { embeddings, cosineSimilarity } from '../core/embeddings.js';
 import { retrieveState, compressAccessibilityTree } from '../core/retrieval.js';
 import { recordTransition, findNavigationPaths } from '../core/graph.js';
 import { saveSnapshot, diffSnapshots, exportSnapshot, restoreSnapshot } from '../core/snapshots.js';
-import { setVisualSpec, verifyVisualSpec } from '../core/visual-spec.js';
+import { setVisualSpec, verifyVisualSpec, listVisualSpecs } from '../core/visual-spec.js';
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
 import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
 import { getCachedDirSize } from '../utils/fs.js';
+import { VERSION } from '../utils/version.js';
 import { VisualState, ResponseFormat, WaitForVisualStateResult } from '../types.js';
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
@@ -1334,6 +1335,35 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
+  // list_visual_specs
+  server.registerTool(
+    'list_visual_specs',
+    {
+      title: 'List Visual Specs',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'List all registered Visual Spec baselines across the project and their perceptual hash details.',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      try {
+        const specs = await listVisualSpecs();
+        return {
+          content: [{ type: 'text', text: JSON.stringify(specs, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to list visual specs: ${error.message}` }],
+        };
+      }
+    }
+  );
+
   // get_visual_diff
   server.registerTool(
     'get_visual_diff',
@@ -1748,6 +1778,44 @@ export function registerAllTools(server: McpServer): void {
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to wait for visual state: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 22. Tool: app_version
+  server.registerTool(
+    'app_version',
+    {
+      title: 'Get Application Version',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Get version, package name, MCP identifier, and server information of vision-memory-mcp.',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      try {
+        const payload = {
+          name: '@putervision/vision-memory-mcp',
+          mcp_name: 'io.github.putervision/vision-memory-mcp',
+          version: VERSION,
+          description:
+            'Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees.',
+          environment: {
+            node_version: process.version,
+          },
+        };
+        return {
+          content: [{ type: 'text', text: JSON.stringify(payload) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to retrieve version: ${error.message}` }],
         };
       }
     }

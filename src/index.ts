@@ -9,12 +9,10 @@ import { registerAllTools } from './tools/handlers.js';
 import { registerAllPrompts } from './tools/prompts.js';
 import { logger } from './logger.js';
 import { runAutoInit } from './cli/init.js';
-
-declare const __APP_VERSION__: string;
-const SERVER_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.1';
+import { VERSION } from './utils/version.js';
 
 async function main() {
-  logger.info(`Starting vision-memory-mcp server v${SERVER_VERSION}...`);
+  logger.info(`Starting vision-memory-mcp server v${VERSION}...`);
 
   try {
     // 0. Auto-scaffold workspace configurations and copilot instructions
@@ -33,7 +31,7 @@ async function main() {
     // 2. Instantiate MCP Server
     const server = new McpServer({
       name: 'vision-memory-mcp',
-      version: SERVER_VERSION,
+      version: VERSION,
     });
 
     // 3. Register Resource Templates

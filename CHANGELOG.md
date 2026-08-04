@@ -5,6 +5,22 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-08-03
+
+### Added
+- **Interactive Visual Baseline Capture Mode**: Implemented `vision-memory-mcp spec capture [url]` CLI command and `runInteractiveBaselineCapture()` core engine module for launching headful browser sessions, stepping through app views manually, and capturing baseline specs on demand.
+- **`app_version` MCP Tool**: Added dedicated read-only MCP tool (`#23`) returning package name (`@putervision/vision-memory-mcp`), MCP identifier (`io.github.putervision/vision-memory-mcp`), version string, server description, and runtime environment.
+- **`list_visual_specs` MCP Tool**: Added dedicated MCP tool (`#22`) allowing AI agents to list all registered visual spec baselines and their perceptual hash signatures across the project.
+- **Visual Spec Suite Export & Manifests**: Added `exportVisualSpecSuite()` to serialize all visual spec baselines into a portable JSON manifest (`.vision-memory-mcp/specs-manifest.json`) for CI visual regression testing.
+- **Batch Eviction Optimizations**: Implemented `deleteStates(ids: string[])` in `LanceDBStorage` (`src/core/storage.ts`) enabling single-query predicate deletion for visual states and cascaded transitions during eviction sweeps.
+- **URL Query Parameter Sanitization**: Added `redactUrl()` to `src/utils/redact.ts` for sanitizing sensitive query parameters (`token`, `key`, `secret`, `password`, `auth`, `session`) from `source_url` fields.
+- **Test Suite Expansion (195 Unit Tests)**: Expanded test suite across 36 test files, achieving **91% Function Coverage** and **90%+ Line Coverage** across core components and tool handlers.
+
+### Changed
+- **README Decomposition**: Modularized the 407-line `README.md` into a concise landing page and created 4 dedicated documentation guides in `docs/`: `features.md`, `mcp-integration.md`, `cli.md`, and `configuration.md`.
+- **Patch Version Bump (0.7.1 -> 0.7.2)**: Updated package version across all 14 manifests, fallback code constants, test suites, API reference docs, and website badges.
+- **Workflow State Memory Synchronization**: Resolved stale `in_progress` nodes and updated decision records in `state-memory-mcp`.
+
 ## [0.7.1] - 2026-08-01
 
 ### Changed

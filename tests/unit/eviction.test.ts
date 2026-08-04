@@ -64,6 +64,40 @@ describe('EvictionManager Engine', () => {
     expect(remaining).toBeNull();
   });
 
+  it('should batch delete multiple visual states via deleteStates', async () => {
+    const baseState = {
+      dhash: '0000000000000000000000000000000000000000000000000000000000000000',
+      ahash: '0000000000000000000000000000000000000000000000000000000000000000',
+      vector: new Array(512).fill(0),
+      description: 'Batch State',
+      structured_data: '{}',
+      accessibility_tree: '',
+      thumbnail: '',
+      original_dimensions: '{}',
+      source_url: '',
+      source_agent: '',
+      trace_id: '',
+      git_branch: 'main',
+      tags: '[]',
+      importance_score: 1.0,
+      created_at: Date.now(),
+      last_accessed: Date.now(),
+      access_count: 1,
+      ttl: 0,
+    };
+
+    await storage.addState({ ...baseState, id: 'batch-state-1' });
+    await storage.addState({ ...baseState, id: 'batch-state-2' });
+
+    expect(await storage.getState('batch-state-1')).not.toBeNull();
+    expect(await storage.getState('batch-state-2')).not.toBeNull();
+
+    await storage.deleteStates(['batch-state-1', 'batch-state-2']);
+
+    expect(await storage.getState('batch-state-1')).toBeNull();
+    expect(await storage.getState('batch-state-2')).toBeNull();
+  });
+
   it('should handle errors in eviction sweep gracefully', async () => {
     vi.spyOn(storage, 'listStatesAll').mockRejectedValueOnce(new Error('Storage failure'));
 

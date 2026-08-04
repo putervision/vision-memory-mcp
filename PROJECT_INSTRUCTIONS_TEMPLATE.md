@@ -20,7 +20,7 @@ This project uses `vision-memory-mcp` to cache visual states, perceptual hashes,
 5. **Transition Tracking**: Call `record_outcome` after interactive steps (clicks, typing, navigation) to record state transitions in the visual graph.
 6. **Privacy Scrubbing**: Call `forget_state` to purge sensitive or secret states from disk storage.
 
-### 2. Available MCP Tools (22 Core Tools)
+### 2. Available MCP Tools (23 Core Tools)
 - `analyze_screenshot` — Query or ingest visual layout snapshots, returning description & grounded elements
 - `recall_memory` — Search visual memories by text query or perceptual similarity
 - `record_outcome` — Record action and outcome transitions between states
@@ -40,6 +40,7 @@ This project uses `vision-memory-mcp` to cache visual states, perceptual hashes,
 - `get_metrics` — Query cache hit ratios, token savings estimates, and latency statistics
 - `export_snapshot` / `restore_snapshot` — Export and restore full standalone snapshot archives
 - `wait_for_visual_state` — Poll for target visual state until present or timeout occurs
+- `app_version` — Query server build version, MCP identifier, package name, and runtime environment
 
 ### 3. Agent Auto-Run Permissions
 To allow AI agents to query the visual cache and manage brain images automatically without requesting permission prompts:

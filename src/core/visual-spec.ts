@@ -160,3 +160,71 @@ export async function verifyVisualSpec(params: {
     sdd_requirement_id: params.sddRequirementId,
   };
 }
+
+export interface VisualSpecInfo {
+  id: string;
+  name: string;
+  dhash: string;
+  ahash: string;
+  created_at: number;
+  source_url?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Lists all registered Visual Spec baselines across the project.
+ */
+export async function listVisualSpecs(): Promise<VisualSpecInfo[]> {
+  const allStates = await storage.listStatesAll();
+  const specs: VisualSpecInfo[] = [];
+
+  for (const s of allStates) {
+    try {
+      const meta = JSON.parse(s.structured_data || '{}');
+      if (meta.is_visual_spec) {
+        specs.push({
+          id: s.id,
+          name: meta.spec_name || s.id.replace('spec-', ''),
+          dhash: s.dhash,
+          ahash: s.ahash,
+          created_at: s.created_at,
+          source_url: s.source_url,
+          metadata: meta,
+        });
+      }
+    } catch {}
+  }
+
+  return specs;
+}
+
+/**
+ * Exports all registered Visual Spec baselines to a JSON manifest suite file.
+ */
+export async function exportVisualSpecSuite(outputPath?: string): Promise<{
+  spec_count: number;
+  specs: VisualSpecInfo[];
+  manifest_path: string;
+}> {
+  const specs = await listVisualSpecs();
+  const targetPath =
+    outputPath || `${process.env.LANCEDB_PATH || '.vision-memory-mcp'}/specs-manifest.json`;
+
+  const payload = {
+    version: '0.7.2',
+    generated_at: new Date().toISOString(),
+    spec_count: specs.length,
+    specs,
+  };
+
+  const fs = await import('fs');
+  const path = await import('path');
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, JSON.stringify(payload, null, 2));
+
+  return {
+    spec_count: specs.length,
+    specs,
+    manifest_path: targetPath,
+  };
+}

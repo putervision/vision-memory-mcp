@@ -398,6 +398,22 @@ export class StorageManager {
     });
   }
 
+  async deleteStates(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    if (!this.statesTable) throw new Error('States table not initialized.');
+    logger.debug(`Batch deleting ${ids.length} visual states...`);
+    const escapedIds = ids.map((id) => `'${escapeSql(id)}'`).join(', ');
+    await withRetry(async () => {
+      await this.statesTable!.delete(`id IN (${escapedIds})`);
+      if (this.transitionsTable) {
+        logger.debug(`Cascading batch delete: removing transitions for ${ids.length} states`);
+        await this.transitionsTable.delete(
+          `from_state_id IN (${escapedIds}) OR to_state_id IN (${escapedIds})`
+        );
+      }
+    });
+  }
+
   async listStates(filter?: string, limit: number = 50): Promise<VisualState[]> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     let q = this.statesTable.query();

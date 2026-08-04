@@ -8,7 +8,7 @@ Thank you for your interest in contributing to `vision-memory-mcp`! We welcome b
 
 Before you begin, ensure you have the following installed locally:
 
-- **Node.js**: `v18.0.0` or higher (`node -v`)
+- **Node.js**: `v18.17.0` or higher (`node -v`)
 - **npm**: `v9.0.0` or higher (`npm -v`)
 - **Git**
 
@@ -56,7 +56,7 @@ Before you begin, ensure you have the following installed locally:
   - `graph.ts`: UI transition graph recording and BFS navigation pathfinding.
   - `snapshots.ts`: Checkpointing and snapshot diffing logic.
   - `image-pipeline.ts`: Image resizing, 512-alignment, and thumbnail generation.
-- **`src/tools/handlers.ts`**: Implementations for all 22 MCP tools.
+- **`src/tools/handlers.ts`**: Implementations for all 23 MCP tools.
 - **`src/vision/analyzer.ts`**: Optional L4 vision model fallback describer.
 - **`docs/`**: Project landing page website and interactive ROI calculator.
 - **`tests/`**: Vitest unit test suite.
