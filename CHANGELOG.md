@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.21] - 2026-08-03
 
 ### Changed
-- **Node.js 18+ Prerequisite Alignment**: Expanded Node.js support boundary from `>=20.0.0` to `>=18.17.0 (LTS)` across `package.json`, GitHub Actions CI matrix, `README.md`, and `CONTRIBUTING.md`.
-- **Test Framework Stability**: Aligned Vitest (`^3.0.7`) and ESLint (`^9.20.0`) dependencies to ensure zero-config test execution across Node 18, 20, and 22 without bundler native binding or `node:util` incompatibilities.
+- **Node.js 18+ Prerequisite Restoration**: Restored Node.js support boundary to `>=18.17.0 (LTS)` across `package.json`, GitHub Actions CI matrix (`[18.x, 20.x, 22.x]`), `README.md`, `CONTRIBUTING.md`, and `docs/index.html`.
+- **Sharp Native Engine Alignment (`^0.33.5`)**: Downgraded `sharp` to `^0.33.5` to eliminate the Node `>=20.9.0` hardcoded check in `sharp v0.35+`, ensuring native C++ image processing functions seamlessly on Node 18, 20, and 22.
+- **Test & Linter Framework Stability**: Aligned Vitest (`^3.0.7`) and ESLint (`^9.20.0`) dependencies to resolve bundler native binding crashes (`@rolldown/binding`) and missing `node:util` API errors (`styleText`) on Node 18.
 - **Version Bump (0.7.2 -> 0.7.21)**: Updated package version across all 14 manifests, fallback code constants, test suites, API reference docs, and website landing page metadata.
 
 ## [0.7.2] - 2026-08-03
