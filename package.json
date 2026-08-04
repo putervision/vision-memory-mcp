@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "0.7.2",
+  "version": "0.7.21",
   "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
   "keywords": [
     "mcp",
@@ -75,7 +75,7 @@
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "cli": "node dist/cli.js",
-    "test": "NODE_OPTIONS=\"--loader ./scripts/vitest-node18-polyfill.mjs\" vitest run",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
@@ -90,13 +90,13 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^10.8.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^9.39.5",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.63.0",
-    "vitest": "^4.1.10"
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "@hono/node-server": "^2.0.5",

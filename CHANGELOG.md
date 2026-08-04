@@ -5,6 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.21] - 2026-08-03
+
+### Changed
+- **Node.js 18+ Prerequisite Alignment**: Expanded Node.js support boundary from `>=20.0.0` to `>=18.17.0 (LTS)` across `package.json`, GitHub Actions CI matrix, `README.md`, and `CONTRIBUTING.md`.
+- **Test Framework Stability**: Aligned Vitest (`^3.0.7`) and ESLint (`^9.20.0`) dependencies to ensure zero-config test execution across Node 18, 20, and 22 without bundler native binding or `node:util` incompatibilities.
+- **Version Bump (0.7.2 -> 0.7.21)**: Updated package version across all 14 manifests, fallback code constants, test suites, API reference docs, and website landing page metadata.
+
 ## [0.7.2] - 2026-08-03
 
 ### Added

@@ -211,7 +211,7 @@ export async function exportVisualSpecSuite(outputPath?: string): Promise<{
     outputPath || `${process.env.LANCEDB_PATH || '.vision-memory-mcp'}/specs-manifest.json`;
 
   const payload = {
-    version: '0.7.2',
+    version: '0.7.21',
     generated_at: new Date().toISOString(),
     spec_count: specs.length,
     specs,
