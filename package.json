@@ -75,7 +75,7 @@
     "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "cli": "node dist/cli.js",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS=\"--loader ./scripts/vitest-node18-polyfill.mjs\" vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
