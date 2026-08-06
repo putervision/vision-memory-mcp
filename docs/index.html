@@ -34,7 +34,7 @@
       "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
       "applicationCategory": "DeveloperApplication",
       "description": "Persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches screenshots locally to optimize context windows and reduce vision token costs by up to 90%.",
-      "softwareVersion": "0.7.21",
+      "softwareVersion": "0.8.0",
       "programmingLanguage": "TypeScript",
       "runtimePlatform": "Node.js >= 18",
       "codeRepository": "https://github.com/putervision/vision-memory-mcp",
@@ -167,8 +167,9 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.7.2 • 23 Core MCP Tools</span>
+        <span class="badge">Production Ready v0.8.0 • 27 Core MCP Tools</span>
         <h1><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="hero-title-icon"><span class="hero-title-text">Visual Memory MCP</span></h1>
+
         <p>
           A persistent visual cache and perceptual hashing server for developer
           agents. Caches webpage and app screenshots locally to optimize context
@@ -702,19 +703,19 @@
               color: var(--text-secondary);
             "
           >
-            Equipped with complete spec features including annotations, resources, and all 23 core tools.
+            Equipped with complete spec features including annotations, resources, and all 27 core tools.
           </p>
           <div style="margin-top: 1rem;">
-            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 23 MCP Tools</span></button>
+            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 27 MCP Tools</span></button>
           </div>
         </div>
 
-        <!-- Expandable Full 23 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+        <!-- Expandable Full 27 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
         <div id="full-tools-panel" class="full-tools-panel hidden">
           <div class="desc-scan-beam"></div>
           <div class="desc-content-inner">
             <div class="desc-header">
-              <span class="desc-badge">FULL 23 MCP TOOL SUITE</span>
+              <span class="desc-badge">FULL 27 MCP TOOL SUITE</span>
               <h3>Complete Tool Definitions & Function Signatures</h3>
             </div>
 
@@ -754,6 +755,23 @@
               </div>
 
               <div class="desc-box">
+                <h4>🎬 WebM & MP4 Video Memory (4 Tools)</h4>
+                <p>
+                  <code>ingest_video</code>, <code>search_video_memory</code>, <code>get_video_timeline</code>, <code>compare_video_trajectories</code>.
+                  <br><br>
+                  <strong>How to Leverage:</strong> Ingest WebM/MP4 video files (Playwright E2E test runs, bug repro recordings) into visual state memory timelines with fast-path dHash deduplication and local CLIP search! Call <code>compare_video_trajectories</code> to pinpoint exact visual failure frames between test runs.
+                </p>
+                <details style="margin-top: 0.8rem;">
+                  <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                  <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "file_path": "./playwright-test.webm", "category": "playwright_test" }
+
+// Response
+{ "video_id": "vid_a8b9c012", "duration_ms": 12500, "unique_states_count": 4 }</pre>
+                </details>
+              </div>
+
+              <div class="desc-box">
                 <h4>📐 Layout Diffs & Spec Compliance (4 Tools)</h4>
                 <p>
                   <code>compare_states</code>, <code>get_visual_diff</code>, <code>set_visual_spec</code>, <code>verify_visual_spec</code>.
@@ -787,6 +805,7 @@
                 </details>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -861,7 +880,7 @@
               📘 Formal API Reference
             </h3>
             <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-              Complete OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 23 Core MCP Tools.
+              Complete OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 27 Core MCP Tools.
             </p>
             <a href="api-reference.html" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Formal API Reference &rarr;</a>
           </div>
@@ -1600,7 +1619,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           } else {
             fullToolsPanel.classList.remove('phase-in-anim');
             fullToolsPanel.classList.add('hidden');
-            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 23 MCP Tools';
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 27 MCP Tools';
             toggleToolsBtn.classList.remove('active');
           }
         });

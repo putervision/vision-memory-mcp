@@ -39,6 +39,8 @@ export interface VisualState {
   trace_id: string; // Tracing identifier
   git_branch: string; // Active git branch when captured
   tags: string; // JSON array string: string[]
+  source_video_id?: string; // Optional parent video record ID if keyframe
+  timestamp_ms?: number; // Optional frame offset in ms if keyframe
   importance_score: number; // 0.0 - 1.0
   created_at: number; // Epoch ms
   last_accessed: number; // Epoch ms
@@ -166,5 +168,155 @@ export interface WaitForVisualStateResult {
   elapsed_ms: number;
   state: VisualState | null;
 }
+
+export interface VideoMetadata {
+  duration_ms: number;
+  fps: number;
+  width: number;
+  height: number;
+  codec: string;
+  file_format: 'webm' | 'mp4' | 'gif' | 'other';
+  size_bytes: number;
+}
+
+export interface ExtractedFrame {
+  frame_index: number;
+  timestamp_ms: number;
+  buffer: Buffer;
+  is_keyframe?: boolean;
+}
+
+export interface VideoIngestOptions {
+  fps?: number; // Target frame sampling rate (default: 1.0)
+  scene_threshold?: number; // Scene change threshold 0.0-1.0 (default: 0.2)
+  action_timestamps?: number[]; // Exact event action timestamps in seconds or ms
+  category?: string; // "playwright_test" | "screen_recording" | "bug_repro" | "user_onboarding" | "other"
+  tags?: string[];
+  max_frames?: number; // Max frames to process (safety guard)
+  source_agent?: string;
+  trace_id?: string;
+}
+
+export interface KeyframeTimelineEntry {
+  frame_index: number;
+  timestamp_ms: number;
+  state_id: string;
+  dhash: string;
+  is_keyframe: boolean;
+  ocr_summary?: string;
+}
+
+export interface VideoMemoryRecord {
+  id: string; // UUID v4 or vid_ prefix
+  source_file: string; // Absolute filepath or identifier
+  file_format: 'webm' | 'mp4' | 'gif' | 'other';
+  duration_ms: number;
+  fps: number;
+  resolution: string; // JSON string: { width: number, height: number }
+  total_frames_extracted: number;
+  unique_states_count: number;
+  category: string;
+  tags: string; // JSON string: string[]
+  created_at: number; // Epoch ms
+  summary_description: string;
+  keyframe_timeline: string; // JSON string: KeyframeTimelineEntry[]
+  trace_id: string;
+  git_branch: string;
+}
+
+export interface VideoCategorizationResult {
+  states: VisualState[];
+  transitions: StateTransition[];
+  timeline: KeyframeTimelineEntry[];
+  summary_description: string;
+  unique_states_count: number;
+}
+
+export interface VideoIngestResult {
+  video_id: string;
+  source_file: string;
+  file_format: string;
+  duration_ms: number;
+  extracted_frames_count: number;
+  unique_states_count: number;
+  category: string;
+  tags: string[];
+  timeline: KeyframeTimelineEntry[];
+  summary: string;
+  evidence_payload?: {
+    source_video_id: string;
+    frame_range: string[];
+    timestamps_ms: number[];
+  };
+}
+
+export interface VideoTimelineResult {
+  video: VideoMemoryRecord;
+  timeline: Array<{
+    frame_index: number;
+    timestamp_ms: number;
+    state: VisualState | null;
+    dhash: string;
+  }>;
+}
+
+export interface VideoTrajectoryComparison {
+  video_a_id: string;
+  video_b_id: string;
+  similarity_score: number; // 0.0 to 1.0 overall trajectory similarity
+  common_states_count: number;
+  divergence_point?: {
+    timestamp_a_ms: number;
+    timestamp_b_ms: number;
+    state_a_id?: string;
+    state_b_id?: string;
+    reason: string;
+  };
+  timeline_a_length: number;
+  timeline_b_length: number;
+}
+
+export interface ActionGroundedTriple {
+  from_visual_state_id: string;
+  grounded_action: {
+    action_type: 'click' | 'type' | 'navigate' | 'scroll' | 'hover' | 'other';
+    target_selector?: string;
+    target_role?: string;
+    target_coords?: { x: number; y: number };
+    input_value?: string;
+    timestamp_ms?: number;
+    duration_ms?: number;
+  };
+  to_visual_state_id: string;
+}
+
+export interface EvidencePack {
+  id: string;
+  created_at: number;
+  source_video_id?: string;
+  keyframe_state_ids: string[];
+  timestamps_ms: number[];
+  dhashes: string[];
+  clip_fingerprints?: number[][];
+  ocr_snippets?: string[];
+  linked_state_memory_nodes: {
+    blocker_ids?: string[];
+    decision_ids?: string[];
+    observation_ids?: string[];
+    task_ids?: string[];
+  };
+  payload_hash: string;
+}
+
+export interface VisualRiskSignal {
+  state_id: string;
+  novelty_score: number;
+  unexpected_ocr_detected: boolean;
+  layout_shift_ratio: number;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  details: string;
+}
+
+
 
 

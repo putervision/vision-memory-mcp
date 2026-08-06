@@ -16,7 +16,10 @@
 - **First-Class CI/CD Visual Spec Engine:** Baseline design contracts and visual spec regression testing via `vision-memory-mcp spec verify` CLI and composite GitHub Action.
 - **Visual Checkpoints:** Save, list, and diff snapshots of memory to identify visual regressions or layout modifications.
 - **Interactive Visualizer:** Open a local force-directed graph view of the memory in your browser (`vision-memory-mcp view`).
-- **Dual MCP Synergy:** Deeply integrates with `@putervision/state-memory-mcp` to cross-link UI workflow tasks with perceptual caching, providing first-class bidirectional `renders_state` graph edges, synergistic token metrics, and unified multi-modal trajectory exports for agent training.
+- **WebM & MP4 Video Ingestion & Temporal Memory Engine:** Ingests WebM/MP4 video files (E2E test runs, screen captures, bug repros), extracts keyframes using `ffmpeg`, applies fast-path dHash deduplication to merge contiguous static screens into keyframe states, constructs chronological sequence transition graphs, and indexes video trajectories for semantic search and divergence comparison.
+- **Dual MCP Synergy & Immutable Evidence Packs:** Deeply integrates with `@putervision/state-memory-mcp` to cross-link UI workflow tasks with perceptual caching, providing first-class bidirectional `renders_state` graph edges, synergistic token metrics, action-grounded triples `(from_visual_state, grounded_action, to_visual_state)`, cryptographically hashable evidence packs (`create_evidence_pack`), and unified multi-modal trajectory exports for agent training.
+
+
 
 ---
 

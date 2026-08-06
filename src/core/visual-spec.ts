@@ -5,6 +5,7 @@ import { embeddings, cosineSimilarity } from './embeddings.js';
 import { processImage } from './image-pipeline.js';
 import { logger } from '../logger.js';
 import { VisualState } from '../types.js';
+import { VERSION } from '../utils/version.js';
 
 export interface VisualSpecResult {
   spec_name: string;
@@ -211,7 +212,7 @@ export async function exportVisualSpecSuite(outputPath?: string): Promise<{
     outputPath || `${process.env.LANCEDB_PATH || '.vision-memory-mcp'}/specs-manifest.json`;
 
   const payload = {
-    version: '0.7.21',
+    version: VERSION,
     generated_at: new Date().toISOString(),
     spec_count: specs.length,
     specs,

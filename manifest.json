@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.2",
   "name": "@putervision/vision-memory-mcp",
-  "version": "0.7.21",
+  "version": "0.8.0",
   "description": "Local visual UI cache for AI agents using perceptual hashing + CLIP to cut vision token use.",
   "author": {
     "name": "PuterVision LLC"

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
@@ -44,10 +44,12 @@ describe('Handlers Deep Coverage Suite', () => {
     dummyBase64 = buf.toString('base64');
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     config.LANCEDB_PATH = originalPath;
     if (fs.existsSync(testDbDir)) {
-      fs.rmSync(testDbDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(testDbDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (_) {}
     }
   });
 

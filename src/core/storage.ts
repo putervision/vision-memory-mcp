@@ -4,7 +4,13 @@ import path from 'path';
 import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { VisualState, StateTransition, VisualSnapshot } from '../types.js';
+import {
+  VisualState,
+  StateTransition,
+  VisualSnapshot,
+  VideoMemoryRecord,
+  EvidencePack,
+} from '../types.js';
 
 // Helper to clean up lock files recursively
 function cleanupLockFiles(dir: string): void {
@@ -96,6 +102,8 @@ export class StorageManager {
   private statesTable: lancedb.Table | null = null;
   private transitionsTable: lancedb.Table | null = null;
   private snapshotsTable: lancedb.Table | null = null;
+  private videosTable: lancedb.Table | null = null;
+  private evidenceTable: lancedb.Table | null = null;
   private auxiliaryDbs = new Map<
     string,
     { db: lancedb.Connection; statesTable: lancedb.Table | null }
@@ -273,6 +281,68 @@ export class StorageManager {
         logger.debug('Ignored dummy snapshot cleanup error:', err);
       }
       logger.debug('Created and cleaned visual_snapshots table.');
+    }
+
+    // 4. Initialize Video Memory Records Table
+    if (tableNames.includes('video_records')) {
+      this.videosTable = await this.db.openTable('video_records');
+    } else {
+      logger.info('Creating new video_records table...');
+      const dummyVideo: VideoMemoryRecord = {
+        id: 'dummy-video-id',
+        source_file: 'dummy.mp4',
+        file_format: 'mp4',
+        duration_ms: 0,
+        fps: 1,
+        resolution: '{"width":0,"height":0}',
+        total_frames_extracted: 0,
+        unique_states_count: 0,
+        category: 'dummy',
+        tags: '[]',
+        created_at: 0,
+        summary_description: 'dummy',
+        keyframe_timeline: '[]',
+        trace_id: '',
+        git_branch: '',
+      };
+
+      this.videosTable = await this.db.createTable('video_records', [dummyVideo as any], {
+        mode: 'overwrite',
+      });
+      try {
+        await this.videosTable.delete("id = 'dummy-video-id'");
+      } catch (err) {
+        logger.debug('Ignored dummy video cleanup error:', err);
+      }
+      logger.debug('Created and cleaned video_records table.');
+    }
+
+    if (tableNames.includes('evidence_packs')) {
+      this.evidenceTable = await this.db.openTable('evidence_packs');
+    } else {
+      logger.info('Creating new evidence_packs table...');
+      const dummyEvidence = {
+        id: 'dummy-pack-id',
+        created_at: 0,
+        source_video_id: '',
+        keyframe_state_ids: '[]',
+        timestamps_ms: '[]',
+        dhashes: '[]',
+        clip_fingerprints: '[]',
+        ocr_snippets: '[]',
+        linked_state_memory_nodes: '{}',
+        payload_hash: '',
+      };
+
+      this.evidenceTable = await this.db.createTable('evidence_packs', [dummyEvidence as any], {
+        mode: 'overwrite',
+      });
+      try {
+        await this.evidenceTable.delete("id = 'dummy-pack-id'");
+      } catch (err) {
+        logger.debug('Ignored dummy evidence cleanup error:', err);
+      }
+      logger.debug('Created and cleaned evidence_packs table.');
     }
 
     // Create scalar indexes to speed up lookups
@@ -863,6 +933,106 @@ export class StorageManager {
     await withRetry(async () => {
       await this.snapshotsTable!.delete(`id = '${safeId}'`);
     });
+  }
+
+  // --- Video Memory Storage Operations ---
+
+  async saveVideoRecord(record: VideoMemoryRecord): Promise<void> {
+    if (!this.videosTable) throw new Error('Video records table not initialized.');
+    logger.debug(`Saving video record: ${record.id} (${record.source_file})`);
+    await this.enqueueWrite(async () => {
+      const safeId = escapeSql(record.id);
+      await this.videosTable!.delete(`id = '${safeId}'`).catch(() => {});
+      await this.videosTable!.add([record as any]);
+    });
+  }
+
+  async getVideoRecord(id: string): Promise<VideoMemoryRecord | null> {
+    if (!this.videosTable) throw new Error('Video records table not initialized.');
+    const safeId = escapeSql(id);
+    const results = await this.videosTable.query().where(`id = '${safeId}'`).limit(1).toArray();
+    if (results.length === 0) return null;
+    return results[0] as unknown as VideoMemoryRecord;
+  }
+
+  async listVideoRecords(limit: number = 50): Promise<VideoMemoryRecord[]> {
+    if (!this.videosTable) throw new Error('Video records table not initialized.');
+    const results = await this.videosTable.query().limit(limit).toArray();
+    return results as unknown as VideoMemoryRecord[];
+  }
+
+  async deleteVideoRecord(id: string): Promise<boolean> {
+    if (!this.videosTable) throw new Error('Video records table not initialized.');
+    logger.debug(`Deleting video record: ${id}`);
+    const safeId = escapeSql(id);
+    const existing = await this.getVideoRecord(id);
+    if (!existing) return false;
+
+    await this.enqueueWrite(async () => {
+      await this.videosTable!.delete(`id = '${safeId}'`);
+    });
+    return true;
+  }
+
+  async searchVideoRecords(query: string, limit: number = 20): Promise<VideoMemoryRecord[]> {
+    if (!this.videosTable) throw new Error('Video records table not initialized.');
+    const safeQuery = escapeSql(query.toLowerCase());
+    const all = await this.listVideoRecords(100);
+    return all
+      .filter((v) => {
+        const descMatch = v.summary_description?.toLowerCase().includes(safeQuery);
+        const fileMatch = v.source_file?.toLowerCase().includes(safeQuery);
+        const catMatch = v.category?.toLowerCase().includes(safeQuery);
+        const tagsMatch = v.tags?.toLowerCase().includes(safeQuery);
+        return descMatch || fileMatch || catMatch || tagsMatch;
+      })
+      .slice(0, limit);
+  }
+
+  // --- Evidence Pack CRUD Operations ---
+
+  async saveEvidencePack(pack: EvidencePack): Promise<void> {
+    if (!this.evidenceTable) throw new Error('Evidence table not initialized.');
+    const safeId = escapeSql(pack.id);
+    const row = {
+      id: pack.id,
+      created_at: pack.created_at,
+      source_video_id: pack.source_video_id ?? '',
+      keyframe_state_ids: JSON.stringify(pack.keyframe_state_ids),
+      timestamps_ms: JSON.stringify(pack.timestamps_ms),
+      dhashes: JSON.stringify(pack.dhashes),
+      clip_fingerprints: JSON.stringify(pack.clip_fingerprints ?? []),
+      ocr_snippets: JSON.stringify(pack.ocr_snippets ?? []),
+      linked_state_memory_nodes: JSON.stringify(pack.linked_state_memory_nodes),
+      payload_hash: pack.payload_hash,
+    };
+
+    await this.enqueueWrite(async () => {
+      try {
+        await this.evidenceTable!.delete(`id = '${safeId}'`);
+      } catch (_) {}
+      await this.evidenceTable!.add([row as any]);
+    });
+  }
+
+  async getEvidencePack(id: string): Promise<EvidencePack | null> {
+    if (!this.evidenceTable) throw new Error('Evidence table not initialized.');
+    const safeId = escapeSql(id);
+    const res = await this.evidenceTable.query().where(`id = '${safeId}'`).limit(1).toArray();
+    if (!res || res.length === 0) return null;
+    const r = res[0];
+    return {
+      id: r.id,
+      created_at: r.created_at,
+      source_video_id: r.source_video_id,
+      keyframe_state_ids: JSON.parse(r.keyframe_state_ids || '[]'),
+      timestamps_ms: JSON.parse(r.timestamps_ms || '[]'),
+      dhashes: JSON.parse(r.dhashes || '[]'),
+      clip_fingerprints: JSON.parse(r.clip_fingerprints || '[]'),
+      ocr_snippets: JSON.parse(r.ocr_snippets || '[]'),
+      linked_state_memory_nodes: JSON.parse(r.linked_state_memory_nodes || '{}'),
+      payload_hash: r.payload_hash,
+    };
   }
 
   // --- Maintenance & Indexing ---

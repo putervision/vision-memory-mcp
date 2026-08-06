@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.7.21';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.8.0';
 
 function showHelp() {
   console.log(`
@@ -15,6 +15,7 @@ Commands:
   init [-y|--yes]    Scaffold the workspace, .gitignore, .env, and Cursor rules
   init-global        Re-initialize across all projects registered in ~/.vision-memory-mcp/projects.json
   doctor             Run environment health checks (LanceDB, sharp, git, Node)
+  doctor-global      Run health checks & output metrics across all registered projects in ~/.vision-memory-mcp/projects.json
   update             Check npm registry and update @putervision/vision-memory-mcp globally
   audit              Audit sub-directory Git repos and multi-database memory status
   inspect            Display an ASCII table of stored visual states and tags
@@ -23,6 +24,11 @@ Commands:
   spec <action>      Manage visual design spec contract baselines & verification:
                        spec set <name> <image-path>
                        spec verify <spec-name> <image-path> [--tolerance <n>]
+  video <action>     Manage WebM & MP4 video frame digesting memory:
+                       video ingest <filepath> [--fps <n>] [--category <cat>]
+                       video inspect <video_id>
+                       video list
+
   snapshot <action>  Manage checkpoints:
                        snapshot save <name> [desc]
                        snapshot diff <nameA> <nameB>
@@ -166,6 +172,12 @@ async function runCli() {
       break;
     }
 
+    case 'doctor-global': {
+      const { runDoctorGlobal } = await import('./cli/commands/doctor.js');
+      await runDoctorGlobal(args);
+      break;
+    }
+
     case 'update':
     case 'upgrade': {
       const { runUpdate } = await import('./cli/commands/update.js');
@@ -185,7 +197,29 @@ async function runCli() {
       break;
     }
 
+    case 'video': {
+      const { storage } = await import('./core/storage.js');
+      await storage.init();
+      const subAction = args[1] || 'list';
+      const subArgs = args.slice(2);
+      if (subAction === 'ingest') {
+        const { runVideoIngestCommand } = await import('./cli/video-commands.js');
+        await runVideoIngestCommand(subArgs);
+      } else if (subAction === 'inspect') {
+        const { runVideoInspectCommand } = await import('./cli/video-commands.js');
+        await runVideoInspectCommand(subArgs);
+      } else if (subAction === 'list') {
+        const { runVideoListCommand } = await import('./cli/video-commands.js');
+        await runVideoListCommand();
+      } else {
+        console.error(`Unknown video sub-command: ${subAction}. Options: ingest, inspect, list`);
+        process.exit(1);
+      }
+      break;
+    }
+
     default:
+
       console.error(`Unknown command: ${command}`);
       showHelp();
       process.exit(1);

@@ -17,9 +17,17 @@ import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
 import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
+import { probeVideo, extractKeyframes } from '../core/video-pipeline.js';
+import { categorizeVideoFrames } from '../core/video-categorizer.js';
 import { getCachedDirSize } from '../utils/fs.js';
 import { VERSION } from '../utils/version.js';
-import { VisualState, ResponseFormat, WaitForVisualStateResult } from '../types.js';
+import {
+  VisualState,
+  ResponseFormat,
+  WaitForVisualStateResult,
+  VideoMemoryRecord,
+  EvidencePack,
+} from '../types.js';
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
   if (filePath) {
@@ -199,6 +207,249 @@ export async function handleWaitForVisualState(params: {
     elapsed_ms: Date.now() - startTime,
     state: null,
   };
+}
+
+export async function handleIngestVideo(params: {
+  file_path?: string;
+  video_data?: string;
+  fps?: number;
+  scene_threshold?: number;
+  action_timestamps?: number[];
+  category?: string;
+  tags?: string[];
+  source_agent?: string;
+  trace_id?: string;
+}) {
+  const input = params.file_path || params.video_data;
+  if (!input) {
+    throw new Error('Either file_path or video_data base64 string must be provided.');
+  }
+
+  const probe = await probeVideo(input);
+  const frames = await extractKeyframes(input, {
+    fps: params.fps,
+    scene_threshold: params.scene_threshold,
+    action_timestamps: params.action_timestamps,
+    category: params.category,
+    tags: params.tags,
+    source_agent: params.source_agent,
+    trace_id: params.trace_id,
+  });
+
+  const catResult = await categorizeVideoFrames(
+    frames,
+    {
+      category: params.category,
+      tags: params.tags,
+      source_agent: params.source_agent,
+      trace_id: params.trace_id,
+    },
+    params.file_path || 'video_stream'
+  );
+
+  for (const s of catResult.states) {
+    await storage.addState(s);
+  }
+  for (const t of catResult.transitions) {
+    await storage.addTransition(t);
+  }
+
+  const videoId = `vid_${crypto.randomBytes(8).toString('hex')}`;
+  const record: VideoMemoryRecord = {
+    id: videoId,
+    source_file: params.file_path || 'video_stream',
+    file_format: probe.file_format,
+    duration_ms: probe.duration_ms,
+    fps: probe.fps,
+    resolution: JSON.stringify({ width: probe.width, height: probe.height }),
+    total_frames_extracted: frames.length,
+    unique_states_count: catResult.unique_states_count,
+    category: params.category || 'general',
+    tags: JSON.stringify(params.tags || []),
+    created_at: Date.now(),
+    summary_description: catResult.summary_description,
+    keyframe_timeline: JSON.stringify(catResult.timeline),
+    trace_id: params.trace_id || '',
+    git_branch: getCurrentBranch(),
+  };
+
+  await storage.saveVideoRecord(record);
+
+  return {
+    video_id: videoId,
+    source_file: record.source_file,
+    file_format: record.file_format,
+    duration_ms: record.duration_ms,
+    extracted_frames_count: frames.length,
+    unique_states_count: catResult.unique_states_count,
+    category: record.category,
+    tags: params.tags || [],
+    timeline: catResult.timeline,
+    summary: catResult.summary_description,
+    evidence_payload: {
+      source_video_id: videoId,
+      frame_range: catResult.timeline.map((t) => t.state_id),
+      timestamps_ms: catResult.timeline.map((t) => t.timestamp_ms),
+    },
+  };
+}
+
+export async function handleSearchVideoMemory(params: {
+  query: string;
+  category?: string;
+  limit?: number;
+}) {
+  const records = await storage.searchVideoRecords(params.query, params.limit || 20);
+  if (!params.category) return records;
+  return records.filter((r) => r.category === params.category);
+}
+
+export async function handleGetVideoTimeline(params: { video_id: string }) {
+  const record = await storage.getVideoRecord(params.video_id);
+  if (!record) {
+    throw new Error(`Video memory record '${params.video_id}' not found.`);
+  }
+
+  const timelineEntries: Array<{
+    frame_index: number;
+    timestamp_ms: number;
+    state: VisualState | null;
+    dhash: string;
+  }> = [];
+
+  let rawTimeline: any[] = [];
+  try {
+    rawTimeline = JSON.parse(record.keyframe_timeline || '[]');
+  } catch (_) {}
+
+  for (const entry of rawTimeline) {
+    const state = await storage.getState(entry.state_id);
+    timelineEntries.push({
+      frame_index: entry.frame_index,
+      timestamp_ms: entry.timestamp_ms,
+      state,
+      dhash: entry.dhash,
+    });
+  }
+
+  return {
+    video: record,
+    timeline: timelineEntries,
+  };
+}
+
+export async function handleCompareVideoTrajectories(params: {
+  video_a_id: string;
+  video_b_id: string;
+}) {
+  const videoA = await storage.getVideoRecord(params.video_a_id);
+  const videoB = await storage.getVideoRecord(params.video_b_id);
+
+  if (!videoA) throw new Error(`Video A '${params.video_a_id}' not found.`);
+  if (!videoB) throw new Error(`Video B '${params.video_b_id}' not found.`);
+
+  let timelineA: any[] = [];
+  let timelineB: any[] = [];
+  try {
+    timelineA = JSON.parse(videoA.keyframe_timeline || '[]');
+    timelineB = JSON.parse(videoB.keyframe_timeline || '[]');
+  } catch (_) {}
+
+  const statesA = new Set(timelineA.map((t: any) => t.state_id));
+  const statesB = new Set(timelineB.map((t: any) => t.state_id));
+
+  let common = 0;
+  for (const s of statesA) {
+    if (statesB.has(s)) common++;
+  }
+
+  const totalUnique = new Set([...statesA, ...statesB]).size;
+  const similarityScore = totalUnique > 0 ? Math.round((common / totalUnique) * 100) / 100 : 1.0;
+
+  let divergencePoint: any = undefined;
+  const maxLen = Math.max(timelineA.length, timelineB.length);
+  for (let i = 0; i < maxLen; i++) {
+    const itemA = timelineA[i];
+    const itemB = timelineB[i];
+    if (!itemA || !itemB || itemA.state_id !== itemB.state_id) {
+      divergencePoint = {
+        timestamp_a_ms: itemA?.timestamp_ms ?? 0,
+        timestamp_b_ms: itemB?.timestamp_ms ?? 0,
+        state_a_id: itemA?.state_id,
+        state_b_id: itemB?.state_id,
+        reason: !itemA
+          ? 'Video A ended earlier than Video B'
+          : !itemB
+            ? 'Video B ended earlier than Video A'
+            : `Frame state mismatch at index ${i}`,
+      };
+      break;
+    }
+  }
+
+  return {
+    video_a_id: params.video_a_id,
+    video_b_id: params.video_b_id,
+    similarity_score: similarityScore,
+    common_states_count: common,
+    divergence_point: divergencePoint,
+    timeline_a_length: timelineA.length,
+    timeline_b_length: timelineB.length,
+  };
+}
+
+export async function handleCreateEvidencePack(params: {
+  keyframe_state_ids: string[];
+  source_video_id?: string;
+  linked_state_memory_nodes?: {
+    blocker_ids?: string[];
+    decision_ids?: string[];
+    observation_ids?: string[];
+    task_ids?: string[];
+  };
+}): Promise<EvidencePack> {
+  const stateIds = params.keyframe_state_ids ?? [];
+  const timestampsMs: number[] = [];
+  const dhashes: string[] = [];
+  const clipFingerprints: number[][] = [];
+  const ocrSnippets: string[] = [];
+
+  for (const sId of stateIds) {
+    const st = await storage.getState(sId);
+    if (st) {
+      dhashes.push(st.dhash);
+      if (st.timestamp_ms) timestampsMs.push(st.timestamp_ms);
+      if (st.vector) clipFingerprints.push(st.vector);
+      if (st.ocr_text) ocrSnippets.push(st.ocr_text);
+    }
+  }
+
+  const rawPayload = JSON.stringify({
+    source_video_id: params.source_video_id ?? '',
+    keyframe_state_ids: stateIds,
+    timestamps_ms: timestampsMs,
+    dhashes,
+    linked: params.linked_state_memory_nodes ?? {},
+  });
+
+  const payloadHash = crypto.createHash('sha256').update(rawPayload).digest('hex');
+  const packId = `pack_${payloadHash.slice(0, 16)}`;
+
+  const pack: EvidencePack = {
+    id: packId,
+    created_at: Date.now(),
+    source_video_id: params.source_video_id,
+    keyframe_state_ids: stateIds,
+    timestamps_ms: timestampsMs,
+    dhashes,
+    clip_fingerprints: clipFingerprints,
+    ocr_snippets: ocrSnippets,
+    linked_state_memory_nodes: params.linked_state_memory_nodes ?? {},
+    payload_hash: payloadHash,
+  };
+
+  await storage.saveEvidencePack(pack);
+  return pack;
 }
 
 export function registerAllTools(server: McpServer): void {
@@ -1816,6 +2067,188 @@ export function registerAllTools(server: McpServer): void {
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to retrieve version: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 23. Tool: ingest_video
+  server.registerTool(
+    'ingest_video',
+    {
+      title: 'Ingest WebM/MP4 Video Recording',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      },
+      description:
+        'Ingest a WebM or MP4 video file, extract keyframes, deduplicate static intervals with dHash, generate CLIP embeddings and sequence transitions, and save video memory.',
+      inputSchema: z.object({
+        file_path: z.string().optional().describe('Absolute file path to WebM or MP4 video file'),
+        video_data: z.string().optional().describe('Base64 encoded WebM or MP4 video buffer'),
+        fps: z.number().optional().describe('Frame sampling rate per second (default: 1.0)'),
+        scene_threshold: z
+          .number()
+          .optional()
+          .describe('Scene change detection threshold 0.0-1.0 (default: 0.2)'),
+        category: z
+          .string()
+          .optional()
+          .describe('Video category (e.g. playwright_test, screen_recording, bug_repro)'),
+        tags: z.array(z.string()).optional().describe('Array of tags for filtering'),
+        source_agent: z.string().optional().describe('Source agent identifier'),
+        trace_id: z.string().optional().describe('Trace or session correlation ID'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleIngestVideo(params);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to ingest video: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 24. Tool: search_video_memory
+  server.registerTool(
+    'search_video_memory',
+    {
+      title: 'Search Video Memory Records',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description: 'Search stored video recordings by description, category, tags, or file path.',
+      inputSchema: z.object({
+        query: z.string().describe('Search query string'),
+        category: z.string().optional().describe('Optional category filter'),
+        limit: z.number().optional().describe('Max results to return (default: 20)'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleSearchVideoMemory(params);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to search video memory: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 25. Tool: get_video_timeline
+  server.registerTool(
+    'get_video_timeline',
+    {
+      title: 'Get Video State Timeline',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Fetch chronological keyframe timeline of visual states, timestamps, and metadata for an ingested video ID.',
+      inputSchema: z.object({
+        video_id: z.string().describe('Video record ID (e.g. vid_12345)'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleGetVideoTimeline(params);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to get video timeline: ${error.message}` }],
+        };
+      }
+    }
+  );
+
+  // 26. Tool: compare_video_trajectories
+  server.registerTool(
+    'compare_video_trajectories',
+    {
+      title: 'Compare Video Trajectories',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Compare two video recordings (e.g. expected vs failing test video) to calculate visual similarity and pinpoint frame divergence.',
+      inputSchema: z.object({
+        video_a_id: z.string().describe('First video ID'),
+        video_b_id: z.string().describe('Second video ID'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleCompareVideoTrajectories(params);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [
+            { type: 'text', text: `Failed to compare video trajectories: ${error.message}` },
+          ],
+        };
+      }
+    }
+  );
+
+  // 27. Tool: create_evidence_pack
+  server.registerTool(
+    'create_evidence_pack',
+    {
+      title: 'Create Immutable Evidence Pack',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Package keyframe IDs, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs into an immutable, cryptographically hashable evidence pack for compliance & audit trails.',
+      inputSchema: z.object({
+        keyframe_state_ids: z.array(z.string()).describe('Array of keyframe visual state IDs'),
+        source_video_id: z.string().optional().describe('Optional source video ID'),
+        linked_state_memory_nodes: z
+          .object({
+            blocker_ids: z.array(z.string()).optional(),
+            decision_ids: z.array(z.string()).optional(),
+            observation_ids: z.array(z.string()).optional(),
+            task_ids: z.array(z.string()).optional(),
+          })
+          .optional()
+          .describe('State memory node IDs linked to this visual evidence pack'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleCreateEvidencePack(params);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+        };
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to create evidence pack: ${error.message}` }],
         };
       }
     }

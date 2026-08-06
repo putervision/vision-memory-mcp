@@ -5,6 +5,7 @@ import { getCurrentBranch } from './cache.js';
 import { logger } from '../logger.js';
 import { hammingDistance } from './hash.js';
 import { VisualSnapshot } from '../types.js';
+import { VERSION } from '../utils/version.js';
 
 /**
  * Save current visual states as a named checkpoint snapshot.
@@ -167,7 +168,7 @@ export async function exportSnapshot(
   );
 
   return {
-    version: '0.7.21',
+    version: VERSION,
     exported_at: Date.now(),
     name: snap.name,
     description: snap.description,

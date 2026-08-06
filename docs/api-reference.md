@@ -1,8 +1,9 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.7.21)
+# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.8.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 23 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 27 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 
 ---
+
 
 ## 1. Perception, Ingestion & Element Grounding
 
@@ -130,6 +131,37 @@ This document provides formal API specifications, parameter schemas, return shap
 
 ---
 
-## 6. Performance & ROI Notice
+## 6. Video Frame Digesting & Temporal Trajectories
+
+### `ingest_video`
+- **Overview**: Ingests a WebM or MP4 video file or base64 stream, extracts keyframes with `ffmpeg`, applies dHash deduplication fast path, generates CLIP vector embeddings and transition sequence paths.
+- **How to Leverage**: Call on Playwright E2E test failure recordings or bug repro videos to convert video timelines into searchable visual state graphs.
+- **Parameters**: `file_path` (opt string), `video_data` (opt string), `fps` (opt number), `scene_threshold` (opt number), `category` (opt string), `tags` (opt array), `source_agent` (opt string), `trace_id` (opt string).
+
+### `search_video_memory`
+- **Overview**: Searches stored video recordings by description query, category, tags, or file path.
+- **How to Leverage**: Query past video recordings in natural language (e.g. "find Playwright test video where checkout modal opened").
+- **Parameters**: `query` (required string), `category` (opt string), `limit` (opt number).
+
+### `get_video_timeline`
+- **Overview**: Fetches chronological keyframe state timeline and metadata for a video record ID.
+- **How to Leverage**: Retrieve step-by-step keyframes, timestamps, OCR text, and grounded targets for a specific video run.
+- **Parameters**: `video_id` (required string).
+
+### `compare_video_trajectories`
+- **Overview**: Compares two video recordings (e.g. passing test video vs failing test video) to calculate visual similarity score and pinpoint frame divergence point.
+- **How to Leverage**: Instantly detect exact timestamp and state ID where a test run diverged visually from a baseline recording.
+- **Parameters**: `video_a_id` (required string), `video_b_id` (required string).
+
+### `create_evidence_pack`
+- **Overview**: Packages keyframe IDs, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs into an immutable, cryptographically hashable evidence pack.
+- **How to Leverage**: Produce verifiable audit evidence ("Decision D was based on keyframes F12-F18 of recording R") without reloading raw images into model context.
+- **Parameters**: `keyframe_state_ids` (required array of strings), `source_video_id` (opt string), `linked_state_memory_nodes` (opt object).
+
+
+---
+
+## 7. Performance & ROI Notice
 
 > **Notice**: Token savings estimates (up to 90%) and latency metrics (<5ms L1 fast-path) depend on visual repetition, screen resolution, and model rates. All memory data is kept 100% local in `.vision-memory-mcp`.
+

@@ -12,6 +12,7 @@ The `vision-memory-mcp` executable provides a full suite of management, diagnost
 | `init` | Bootstraps workspace database, `.gitignore`, `.env`, and IDE rules. | `vision-memory-mcp init --yes` |
 | `init-global` | Re-initializes across all registered projects in `~/.vision-memory-mcp/projects.json`. | `vision-memory-mcp init-global --clean-stale` |
 | `doctor` | Health-checks LanceDB writability, Sharp bindings, Node runtime, Git repos, and .gitignore safety. | `vision-memory-mcp doctor --json` |
+| `doctor-global` | Runs health diagnostics & aggregate metrics across all registered projects in `~/.vision-memory-mcp/projects.json`. | `vision-memory-mcp doctor-global --clean-stale --json` |
 | `update` | Checks the npm registry and updates `@putervision/vision-memory-mcp` globally to latest. | `vision-memory-mcp update` |
 | `audit` | Deep workspace audit of Git repos, submodules, database locations, and state counts. | `vision-memory-mcp audit --json` |
 | `inspect` | Prints an ASCII table of stored visual states and metadata. | `vision-memory-mcp inspect` |
@@ -19,6 +20,7 @@ The `vision-memory-mcp` executable provides a full suite of management, diagnost
 | `view` | Opens a local force-directed graph viewer of the visual memory in your browser. | `vision-memory-mcp view` |
 | `spec` | Baseline design contract registration (`set`) and live visual regression verification (`verify`). | `vision-memory-mcp spec set --name "Login UI" --file ./login.png` |
 | `snapshot` | Manage visual checkpoints (`save`, `diff`, `list`). | `vision-memory-mcp snapshot save --name "checkpoint-1"` |
+| `video` | WebM & MP4 video memory digesting (`ingest`), inspecting timelines (`inspect`), and listing recordings (`list`). | `vision-memory-mcp video ingest ./test.webm` |
 | `undo` | Revert the last visual state or transition edge mutation. | `vision-memory-mcp undo` |
 | `optimize` | Compacts LanceDB storage fragments and vacuum locks. | `vision-memory-mcp optimize` |
 | `prune` | Purges expired TTL states from the storage database. | `vision-memory-mcp prune` |
@@ -58,3 +60,17 @@ vision-memory-mcp snapshot save --name "v1.0-release"
 # Diff two visual checkpoints
 vision-memory-mcp snapshot diff --a "v1.0-release" --b "v1.1-release"
 ```
+
+### 4. Video Recording Ingestion & Timeline Inspection
+
+```bash
+# Ingest Playwright E2E test video recording into visual memory
+vision-memory-mcp video ingest ./playwright-test.webm --category playwright_test --fps 1
+
+# Inspect keyframe timeline of ingested video
+vision-memory-mcp video inspect vid_12345678
+
+# List all ingested video memory records
+vision-memory-mcp video list
+```
+

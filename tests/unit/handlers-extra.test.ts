@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -27,10 +27,12 @@ describe('Handlers Extra Coverage Suite', () => {
     registerAllTools(mockServer);
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     config.LANCEDB_PATH = originalPath;
     if (fs.existsSync(testDbDir)) {
-      fs.rmSync(testDbDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(testDbDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (_) {}
     }
   });
 

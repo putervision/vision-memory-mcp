@@ -13,7 +13,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 6. **Privacy & Undo**: Call `forget_state` to purge sensitive or secret states, or `undo_last_visual_mutation` to revert accidental mutations.
 
-### 2. Tool Reference Summary (23 Core MCP Tools)
+### 2. Tool Reference Summary (27 Core MCP Tools)
 
 - `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 - `recall_memory`: Search visual memory by description query or base64 image query.
@@ -21,6 +21,11 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `get_navigation_paths`: Find path between states using BFS navigation graph.
 - `compare_states`: Compare two visual states structurally and vector-semantically.
 - `get_session_context`: Fetch recent states, frequent states, and transitions.
+- `ingest_video`: Ingest WebM/MP4 video file or buffer into visual state memory timeline.
+- `search_video_memory`: Search ingested video recordings by description, category, or tags.
+- `get_video_timeline`: Fetch chronological keyframe state timeline and metadata for a video.
+- `compare_video_trajectories`: Compare two video recordings to calculate similarity and pinpoint frame divergence.
+- `create_evidence_pack`: Package keyframes, fingerprints, OCR, and linked state-memory node IDs into immutable evidence packs.
 - `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 - `undo_last_visual_mutation`: Revert the last visual mutation.
 - `create_visual_blocker`: Generate structured visual blocker payload for `state-memory-mcp`.
@@ -36,6 +41,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `app_version`: Query server build version, MCP identifier, package name, and runtime environment.
 - `vision-memory-mcp doctor [--json]`: Run health checks for storage writability, sharp bindings, Node runtime, Git repos, and .gitignore protection.
 - `vision-memory-mcp audit [--json]`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
+
 
 ### 3. Agent Permissions & Auto-Run Configuration
 

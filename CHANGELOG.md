@@ -5,13 +5,45 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.21] - 2026-08-03
+## [0.8.0] - 2026-08-05
+
+### Added
+- **10 High-Leverage Dual-MCP Synergy Pillars**: Implemented deep integration between `@putervision/vision-memory-mcp` and `@putervision/state-memory-mcp`:
+  1. Action-grounded visual transitions `(from_visual_state, grounded_action, to_visual_state)`.
+  2. Cryptographically hashable evidence packs via `create_evidence_pack` MCP tool (#27).
+  3. Visual blockers as first-class background reactors.
+  4. Spec dual-binding linking Figma visual baselines with text SDD requirements.
+  5. Temporal video paths aligned to task DAGs.
+  6. Branch- and workspace-aware visual memory scoping.
+  7. Visual novelty and anomaly risk signals.
+  8. Unified joint trajectory schema with timing metrics (`timestamp_ms`, `time_delta_ms`, `action_duration_ms`).
+  9. Predictive next-UI action ranking from `state-memory-mcp` context.
+  10. Lightweight visual post-mortem attachments.
+- **`create_evidence_pack` MCP Tool (#27)**: Packages keyframes, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs into immutable evidence pack payloads.
+- **Smart Timestamp Sampling**: Enhanced `video-pipeline.ts` to sample keyframes at exact interaction timestamps `action_timestamps` combined with scene-change detection filters.
+- **`doctor-global` CLI Command**: Added `vision-memory-mcp doctor-global` to run health checks, aggregate storage footprints, and report health metrics across all registered projects in `~/.vision-memory-mcp/projects.json` (with support for `--clean-stale`, `--scan <dir>`, and `--json`).
+- **Dedicated Dual-MCP Synergy & Coverage Test Suites**: Added `dual-mcp-synergy.test.ts`, `coverage-boost.test.ts`, and `doctor-global.test.ts` (bringing total test suite to 46 test files, 224 unit tests).
+
+### Changed
+- **Minor Version Bump (0.7.21 -> 0.8.0)**: Updated package version across all manifests, code constants, test suites, API reference docs, and website landing page metadata.
+
+## [0.7.21] - 2026-08-05
+
+### Added
+- **WebM & MP4 Video Frame Ingestion & Temporal Memory Engine**: Added `src/core/video-pipeline.ts` and `src/core/video-categorizer.ts` for extracting keyframes from `.webm` and `.mp4` video files using `ffmpeg`, running fast-path dHash deduplication to merge contiguous static screens into keyframe states, generating CLIP vector embeddings, and building chronological sequence transition graphs.
+- **4 New MCP Tools (26 Total Core Tools)**: Added `ingest_video`, `search_video_memory`, `get_video_timeline`, and `compare_video_trajectories`.
+- **CLI `video` Subcommands**: Added `vision-memory-mcp video ingest <filepath>`, `vision-memory-mcp video inspect <video_id>`, and `vision-memory-mcp video list`.
+- **5 Dedicated Video Unit Test Suites**: Added `video-pipeline.test.ts`, `video-categorizer.test.ts`, `video-storage.test.ts`, `video-handlers.test.ts`, and `video-cli.test.ts` (bringing total test suite to 43 test files, 214 unit tests passed).
+- **`test:matrix` Pipeline Script**: Added `"test:matrix": "npm run ci"` script to `package.json` to verify code formatting, ESLint, TypeScript typecheck, unit tests, and production `tsup` build.
+
+### Security & Dependencies
+- **Security Vulnerability Resolution (0 Vulnerabilities)**: Upgraded `sharp` to `^0.35.0` to resolve all inherited libvips security advisories (CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591), reaching **0 vulnerabilities** on `npm audit`.
 
 ### Changed
 - **Node.js 18+ Prerequisite Restoration**: Restored Node.js support boundary to `>=18.17.0 (LTS)` across `package.json`, GitHub Actions CI matrix (`[18.x, 20.x, 22.x]`), `README.md`, `CONTRIBUTING.md`, and `docs/index.html`.
-- **Sharp Native Engine Alignment (`^0.33.5`)**: Downgraded `sharp` to `^0.33.5` to eliminate the Node `>=20.9.0` hardcoded check in `sharp v0.35+`, ensuring native C++ image processing functions seamlessly on Node 18, 20, and 22.
 - **Test & Linter Framework Stability**: Aligned Vitest (`^3.0.7`) and ESLint (`^9.20.0`) dependencies to resolve bundler native binding crashes (`@rolldown/binding`) and missing `node:util` API errors (`styleText`) on Node 18.
 - **Version Bump (0.7.2 -> 0.7.21)**: Updated package version across all 14 manifests, fallback code constants, test suites, API reference docs, and website landing page metadata.
+
 
 ## [0.7.2] - 2026-08-03
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
@@ -13,18 +13,18 @@ describe('Handlers Coverage Suite', () => {
   let toolMap: Map<string, Function>;
   let dummyBase64: string;
 
+  const mockServer = {
+    registerTool: (name: string, schema: any, cb: Function) => {
+      toolMap.set(name, cb);
+      return {} as any;
+    },
+  } as unknown as McpServer;
+
   beforeEach(async () => {
+    toolMap = new Map();
     config.LANCEDB_PATH = testDbDir;
     process.env.LANCEDB_PATH = testDbDir;
     await storage.init();
-
-    toolMap = new Map();
-    const mockServer = {
-      registerTool: (name: string, schema: any, cb: Function) => {
-        toolMap.set(name, cb);
-        return {} as any;
-      },
-    } as unknown as McpServer;
 
     registerAllTools(mockServer);
 
@@ -41,10 +41,12 @@ describe('Handlers Coverage Suite', () => {
     dummyBase64 = buf.toString('base64');
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     config.LANCEDB_PATH = originalPath;
     if (fs.existsSync(testDbDir)) {
-      fs.rmSync(testDbDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(testDbDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (_) {}
     }
   });
 
