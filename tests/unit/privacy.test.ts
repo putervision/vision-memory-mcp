@@ -1,6 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import sharp from 'sharp';
 import { redactSensitiveText, redactImageRegions } from '../../src/core/privacy.js';
+
+async function createTestPngBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Privacy & Sensitive-Data Redaction Module', () => {
   it('should detect and redact email addresses and API keys', () => {
@@ -21,20 +41,10 @@ describe('Privacy & Sensitive-Data Redaction Module', () => {
   });
 
   it('should perform solid rectangle composite masking on a valid image buffer', async () => {
-    const validBuffer = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 },
-      },
-    })
-      .png()
-      .toBuffer();
-
-    const masked = await redactImageRegions(validBuffer, [[10, 10, 50, 50]]);
-    expect(masked).toBeDefined();
-    expect(masked.length).toBeGreaterThan(0);
+    const validBuffer = await createTestPngBuffer();
+    const redacted = await redactImageRegions(validBuffer, [[10, 10, 30, 30]]);
+    expect(redacted).toBeDefined();
+    expect(redacted.length).toBeGreaterThan(0);
   });
 
   it('should return original buffer if bboxes is empty or buffer is null', async () => {

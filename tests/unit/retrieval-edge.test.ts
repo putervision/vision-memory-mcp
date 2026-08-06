@@ -1,11 +1,31 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import { setVisualSpec, verifyVisualSpec } from '../../src/core/visual-spec.js';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';
 import { MemoryCache, getCurrentBranch } from '../../src/core/cache.js';
+
+async function createTestPngBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 4,
+        background: { r: 128, g: 128, b: 255, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Retrieval & Visual-Spec Edge Cases Suite', () => {
   const testDbDir = path.join(process.cwd(), '.test-retrieval-edge-db');
@@ -18,19 +38,9 @@ describe('Retrieval & Visual-Spec Edge Cases Suite', () => {
     process.env.LANCEDB_PATH = testDbDir;
     await storage.init();
 
-    const buf = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 4,
-        background: { r: 255, g: 0, b: 0, alpha: 1 },
-      },
-    })
-      .png()
-      .toBuffer();
-
+    const buf = await createTestPngBuffer();
     base64Img = buf.toString('base64');
-    testFile = path.join(process.cwd(), '.test-spec-edge-file.png');
+    testFile = path.join(testDbDir, 'test.png');
     fs.writeFileSync(testFile, buf);
   });
 

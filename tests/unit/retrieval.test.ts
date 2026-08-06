@@ -6,9 +6,29 @@ import { storage } from '../../src/core/storage.js';
 import { retrieveState, compressAccessibilityTree } from '../../src/core/retrieval.js';
 import { calculateDHash, calculateAHash } from '../../src/core/hash.js';
 import { VisualState } from '../../src/types.js';
-import sharp from 'sharp';
 
 const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-retrieval-db');
+
+async function createRedPng(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: 255, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Tiered Retrieval Engine', () => {
   let redBuffer: Buffer;
@@ -27,16 +47,7 @@ describe('Tiered Retrieval Engine', () => {
       await storage.deleteTransition("id != ''");
     } catch {}
 
-    redBuffer = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 3,
-        background: { r: 255, g: 0, b: 0 },
-      },
-    })
-      .png()
-      .toBuffer();
+    redBuffer = await createRedPng();
 
     dhashRed = await calculateDHash(redBuffer);
     ahashRed = await calculateAHash(redBuffer);

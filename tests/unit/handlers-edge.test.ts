@@ -1,10 +1,30 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'path';
 import fs from 'fs';
-import sharp from 'sharp';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';
 import { registerAllTools } from '../../src/tools/handlers.js';
+
+async function createTestPngBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 4,
+        background: { r: 0, g: 0, b: 255, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Handlers Edge Cases Suite', () => {
   const testDbDir = path.join(process.cwd(), '.test-handlers-edge-db');
@@ -26,17 +46,7 @@ describe('Handlers Edge Cases Suite', () => {
 
     registerAllTools(mockServer as any);
 
-    const buf = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 4,
-        background: { r: 0, g: 0, b: 255, alpha: 1 },
-      },
-    })
-      .png()
-      .toBuffer();
-
+    const buf = await createTestPngBuffer();
     dummyBase64 = buf.toString('base64');
   });
 

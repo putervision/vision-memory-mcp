@@ -8,19 +8,25 @@ import { memoryCache } from '../../src/core/cache.js';
 
 const TEST_DB_PATH = path.join(process.cwd(), '.test-pipeline-db');
 
-import sharp from 'sharp';
-
 async function createSamplePng(red = 255, green = 0, blue = 0): Promise<Buffer> {
-  return await sharp({
-    create: {
-      width: 100,
-      height: 100,
-      channels: 3,
-      background: { r: red, g: green, b: blue },
-    },
-  })
-    .png()
-    .toBuffer();
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: red, g: green, b: blue },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
 }
 
 describe('End-to-End Tiered Retrieval Pipeline (L1->L4)', () => {

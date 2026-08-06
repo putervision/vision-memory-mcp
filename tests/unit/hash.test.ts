@@ -1,6 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { hammingDistance, calculateDHash, calculateAHash } from '../../src/core/hash.js';
-import sharp from 'sharp';
+
+async function createTestPngBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: 0, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Perceptual Hashing Utilities', () => {
   describe('hammingDistance', () => {
@@ -30,16 +50,7 @@ describe('Perceptual Hashing Utilities', () => {
   describe('calculateDHash and calculateAHash', () => {
     it('should generate 64-bit binary strings for a plain image', async () => {
       // Create a solid black 100x100 PNG buffer
-      const blackBuffer = await sharp({
-        create: {
-          width: 100,
-          height: 100,
-          channels: 3,
-          background: { r: 0, g: 0, b: 0 },
-        },
-      })
-        .png()
-        .toBuffer();
+      const blackBuffer = await createTestPngBuffer();
 
       const dhash = await calculateDHash(blackBuffer);
       const ahash = await calculateAHash(blackBuffer);

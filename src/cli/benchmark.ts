@@ -1,20 +1,28 @@
-import sharp from 'sharp';
 import { storage } from '../core/storage.js';
 import { memoryCache } from '../core/cache.js';
 import { processImage } from '../core/image-pipeline.js';
 import { BenchmarkResults, VisualState } from '../types.js';
 
 async function generateSamplePng(): Promise<Buffer> {
-  return await sharp({
-    create: {
-      width: 10,
-      height: 10,
-      channels: 3,
-      background: { r: 255, g: 0, b: 0 },
-    },
-  })
-    .png()
-    .toBuffer();
+  try {
+    const sharpModule = await import('sharp');
+    const sharpFunc = sharpModule.default || sharpModule;
+    return await sharpFunc({
+      create: {
+        width: 10,
+        height: 10,
+        channels: 3,
+        background: { r: 255, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mP8z8BQD0R8gY4KGBgA5WkB30o12QAAAABJRU5ErkJggg==',
+      'base64'
+    );
+  }
 }
 
 function percentile(arr: number[], p: number): number {

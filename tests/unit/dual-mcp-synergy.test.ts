@@ -1,10 +1,30 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';
 import { handleCreateEvidencePack, handleIngestVideo } from '../../src/tools/handlers.js';
+
+async function createTestPngBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 4,
+        background: { r: 50, g: 150, b: 250, alpha: 1 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Dual-MCP Synergy Unit Test Suite', () => {
   const testDbDir = path.join(process.cwd(), '.test-synergy-db');
@@ -16,16 +36,7 @@ describe('Dual-MCP Synergy Unit Test Suite', () => {
     process.env.LANCEDB_PATH = testDbDir;
     await storage.init();
 
-    const buf = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 4,
-        background: { r: 50, g: 150, b: 250, alpha: 1 },
-      },
-    })
-      .png()
-      .toBuffer();
+    const buf = await createTestPngBuffer();
     dummyBase64 = buf.toString('base64');
   });
 

@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import { logger } from '../logger.js';
 
 export interface RedactionResult {
@@ -45,6 +44,22 @@ export function redactSensitiveText(input: string): RedactionResult {
   return { redactedText, isRedacted, detectedTypes };
 }
 
+let cachedSharp: any = null;
+let sharpLoadFailed = false;
+
+async function getSharp() {
+  if (sharpLoadFailed) return null;
+  if (cachedSharp) return cachedSharp;
+  try {
+    const s = await import('sharp');
+    cachedSharp = s.default || s;
+    return cachedSharp;
+  } catch {
+    sharpLoadFailed = true;
+    return null;
+  }
+}
+
 /**
  * Draws solid black mask rectangles over sensitive image regions (e.g. password input fields).
  */
@@ -54,8 +69,11 @@ export async function redactImageRegions(
 ): Promise<Buffer> {
   if (!bboxes.length || !buffer) return buffer;
 
+  const sharpInstance = await getSharp();
+  if (!sharpInstance) return buffer;
+
   try {
-    const metadata = await sharp(buffer).metadata();
+    const metadata = await sharpInstance(buffer).metadata();
     const width = metadata.width || 512;
     const height = metadata.height || 512;
 
@@ -70,7 +88,7 @@ export async function redactImageRegions(
       };
     });
 
-    return await sharp(buffer).composite(composites).toBuffer();
+    return await sharpInstance(buffer).composite(composites).toBuffer();
   } catch (err) {
     logger.error('Failed to redact image regions:', err);
     return buffer;

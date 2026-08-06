@@ -1,6 +1,26 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { embeddings } from '../../src/core/embeddings.js';
-import sharp from 'sharp';
+
+async function createTestImageBuffer(): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: 0, g: 255, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('CLIP Embeddings Manager', () => {
   beforeAll(async () => {
@@ -19,16 +39,7 @@ describe('CLIP Embeddings Manager', () => {
 
   it('should generate a 512-dimension image embedding', async () => {
     // Create a dummy image buffer
-    const buffer = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 3,
-        background: { r: 0, g: 255, b: 0 },
-      },
-    })
-      .png()
-      .toBuffer();
+    const buffer = await createTestImageBuffer();
 
     const vector = await embeddings.generateImageEmbedding(buffer);
 

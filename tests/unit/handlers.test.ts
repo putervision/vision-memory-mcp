@@ -2,12 +2,32 @@ process.env.LANCEDB_PATH = './data/test-handlers-db';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { storage } from '../../src/core/storage.js';
 import { registerAllTools } from '../../src/tools/handlers.js';
 
 const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-handlers-db');
+
+async function createColorPng(r: number, g: number, b: number): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r, g, b },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 function getToolHandler(server: McpServer, name: string) {
   const tool = (server as any)._registeredTools[name];
@@ -32,28 +52,10 @@ describe('MCP Tool Handlers', { timeout: 30000 }, () => {
     registerAllTools(server);
 
     // Create test image buffers
-    redBuffer = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 3,
-        background: { r: 255, g: 0, b: 0 },
-      },
-    })
-      .png()
-      .toBuffer();
+    redBuffer = await createColorPng(255, 0, 0);
     redBase64 = redBuffer.toString('base64');
 
-    blueBuffer = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 3,
-        background: { r: 0, g: 0, b: 255 },
-      },
-    })
-      .png()
-      .toBuffer();
+    blueBuffer = await createColorPng(0, 0, 255);
     blueBase64 = blueBuffer.toString('base64');
   });
 

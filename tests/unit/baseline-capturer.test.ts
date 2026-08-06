@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';
 import {
@@ -9,6 +8,27 @@ import {
   listVisualSpecs,
   exportVisualSpecSuite,
 } from '../../src/core/visual-spec.js';
+
+async function createTestImage(width = 100, height = 100): Promise<Buffer> {
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width,
+        height,
+        channels: 3,
+        background: { r: 255, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
+}
 
 describe('Visual Spec Suite & Baseline Capturer Unit Tests', () => {
   const testDbDir = path.join(process.cwd(), '.test-baseline-capturer-db');
@@ -20,18 +40,8 @@ describe('Visual Spec Suite & Baseline Capturer Unit Tests', () => {
     process.env.LANCEDB_PATH = testDbDir;
     await storage.init();
 
-    const buf = await sharp({
-      create: {
-        width: 100,
-        height: 100,
-        channels: 4,
-        background: { r: 50, g: 150, b: 250, alpha: 1 },
-      },
-    })
-      .png()
-      .toBuffer();
-
-    testFile = path.join(process.cwd(), '.test-baseline-sample.png');
+    const buf = await createTestImage(100, 100);
+    testFile = path.join(testDbDir, 'sample.png');
     fs.writeFileSync(testFile, buf);
   });
 

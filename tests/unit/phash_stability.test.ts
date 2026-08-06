@@ -1,19 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import sharp from 'sharp';
 import { calculateDHash, calculateAHash, hammingDistance } from '../../src/core/hash.js';
 import { processImage } from '../../src/core/image-pipeline.js';
 
 async function createPngFixture(): Promise<Buffer> {
-  return await sharp({
-    create: {
-      width: 100,
-      height: 100,
-      channels: 3,
-      background: { r: 255, g: 0, b: 0 },
-    },
-  })
-    .png()
-    .toBuffer();
+  try {
+    const s = (await import('sharp')).default;
+    return await s({
+      create: {
+        width: 100,
+        height: 100,
+        channels: 3,
+        background: { r: 255, g: 0, b: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+  } catch {
+    return Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVHjP7cEBDQAAAMKg90t52gAAAAAAAAAAAD8D7gAB+e35AAAAAElFTkSuQmCC',
+      'base64'
+    );
+  }
 }
 
 describe('Perceptual Hash Stability Regression Suite', () => {
