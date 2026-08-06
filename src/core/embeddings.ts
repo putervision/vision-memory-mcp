@@ -1,10 +1,3 @@
-import {
-  AutoProcessor,
-  AutoTokenizer,
-  CLIPVisionModelWithProjection,
-  CLIPTextModelWithProjection,
-  RawImage,
-} from '@huggingface/transformers';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 
@@ -34,6 +27,7 @@ export class EmbeddingsManager {
   private tokenizer: unknown = null;
   private visionModel: unknown = null;
   private textModel: unknown = null;
+  private rawImageClass: unknown = null;
   private initialized = false;
   private fallbackMode = false;
   private initPromise: Promise<void> | null = null;
@@ -49,6 +43,16 @@ export class EmbeddingsManager {
       );
 
       try {
+        const {
+          AutoProcessor,
+          AutoTokenizer,
+          CLIPVisionModelWithProjection,
+          CLIPTextModelWithProjection,
+          RawImage,
+        } = await import('@huggingface/transformers');
+
+        this.rawImageClass = RawImage;
+
         const modelOpts: Record<string, unknown> = {
           quantized: true,
         };
@@ -91,14 +95,14 @@ export class EmbeddingsManager {
   async generateImageEmbedding(buffer: Buffer, mimeType: string = 'image/webp'): Promise<number[]> {
     await this.init();
 
-    if (this.fallbackMode || !this.visionModel) {
+    if (this.fallbackMode || !this.visionModel || !this.rawImageClass) {
       logger.debug('EmbeddingsManager operating in fallback mode; returning zero vector.');
       return new Array(config.EMBEDDING_DIMENSIONS).fill(0.0);
     }
 
     try {
       const blob = new Blob([buffer], { type: mimeType });
-      const image = await RawImage.fromBlob(blob);
+      const image = await (this.rawImageClass as any).fromBlob(blob);
 
       const imageInputs = await (this.processor as CallableFunction)(image);
       const visionOutputs: any = await (this.visionModel as CallableFunction)(imageInputs);
