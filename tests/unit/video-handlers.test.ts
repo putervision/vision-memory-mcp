@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { storage } from '../../src/core/storage.js';
 import {
   handleIngestVideo,
@@ -7,9 +7,31 @@ import {
   handleCompareVideoTrajectories,
 } from '../../src/tools/handlers.js';
 
+import fs from 'fs';
+import path from 'path';
+import { config } from '../../src/config.js';
+
 describe('video-handlers unit tests', () => {
+  const originalPath = config.LANCEDB_PATH;
+  const testDbDir = path.resolve(process.cwd(), '.test-video-handlers-db');
+
   beforeAll(async () => {
+    config.LANCEDB_PATH = testDbDir;
+    if (fs.existsSync(testDbDir)) {
+      try {
+        fs.rmSync(testDbDir, { recursive: true, force: true });
+      } catch (_) {}
+    }
     await storage.init();
+  });
+
+  afterAll(async () => {
+    config.LANCEDB_PATH = originalPath;
+    if (fs.existsSync(testDbDir)) {
+      try {
+        fs.rmSync(testDbDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch (_) {}
+    }
   });
 
   const dummyWebMBase64 =
