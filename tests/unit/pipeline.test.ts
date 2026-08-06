@@ -4,6 +4,7 @@ import path from 'path';
 import { storage } from '../../src/core/storage.js';
 import { retrieveState } from '../../src/core/retrieval.js';
 import { processImage } from '../../src/core/image-pipeline.js';
+import { calculateDHash, calculateAHash } from '../../src/core/hash.js';
 import { memoryCache } from '../../src/core/cache.js';
 
 const TEST_DB_PATH = path.join(process.cwd(), '.test-pipeline-db');
@@ -58,10 +59,12 @@ describe('End-to-End Tiered Retrieval Pipeline (L1->L4)', () => {
 
     // 2. Ingest state into memory & cache
     const processed = await processImage(pngBuf);
+    const dhash = await calculateDHash(pngBuf);
+    const ahash = await calculateAHash(pngBuf);
     const newState = {
       id: 'pipeline-state-1',
-      dhash: '0'.repeat(64),
-      ahash: '0'.repeat(64),
+      dhash,
+      ahash,
       vector: new Array(512).fill(0.0),
       description: 'Sample pipeline test screen',
       structured_data: '{}',

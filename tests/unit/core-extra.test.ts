@@ -224,17 +224,27 @@ describe('Core Extra Coverage Suite', () => {
     });
 
     it('should downscale images exceeding 512x512 dimensions', async () => {
-      const sharp = (await import('sharp')).default;
-      const largeBuffer = await sharp({
-        create: {
-          width: 800,
-          height: 600,
-          channels: 4,
-          background: { r: 100, g: 100, b: 100, alpha: 1 },
-        },
-      })
-        .png()
-        .toBuffer();
+      let largeBuffer: Buffer;
+      try {
+        const sharp = (await import('sharp')).default;
+        largeBuffer = await sharp({
+          create: {
+            width: 800,
+            height: 600,
+            channels: 4,
+            background: { r: 100, g: 100, b: 100, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer();
+      } catch {
+        const header = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+          0x52, 0x00, 0x00, 0x03, 0x20, 0x00, 0x00, 0x02, 0x58, 0x08, 0x06, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00,
+        ]);
+        largeBuffer = Buffer.concat([header, Buffer.alloc(100, 0xaa)]);
+      }
 
       const processed = await processImage(largeBuffer);
       expect(processed.originalWidth).toBe(800);
