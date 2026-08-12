@@ -64,7 +64,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 6. **Privacy & Cleanup**: Call `forget_state` to purge sensitive or secret states from storage.
 
-### 2. Tool Reference Summary (23 Core MCP Tools)
+### 2. Tool Reference Summary (29 Core MCP Tools)
 * `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 * `recall_memory`: Search visual memory by description query or base64 image query.
 * `record_outcome`: Save UI action execution outcomes and transitions between states.
@@ -73,7 +73,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 * `get_session_context`: Fetch recent states, frequent states, and transitions.
 * `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates.
 * `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
-* `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
+* `set_visual_spec` / `verify_visual_spec` / `list_visual_specs` / `get_visual_diff`: UI compliance testing, visual spec listing, and diff verification.
 * `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 * `create_visual_blocker`: Generate structured visual blocker payload for state-memory-mcp.
 * `undo_last_visual_mutation`: Revert accidental state or transition edge ingestions.
@@ -83,6 +83,11 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 * `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
 * `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
 * `app_version`: Query server build version, MCP identifier, package name, and runtime environment.
+* `ingest_video`: Ingest WebM, MP4, or GIF video recordings into keyframes & transition graph.
+* `search_video_memory`: Search recorded video keyframe timelines and visual states.
+* `get_video_timeline`: Retrieve chronological keyframe timeline for a recorded video.
+* `compare_video_trajectories`: Compare visual keyframe trajectories across multiple video recordings.
+* `create_evidence_pack`: Create cryptographic, multi-modal evidence pack linking video keyframes, state graph tasks, and visual proof.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:

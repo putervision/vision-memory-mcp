@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+import { getCachedDirSize } from '../utils/fs.js';
 import {
   VisualState,
   StateTransition,
@@ -43,6 +44,25 @@ export function escapeSql(val: string): string {
     .replace(/\0/g, '\\0');
 }
 
+export function validateFilter(filter?: string): void {
+  if (!filter || !filter.trim()) return;
+  const str = filter.trim();
+
+  // Reject dangerous SQL injection keywords or characters
+  if (
+    /;|\/\*|\*\/|--|\b(DROP|DELETE|UPDATE|INSERT|TRUNCATE|ALTER|EXEC|UNION|SELECT)\b/i.test(str)
+  ) {
+    throw new Error(`Invalid or dangerous SQL filter input: "${filter}"`);
+  }
+
+  // Ensure filter matches allowed column predicate pattern
+  const allowedPattern =
+    /^(?:\s*\(?\s*(?:id|git_branch|from_state_id|to_state_id|source_url|name|dhash|ahash|created_at|ttl)\s*(?:=\s*'[^']*'|IN\s*\([^)]*\))\s*\)?\s*(?:AND|OR)?\s*)+$/i;
+  if (!allowedPattern.test(str)) {
+    throw new Error(`Unwhitelisted SQL filter predicate: "${filter}"`);
+  }
+}
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries = 4,
@@ -73,30 +93,6 @@ export async function withRetry<T>(
   }
 }
 
-function getDirSize(dirPath: string): number {
-  let size = 0;
-  if (!fs.existsSync(dirPath)) return 0;
-  try {
-    const files = fs.readdirSync(dirPath);
-    for (const file of files) {
-      const filePath = path.join(dirPath, file);
-      try {
-        const stats = fs.statSync(filePath);
-        if (stats.isDirectory()) {
-          size += getDirSize(filePath);
-        } else {
-          size += stats.size;
-        }
-      } catch (err) {
-        logger.debug('Error checking dir item size:', err);
-      }
-    }
-  } catch (err) {
-    logger.debug('Error opening directory for size calculation:', err);
-  }
-  return size;
-}
-
 export class StorageManager {
   private db: lancedb.Connection | null = null;
   private statesTable: lancedb.Table | null = null;
@@ -111,6 +107,8 @@ export class StorageManager {
   private compactionFailures = 0;
   private circuitTrippedUntil = 0;
   private writeQueue: Promise<void> = Promise.resolve();
+  private lastSizeCheck = 0;
+  private insertionCountSinceLastCheck = 0;
 
   private async enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
     const res = this.writeQueue.then(() => withRetry(task));
@@ -378,11 +376,11 @@ export class StorageManager {
 
   async checkStorageSizeAndEvict(): Promise<void> {
     const maxBytes = config.MAX_LANCEDB_SIZE_MB * 1024 * 1024;
-    const currentSize = getDirSize(config.LANCEDB_PATH);
-    if (currentSize <= maxBytes) return;
+    let estimatedCurrentSize = getCachedDirSize(config.LANCEDB_PATH, true);
+    if (estimatedCurrentSize <= maxBytes) return;
 
     logger.warn(
-      `Storage size (${(currentSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_LANCEDB_SIZE_MB}MB. Triggering LRU eviction...`
+      `Storage size (${(estimatedCurrentSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_LANCEDB_SIZE_MB}MB. Triggering LRU eviction...`
     );
 
     const targetBytes = maxBytes * 0.8;
@@ -391,10 +389,12 @@ export class StorageManager {
 
     let evictedCount = 0;
     for (const s of states) {
-      if (getDirSize(config.LANCEDB_PATH) <= targetBytes) break;
+      if (estimatedCurrentSize <= targetBytes) break;
       try {
+        const approxSize = JSON.stringify(s).length + (s.thumbnail?.length ?? 0);
         await this.deleteState(s.id);
         evictedCount++;
+        estimatedCurrentSize -= approxSize;
       } catch (err) {
         logger.debug(`Failed to evict state ${s.id}:`, err);
       }
@@ -410,9 +410,16 @@ export class StorageManager {
     await this.enqueueWrite(async () => {
       await this.statesTable!.add([state as any]);
     });
-    this.checkStorageSizeAndEvict().catch((err) =>
-      logger.debug('Storage size check/eviction deferred error:', err)
-    );
+
+    this.insertionCountSinceLastCheck++;
+    const now = Date.now();
+    if (now - this.lastSizeCheck > 30000 || this.insertionCountSinceLastCheck > 100) {
+      this.lastSizeCheck = now;
+      this.insertionCountSinceLastCheck = 0;
+      this.checkStorageSizeAndEvict().catch((err) =>
+        logger.debug('Storage size check/eviction deferred error:', err)
+      );
+    }
   }
 
   async getState(id: string): Promise<VisualState | null> {
@@ -486,6 +493,7 @@ export class StorageManager {
 
   async listStates(filter?: string, limit: number = 50): Promise<VisualState[]> {
     if (!this.statesTable) throw new Error('States table not initialized.');
+    validateFilter(filter);
     let q = this.statesTable.query();
     if (filter) {
       q = q.where(filter);
@@ -495,6 +503,7 @@ export class StorageManager {
   }
 
   async listStatesAll(filter?: string, limit: number = 50): Promise<VisualState[]> {
+    validateFilter(filter);
     const combined: VisualState[] = [];
     const primary = await this.listStates(filter, limit);
     combined.push(...primary);
@@ -553,6 +562,7 @@ export class StorageManager {
     >
   > {
     if (!this.statesTable) throw new Error('States table not initialized.');
+    validateFilter(filter);
     let q = this.statesTable
       .query()
       .select([
@@ -611,6 +621,7 @@ export class StorageManager {
       >
     >
   > {
+    validateFilter(filter);
     const combined: Array<any> = [];
     const primary = await this.listStateHashes(filter, limit);
     combined.push(...primary);
@@ -668,10 +679,12 @@ export class StorageManager {
 
   async countStates(filter?: string): Promise<number> {
     if (!this.statesTable) throw new Error('States table not initialized.');
+    validateFilter(filter);
     return await this.statesTable.countRows(filter);
   }
 
   async countStatesAll(filter?: string): Promise<number> {
+    validateFilter(filter);
     let total = await this.countStates(filter);
     for (const aux of this.auxiliaryDbs.values()) {
       if (aux.statesTable) {
@@ -687,6 +700,7 @@ export class StorageManager {
 
   async searchVector(vector: number[], limit: number, filter?: string): Promise<VisualState[]> {
     if (!this.statesTable) throw new Error('States table not initialized.');
+    validateFilter(filter);
     let search = this.statesTable.search(vector);
     if (filter) {
       search = search.where(filter);
@@ -696,6 +710,7 @@ export class StorageManager {
   }
 
   async searchVectorAll(vector: number[], limit: number, filter?: string): Promise<VisualState[]> {
+    validateFilter(filter);
     const combined: VisualState[] = [];
     const primary = await this.searchVector(vector, limit, filter);
     combined.push(...primary);
@@ -766,6 +781,7 @@ export class StorageManager {
 
   async listTransitions(filter?: string, limit: number = 100): Promise<StateTransition[]> {
     if (!this.transitionsTable) throw new Error('Transitions table not initialized.');
+    validateFilter(filter);
     let q = this.transitionsTable.query();
     if (filter) {
       q = q.where(filter);
@@ -775,6 +791,7 @@ export class StorageManager {
   }
 
   async listTransitionsAll(filter?: string, limit: number = 100): Promise<StateTransition[]> {
+    validateFilter(filter);
     const combined: StateTransition[] = [];
     const primary = await this.listTransitions(filter, limit);
     combined.push(...primary);
@@ -942,7 +959,9 @@ export class StorageManager {
     logger.debug(`Saving video record: ${record.id} (${record.source_file})`);
     await this.enqueueWrite(async () => {
       const safeId = escapeSql(record.id);
-      await this.videosTable!.delete(`id = '${safeId}'`).catch(() => {});
+      await this.videosTable!.delete(`id = '${safeId}'`).catch((err) =>
+        logger.debug('Ignored existing video record delete error:', err)
+      );
       await this.videosTable!.add([record as any]);
     });
   }
@@ -1010,7 +1029,9 @@ export class StorageManager {
     await this.enqueueWrite(async () => {
       try {
         await this.evidenceTable!.delete(`id = '${safeId}'`);
-      } catch (_) {}
+      } catch (err) {
+        logger.debug('Ignored existing evidence pack delete error:', err);
+      }
       await this.evidenceTable!.add([row as any]);
     });
   }

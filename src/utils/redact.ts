@@ -59,6 +59,15 @@ export function redactUrl(urlStr: string): string {
       }
     }
 
+    // Redact numeric ID path segments (e.g. /account/12345/ or standalone numeric IDs >= 5 digits)
+    const newPath = url.pathname
+      .replace(/(\/(?:user|account|customer|id|profile)\/)\d{4,}(?=\/|$)/gi, '$1[REDACTED]')
+      .replace(/\/\d{5,}(?=\/|$)/g, '/[REDACTED]');
+    if (newPath !== url.pathname) {
+      url.pathname = newPath;
+      modified = true;
+    }
+
     const sanitizedUrlStr = modified ? url.toString() : urlStr;
     return redactText(sanitizedUrlStr);
   } catch {

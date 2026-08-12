@@ -154,6 +154,14 @@ export function discoverSubMemoryDatabases(rootDir: string = process.cwd()): Dis
       fs.statSync(resolved).isDirectory() &&
       !visitedPaths.has(resolved)
     ) {
+      try {
+        const realPath = fs.realpathSync(resolved);
+        if (!realPath.startsWith(rootResolved)) {
+          return;
+        }
+      } catch {
+        return;
+      }
       visitedPaths.add(resolved);
       results.push({
         path: resolved,

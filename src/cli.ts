@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.8.0';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.9.0';
 
 function showHelp() {
   console.log(`
@@ -22,8 +22,11 @@ Commands:
   metrics            Calculate and output cache hit rate, token savings, and ROI
   view               Launch the interactive HTML force-directed graph visualizer
   spec <action>      Manage visual design spec contract baselines & verification:
+                       spec capture <name> <url|selector>
                        spec set <name> <image-path>
                        spec verify <spec-name> <image-path> [--tolerance <n>]
+                       spec list
+                       spec export <name> [--out <file>]
   video <action>     Manage WebM & MP4 video frame digesting memory:
                        video ingest <filepath> [--fps <n>] [--category <cat>]
                        video inspect <video_id>
@@ -47,6 +50,7 @@ Options:
   --limit <n>        Limit results for inspect (default: 20)
   --format <fmt>     Export format: json, mermaid, html (default: json)
   --out <file>       Output file path for export
+  --skip-model-load  Skip loading heavy CLIP models (offline/fallback mode)
   -v, --version      Show version number
   -h, --help         Show this help menu
 `);
@@ -54,6 +58,9 @@ Options:
 
 async function runCli() {
   const args = process.argv.slice(2);
+  if (args.includes('--skip-model-load')) {
+    process.env.SKIP_MODEL_LOAD = 'true';
+  }
   const command = args[0] || 'run';
 
   if (args.includes('--help') || args.includes('-h')) {

@@ -4,6 +4,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 import { config } from '../../config.js';
 import { registerProject, getRegistry, unregisterProject } from '../../core/registry.js';
+import { getDirSize } from '../../utils/fs.js';
 
 export async function runDoctor(args: string[] = []): Promise<void> {
   const isJson = args.includes('--json');
@@ -374,24 +375,6 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
         : '\n🎉 Global doctor check complete!\n'
     );
   }
-}
-
-function getDirSize(dirPath: string): number {
-  let total = 0;
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        total += getDirSize(fullPath);
-      } else if (entry.isFile()) {
-        try {
-          total += fs.statSync(fullPath).size;
-        } catch {}
-      }
-    }
-  } catch {}
-  return total;
 }
 
 function formatBytes(bytes: number): string {

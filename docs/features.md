@@ -1,6 +1,6 @@
 # 🚀 Features & Architecture Blueprint — vision-memory-mcp
 
-`@putervision/vision-memory-mcp` is a persistent visual UI state cache for developer AI agents. It uses perceptual hashing, local vector search, element grounding, and state transition graphs to cut vision token costs and latency by up to 90%.
+`@putervision/vision-memory-mcp` is a persistent visual UI state cache for developer AI agents. It uses perceptual hashing, local vector search, element grounding, and state transition graphs to reduce vision token overhead and latency by caching redundant screenshots.
 
 ---
 

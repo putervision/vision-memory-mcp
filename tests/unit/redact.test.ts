@@ -52,6 +52,13 @@ describe('Utils Redact Module', () => {
       expect(redacted).toContain('user=john');
     });
 
+    it('should redact numeric ID path segments from URLs', () => {
+      const url = 'https://bank.example.com/account/987654321/details?auth=abc';
+      const redacted = redactUrl(url);
+      expect(redacted).toContain('/account/[REDACTED]/details');
+      expect(redacted).toContain('auth=%5BREDACTED%5D');
+    });
+
     it('should fallback to redactText for non-URL strings', () => {
       const raw = 'not-a-valid-url user@example.com';
       expect(redactUrl(raw)).toContain('[REDACTED_EMAIL]');

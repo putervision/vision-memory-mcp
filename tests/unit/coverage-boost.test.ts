@@ -26,8 +26,8 @@ describe('Coverage Boost Unit Test Suite', () => {
     }
   });
 
-  it('should verify VERSION constant is 0.8.0', () => {
-    expect(VERSION).toBe('0.8.0');
+  it('should verify VERSION constant is 0.9.0', () => {
+    expect(VERSION).toBe('0.9.0');
   });
 
   it('should handle empty keyframe state IDs in handleCreateEvidencePack', async () => {

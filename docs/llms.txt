@@ -19,7 +19,7 @@
 ### 2. Visual Memory MCP (`@putervision/vision-memory-mcp`)
 - **Website**: https://visionmemorymcp.com
 - **Repository**: https://github.com/putervision/vision-memory-mcp
-- **Description**: Visual perception cache & perceptual hashing MCP server (v0.8.0, 27 Core MCP Tools). Caches webpage, app screenshots, and WebM/MP4 video files locally using dHash, local CLIP vector search, and accessibility trees to cut LLM token costs by up to 90%.
+- **Description**: Visual perception cache & perceptual hashing MCP server (v0.9.0, 29 Core MCP Tools). Caches webpage, app screenshots, and WebM/MP4 video files locally using dHash, local CLIP vector search, and accessibility trees to optimize LLM vision token overhead.
 - **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, WebM & MP4 video frame digesting, Dual-MCP evidence packs (`create_evidence_pack`), element grounding & target action prediction, PII redaction, visual spec regression engine, standalone snapshot archives, real-time token metrics.
 
 

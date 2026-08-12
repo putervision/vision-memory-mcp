@@ -50,6 +50,9 @@ Add to your MCP client config (e.g. `.cursor/mcp.json` or `.vscode/mcp.json`):
 # Run stdio MCP server directly via binary (after global install)
 vision-memory-mcp run
 
+# Start server skipping heavy CLIP model downloads (air-gapped / offline mode)
+vision-memory-mcp run --skip-model-load
+
 # Re-initialize across all registered workspace projects
 vision-memory-mcp init-global
 
@@ -81,9 +84,9 @@ vision-memory-mcp view
 
 - **👁️ Perceptual Visual Caching**: Sub-5ms L1/L2 dHash zero-token fast-path layout recognition.
 - **🎬 WebM & MP4 Video Ingestion**: Digest E2E test recordings & screen captures into searchable keyframe visual states & state transition graphs.
-- **⚡ 27 Core MCP Tools**: Full visual state ingestion, video memory parsing, evidence packs (`create_evidence_pack`), trajectory comparison, semantic vector retrieval, element grounding, visual SDD, and snapshot checkpoints.
+- **⚡ 29 Core MCP Tools**: Full visual state ingestion, video memory parsing, evidence packs (`create_evidence_pack`), trajectory comparison, semantic vector retrieval, element grounding, visual SDD, and snapshot checkpoints.
 - **🔗 Dual-MCP Synergy & Immutable Evidence Packs**: Deeply bridges `@putervision/state-memory-mcp` task DAGs with visual state memory, generating cryptographically hashable evidence packs for compliance and audit trails.
-- **📉 Up to 90% Token Savings**: Caches UI states locally using dHash, local CLIP vector search, and accessibility trees to cut LLM vision costs.
+- **📉 Reduced Token Overhead**: Caches UI states locally using dHash, local CLIP vector search, and accessibility trees so some savings on vision tokens can be expected.
 - **🚀 Sub-5ms Fast-Path Latency**: Eliminates repetitive vision LLM API calls and avoids visual hallucination loops.
 - **🎯 Element Grounding & Action Target Prediction**: Maps screen elements to CSS selectors and coordinates for deterministic UI interaction.
 - **🎨 Visual Spec-Driven Development (Visual SDD)**: Register design mockups or screenshots as perceptual baseline contracts to verify visual regression.

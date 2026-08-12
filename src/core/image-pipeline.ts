@@ -71,6 +71,30 @@ export function validateImageMagicBytes(buffer: Buffer): boolean {
   return false;
 }
 
+class Semaphore {
+  private queue: Array<() => void> = [];
+  private running = 0;
+
+  async acquire(maxConcurrent: number): Promise<void> {
+    if (this.running < maxConcurrent) {
+      this.running++;
+      return;
+    }
+    return new Promise((resolve) => this.queue.push(resolve));
+  }
+
+  release(): void {
+    this.running--;
+    const next = this.queue.shift();
+    if (next) {
+      this.running++;
+      next();
+    }
+  }
+}
+
+const processingSemaphore = new Semaphore();
+
 /**
  * Processes an input base64 or Buffer screenshot:
  * 1. Checks magic byte file signatures
@@ -79,6 +103,16 @@ export function validateImageMagicBytes(buffer: Buffer): boolean {
  * 4. Extracts 64x64 WebP thumbnail base64
  */
 export async function processImage(imageInput: string | Buffer): Promise<ProcessedImage> {
+  const limit = Math.max(1, config.MAX_CONCURRENT_IMAGE_PROCESSING || 4);
+  await processingSemaphore.acquire(limit);
+  try {
+    return await processImageInternal(imageInput);
+  } finally {
+    processingSemaphore.release();
+  }
+}
+
+async function processImageInternal(imageInput: string | Buffer): Promise<ProcessedImage> {
   let buffer: Buffer;
   if (typeof imageInput === 'string') {
     const cleanBase64 = imageInput.replace(/^data:image\/\w+;base64,/, '');

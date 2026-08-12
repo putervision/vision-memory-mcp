@@ -40,7 +40,7 @@ export class EvictionManager {
       }
 
       await storage.checkStorageSizeAndEvict();
-      memoryCache.clear();
+      memoryCache.sweepExpired();
 
       if (expiredCount > 0) {
         logger.info(`Eviction sweep complete: purged ${expiredCount} expired visual states.`);

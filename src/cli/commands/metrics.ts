@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { storage } from '../../core/storage.js';
 import { config } from '../../config.js';
+import { getCachedDirSize } from '../../utils/fs.js';
 
 export async function runMetrics() {
   await storage.init();
@@ -28,17 +29,7 @@ export async function runMetrics() {
   try {
     const stats = fs.statSync(config.LANCEDB_PATH);
     if (stats.isDirectory()) {
-      const getDirSize = (dir: string): number => {
-        const files = fs.readdirSync(dir);
-        let size = 0;
-        for (const f of files) {
-          const fp = path.join(dir, f);
-          const s = fs.statSync(fp);
-          size += s.isDirectory() ? getDirSize(fp) : s.size;
-        }
-        return size;
-      };
-      dbSizeMb = getDirSize(config.LANCEDB_PATH) / 1024 / 1024;
+      dbSizeMb = getCachedDirSize(config.LANCEDB_PATH) / 1024 / 1024;
     }
   } catch (err) {}
 

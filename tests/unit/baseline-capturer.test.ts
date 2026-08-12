@@ -77,7 +77,7 @@ describe('Visual Spec Suite & Baseline Capturer Unit Tests', () => {
     expect(fs.existsSync(outPath)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
-    expect(content.version).toBe('0.8.0');
+    expect(content.version).toBe('0.9.0');
     expect(content.specs.length).toBeGreaterThanOrEqual(1);
   });
 

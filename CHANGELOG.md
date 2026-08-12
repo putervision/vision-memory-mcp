@@ -3,7 +3,38 @@
 All notable changes to `@putervision/vision-memory-mcp` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.0] - 2026-08-11
+
+### Added (Minor Version Release — 29 Core MCP Tools, Video Ingestion & Evidence Packs)
+- **WebM & MP4 Video Ingestion Engine**: Digest E2E test recordings and screen captures into searchable keyframe visual states & state transition graphs (`ingest_video`, `search_video_memory`, `get_video_timeline`, `compare_video_trajectories`).
+- **Immutable Multi-Modal Evidence Packs**: Cryptographically hashable evidence pack generation (`create_evidence_pack`) linking video keyframes, state graph tasks, and visual state hashes.
+- **Dual-MCP Synergy & Visual Blocker Handling**: Structured visual blocker integration with `@putervision/state-memory-mcp` (`create_visual_blocker`, `export_joint_trajectories`).
+- **Visual Spec Regression Engine (Visual SDD)**: Mockup baseline verification and visual diff inspection (`list_visual_specs`, `get_visual_diff`, `batch_analyze_screenshots`).
+- **Memory Checkpoints & Standalone Archives**: Full snapshot exports and restoration (`export_snapshot`, `restore_snapshot`, `wait_for_visual_state`, `app_version`).
+- **CLI Subcommand Expansion**: Updated CLI help text for `spec capture`, `spec list`, and `spec export`.
+- **Documentation & Claims Calibration**: Aligned all tool count references to 29 Core MCP Tools across `README.md`, `AGENTS.md`, `SKILL.md`, `docs/index.html`, and `docs/api-reference.md`, and calibrated claims to modest context overhead statements.
+
+## [0.8.1] - 2026-08-11
+
+### Security & Hardening
+- **SQL Filter Injection Whitelist**: Hardened all 8 database query methods (`listStates`, `listStatesAll`, `listStateHashes`, `listStateHashesAll`, `countStates`, `countStatesAll`, `searchVector`, `searchVectorAll`, `listTransitions`, `listTransitionsAll`) with `validateFilter()` whitelist validation to reject raw SQL injection payloads.
+- **URL Path Redaction**: Enhanced `redactUrl()` to redact numeric ID-like path segments (e.g., `/account/12345/` -> `/account/[REDACTED]/`).
+- **Auxiliary DB Symlink Boundaries**: Enforced `fs.realpathSync()` checks in `discoverSubMemoryDatabases()` to reject symlinks pointing outside the project root.
+- **Error Visibility**: Added `logger.debug()` logging to silent catch blocks in `saveVideoRecord` and `saveEvidencePack`.
+
+### Performance Optimizations
+- **Consolidated `getDirSize`**: Removed duplicate `getDirSize()` implementations from `storage.ts`, `doctor.ts`, and `metrics.ts`, consolidating on `getCachedDirSize()` from `src/utils/fs.ts`.
+- **Eviction Sweep Acceleration**: Eliminated per-iteration recursive disk scanning in `checkStorageSizeAndEvict()`; uses cached initial size with per-state size delta estimations.
+- **Image Processing Concurrency Limiter**: Added `MAX_CONCURRENT_IMAGE_PROCESSING` config option and a semaphore queue to prevent CPU starvation and OOM under heavy load.
+- **Cache TTL Preservation**: Updated eviction sweep to call `memoryCache.sweepExpired()` instead of wiping the entire L1 cache.
+- **Clustering Bucketing**: Added dHash prefix bucketing to `clusterVisualStates` to prune unnecessary cosine similarity computations.
+
+### Added
+- **`--skip-model-load` CLI Flag & `SKIP_MODEL_LOAD` Env Var**: Allows starting the MCP server or running CLI commands without downloading/initializing heavy CLIP models.
+- **7 Expanded Unit, Integration & E2E Test Suites**: Added `concurrency-stress.test.ts`, `circuit-breaker.test.ts`, `stdio-protocol.test.ts`, `video-edge.test.ts`, `visual-spec-diff.test.ts`, `export-roundtrip.test.ts`, and `synergy-joint.test.ts` (bringing total test suite to 51 test files, 243 unit & integration tests passed).
+- **Security & Storage Test Suites**: Added `storage-security.test.ts` and expanded `redact.test.ts` for URL path redaction.
+
+---
 
 ## [0.8.0] - 2026-08-05
 

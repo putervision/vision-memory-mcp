@@ -63,6 +63,7 @@ export interface Config {
   STRICT_MODE: boolean;
   STRIP_EXIF: boolean;
   OFFLINE_MODE: boolean;
+  SKIP_MODEL_LOAD: boolean;
   CLIP_MODEL_PATH: string;
   LIMIT_INPUT_PIXELS: number;
   HASH_EXACT_THRESHOLD: number;
@@ -76,6 +77,7 @@ export interface Config {
   LOG_LEVEL: 'debug' | 'info' | 'warn' | 'error';
   TTL_DEFAULT_MS: number;
   MAX_IMAGE_SIZE_MB: number;
+  MAX_CONCURRENT_IMAGE_PROCESSING: number;
   THUMBNAIL_SIZE: number;
 }
 
@@ -139,8 +141,9 @@ function parseConfig(env: Record<string, string | undefined>): Config {
       10
     ),
     STRICT_MODE: strictMode,
-    STRIP_EXIF: stripExif,
-    OFFLINE_MODE: offlineMode,
+    STRIP_EXIF: parseBool(env.STRIP_EXIF, true),
+    OFFLINE_MODE: parseBool(env.OFFLINE_MODE, false),
+    SKIP_MODEL_LOAD: parseBool(env.SKIP_MODEL_LOAD, false),
     CLIP_MODEL_PATH: env.CLIP_MODEL_PATH || '',
     LIMIT_INPUT_PIXELS: parseNumber(
       env.LIMIT_INPUT_PIXELS,
@@ -190,6 +193,12 @@ function parseConfig(env: Record<string, string | undefined>): Config {
       env.MAX_IMAGE_SIZE_MB,
       10,
       'MAX_IMAGE_SIZE_MB',
+      1
+    ),
+    MAX_CONCURRENT_IMAGE_PROCESSING: parseNumber(
+      env.MAX_CONCURRENT_IMAGE_PROCESSING,
+      4,
+      'MAX_CONCURRENT_IMAGE_PROCESSING',
       1
     ),
     THUMBNAIL_SIZE: parseNumber(env.THUMBNAIL_SIZE, 64, 'THUMBNAIL_SIZE', 1),

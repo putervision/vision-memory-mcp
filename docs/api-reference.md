@@ -1,6 +1,6 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.8.0)
+# 📘 @putervision/vision-memory-mcp Formal API Reference (v0.9.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 27 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 29 Model Context Protocol (MCP) tools provided by `@putervision/vision-memory-mcp`.
 
 ---
 
@@ -161,7 +161,5 @@ This document provides formal API specifications, parameter schemas, return shap
 
 ---
 
-## 7. Performance & ROI Notice
-
-> **Notice**: Token savings estimates (up to 90%) and latency metrics (<5ms L1 fast-path) depend on visual repetition, screen resolution, and model rates. All memory data is kept 100% local in `.vision-memory-mcp`.
+> **Notice**: Token savings estimates and latency performance depend on visual repetition, screen resolution, and model rates. All memory data is kept 100% local in `.vision-memory-mcp`.
 

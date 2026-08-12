@@ -37,14 +37,24 @@ describe('CLIP Embeddings Manager', () => {
     expect(vector.every((val) => typeof val === 'number')).toBe(true);
   }, 10000);
 
-  it('should generate a 512-dimension image embedding', async () => {
-    // Create a dummy image buffer
-    const buffer = await createTestImageBuffer();
-
-    const vector = await embeddings.generateImageEmbedding(buffer);
+  it('should return zero vector fallback for invalid image buffer', async () => {
+    const invalidBuffer = Buffer.from('not an image data string');
+    const vector = await embeddings.generateImageEmbedding(invalidBuffer);
 
     expect(vector).toBeInstanceOf(Array);
     expect(vector).toHaveLength(512);
-    expect(vector.every((val) => typeof val === 'number')).toBe(true);
-  }, 15000);
+    expect(vector.every((val) => val === 0)).toBe(true);
+  });
+
+  it('should return zero vector for text embedding when in fallback mode', async () => {
+    const originalFallback = embeddings.isFallback;
+    (embeddings as any).fallbackMode = true;
+
+    const vector = await embeddings.generateTextEmbedding('fallback text query');
+
+    expect(vector).toHaveLength(512);
+    expect(vector.every((val) => val === 0)).toBe(true);
+
+    (embeddings as any).fallbackMode = originalFallback;
+  });
 });

@@ -34,6 +34,14 @@ export class EmbeddingsManager {
 
   async init(): Promise<void> {
     if (this.initialized || this.fallbackMode) return;
+    if (config.SKIP_MODEL_LOAD) {
+      logger.info(
+        'SKIP_MODEL_LOAD enabled. Bypassing CLIP embedding model initialization (operating in fallback mode).'
+      );
+      this.fallbackMode = true;
+      this.initialized = false;
+      return;
+    }
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
