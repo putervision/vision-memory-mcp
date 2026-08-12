@@ -67,7 +67,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run build && npm run test",
     "dev": "tsup --watch",
     "format": "prettier --write src/**/*.ts tests/**/*.ts",
     "format:check": "prettier --check src/**/*.ts tests/**/*.ts",
