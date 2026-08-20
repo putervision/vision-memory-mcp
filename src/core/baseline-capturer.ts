@@ -7,6 +7,7 @@ export interface InteractiveCaptureOptions {
   outputPath?: string;
   input?: NodeJS.ReadableStream;
   output?: NodeJS.WritableStream;
+  disablePlaywright?: boolean;
   onCaptureSuccess?: (info: { name: string; id: string; dhash: string }) => void;
 }
 
@@ -26,22 +27,33 @@ export async function runInteractiveBaselineCapture(
   console.log('  📸 Vision Memory MCP — Interactive Baseline Capture Mode');
   console.log('============================================================');
 
-  // Attempt to launch Playwright headful browser if installed
-  try {
-    // @ts-expect-error Optional peer dependency
-    const pw = await import('playwright');
-    logger.info(`Launching Playwright headful Chromium browser at ${targetUrl}...`);
-    playwrightBrowser = await pw.chromium.launch({ headless: false });
-    const context = await playwrightBrowser.newContext();
-    playwrightPage = await context.newPage();
-    await playwrightPage.goto(targetUrl).catch((err: any) => {
-      logger.warn(`Could not load target URL ${targetUrl} immediately: ${err.message}`);
-    });
-    console.log(`\nBrowser opened at: ${targetUrl}`);
-  } catch {
-    console.log(
-      `\nPlaywright not detected or headless mode active. Using interactive terminal mode.`
-    );
+  const shouldTryPlaywright =
+    !options.disablePlaywright &&
+    !options.input &&
+    process.env.NODE_ENV !== 'test' &&
+    process.env.VITEST !== 'true';
+
+  // Attempt to launch Playwright headful browser if installed and not in automated/test mode
+  if (shouldTryPlaywright) {
+    try {
+      // @ts-expect-error Optional peer dependency
+      const pw = await import('playwright');
+      logger.info(`Launching Playwright headful Chromium browser at ${targetUrl}...`);
+      playwrightBrowser = await pw.chromium.launch({ headless: false });
+      const context = await playwrightBrowser.newContext();
+      playwrightPage = await context.newPage();
+      await playwrightPage.goto(targetUrl, { timeout: 3000 }).catch((err: any) => {
+        logger.warn(`Could not load target URL ${targetUrl} immediately: ${err.message}`);
+      });
+      console.log(`\nBrowser opened at: ${targetUrl}`);
+    } catch {
+      console.log(
+        `\nPlaywright not detected or headless mode active. Using interactive terminal mode.`
+      );
+      console.log(`Target URL / Dev Server: ${targetUrl}`);
+    }
+  } else {
+    console.log(`\nInteractive terminal baseline capture mode.`);
     console.log(`Target URL / Dev Server: ${targetUrl}`);
   }
 
@@ -69,11 +81,15 @@ export async function runInteractiveBaselineCapture(
   const promptUser = (): Promise<string> => {
     return new Promise((resolve) => {
       if (isClosed) return resolve('exit');
+      const onClose = () => resolve('exit');
+      rl.once('close', onClose);
       try {
         rl.question(`[Specs Captured: ${capturedSpecs.length}] Enter view name > `, (answer) => {
+          rl.off('close', onClose);
           resolve((answer || '').trim());
         });
       } catch {
+        rl.off('close', onClose);
         resolve('exit');
       }
     });
@@ -130,9 +146,20 @@ export async function runInteractiveBaselineCapture(
         console.log(
           `⚠️  No live browser screenshot available. Please paste image file path for "${input}":`
         );
-        const imgPath = await new Promise<string>((res) =>
-          rl.question('Image File Path > ', (ans) => res(ans.trim()))
-        );
+        const imgPath = await new Promise<string>((res) => {
+          if (isClosed) return res('');
+          const onClose = () => res('');
+          rl.once('close', onClose);
+          try {
+            rl.question('Image File Path > ', (ans) => {
+              rl.off('close', onClose);
+              res(ans.trim());
+            });
+          } catch {
+            rl.off('close', onClose);
+            res('');
+          }
+        });
         if (!imgPath) {
           console.log('Skipped capture.');
           continue;

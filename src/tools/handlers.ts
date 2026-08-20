@@ -30,7 +30,6 @@ import {
   EvidencePack,
 } from '../types.js';
 import { LEGACY_VISION_TOOL_MAP, translateLegacyVisionCall } from './compat-shim.js';
-import { resolveVisionAction, generateVisionToolGuidance } from '../core/advisor.js';
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
   if (filePath) {

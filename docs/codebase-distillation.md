@@ -35,8 +35,8 @@ graph TD
     Screen["Incoming Screenshot / UI Frame"] --> L1
     
     subgraph Pipeline ["4-Tier Hierarchical Retrieval Engine (src/core/retrieval.ts)"]
-        L1["L1: In-Memory LRU Cache (<1ms)"]
-        L2["L2: Perceptual Hash Scan (dHash / Hamming Distance <5ms)"]
+        L1["L1: In-Memory LRU Cache (&lt;1ms)"]
+        L2["L2: Perceptual Hash Scan (dHash / Hamming Distance &lt;5ms)"]
         L3["L3: Local CLIP Vector Search (LanceDB 20-50ms)"]
         L4["L4: Vision LLM Fallback (Ingestion & Cache Seeding)"]
         
@@ -47,13 +47,13 @@ graph TD
 
     L1 -->|Hit| Out["Return Cached Layout Description & Grounded Elements"]
     L2 -->|Hit| Out
-    L3 -->|Hit (similarity >= 0.85)| Out
+    L3 -->|"Hit (similarity &ge; 0.85)"| Out
     L4 -->|Ingest| Store["Persist State to LanceDB (.vision-memory-mcp/)"]
     Store --> Out
 
     subgraph StateGraph ["Visual Transition Graph (src/core/graph.ts)"]
-        StateA["Visual State A"] -->|Action: click('#login')| StateB["Visual State B"]
-        StateB -->|Action: type('#search')| StateC["Visual State C"]
+        StateA["Visual State A"] -->|"Action: click(#login)"| StateB["Visual State B"]
+        StateB -->|"Action: type(#search)"| StateC["Visual State C"]
     end
 ```
 
@@ -144,11 +144,11 @@ classDiagram
         +string id
         +string dhash
         +string ahash
-        +number[] embedding
+        +List~number~ embedding
         +string description
         +string structured_data
         +string accessibility_tree
-        +string[] tags
+        +List~string~ tags
         +string git_branch
         +number access_count
         +number last_accessed
@@ -176,8 +176,8 @@ classDiagram
     class EvidencePack {
         +string pack_id
         +string root_task_id
-        +string[] visual_state_ids
-        +string[] video_ids
+        +List~string~ visual_state_ids
+        +List~string~ video_ids
         +string sha256_hash
         +number timestamp
     }
@@ -225,29 +225,29 @@ sequenceDiagram
 
     Note over Agent,C: 1. Orient & Context Alignment
     Agent->>C: get_session_context()
-    C-->>Agent: { total_states: 42, cache_hit_ratio: "78%", recent_states: [...] }
+    C-->>Agent: Session context (total_states, cache_hit_ratio, recent_states)
 
     Note over Agent,A: 2. Perceptual Cache Verification
-    Agent->>A: analyze_screenshot(screenshot: "base64...", gitBranch: "main")
+    Agent->>A: analyze_screenshot(screenshot, gitBranch)
     alt Cache Hit (is_known: true)
-        A-->>Agent: { is_known: true, match_type: "exact_hash", description: "Dashboard with active metrics", grounded_elements: [...] }
+        A-->>Agent: Layout description and grounded elements
     else Cache Miss (is_known: false)
-        A-->>Agent: { is_known: false, match_type: "new" }
+        A-->>Agent: Unknown state response
         Note over Agent: Agent queries Vision LLM & seeds cache
-        Agent->>A: analyze_screenshot(screenshot: "base64...", description: "New Checkout Screen")
+        Agent->>A: analyze_screenshot(screenshot, description)
     end
 
     Note over Agent,P: 3. Deterministic Action Grounding
-    Agent->>P: predict_next_action(current_state_id: "state_01", goal: "Submit payment")
-    P-->>Agent: { grounded_target: { selector: "#pay-btn", coords: { x: 340, y: 520 } } }
+    Agent->>P: predict_next_action(current_state_id, goal)
+    P-->>Agent: Grounded target selector and coordinates
 
     Note over Agent,R: 4. Execute Action & Record Transition
-    Agent->>R: record_outcome(from_state_id: "state_01", to_state_id: "state_02", action: "click('#pay-btn')")
-    R-->>Agent: { recorded: true, success_rate: 1.0 }
+    Agent->>R: record_outcome(from_state_id, to_state_id, action)
+    R-->>Agent: Transition recorded
 
     Note over Agent,S: 5. Visual Spec Verification
-    Agent->>S: manage_visual_spec(action: "verify", spec_name: "checkout", file_path: "./live.png")
-    S-->>Agent: { passed: true, similarity_score: 0.992 }
+    Agent->>S: manage_visual_spec(action: "verify", spec_name: "checkout")
+    S-->>Agent: Compliance verification passed
 ```
 
 ---

@@ -78,7 +78,7 @@
     "cli": "node dist/cli.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:matrix": "npm run ci",
+    "test:matrix": "bash scripts/test-matrix.sh",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
