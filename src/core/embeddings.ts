@@ -93,6 +93,10 @@ export class EmbeddingsManager {
     return this.initPromise;
   }
 
+  isReady(): boolean {
+    return this.initialized;
+  }
+
   get isFallback(): boolean {
     return this.fallbackMode;
   }

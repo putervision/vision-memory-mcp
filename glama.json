@@ -1,0 +1,50 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "vision-memory-mcp",
+  "title": "Visual Memory MCP",
+  "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
+  "maintainers": [
+    "putervision"
+  ],
+  "author": "PuterVision",
+  "license": "MIT",
+  "repository": "https://github.com/putervision/vision-memory-mcp",
+  "homepage": "https://visionmemorymcp.com",
+  "website": "https://visionmemorymcp.com",
+  "categories": [
+    "developer-tools",
+    "ai-agents",
+    "ui-testing",
+    "visual-memory"
+  ],
+  "tags": [
+    "mcp",
+    "model-context-protocol",
+    "vision-memory",
+    "visual-cache",
+    "perceptual-hash",
+    "vector-search",
+    "lancedb",
+    "clip",
+    "ai-agents",
+    "cursor",
+    "claude-code",
+    "windsurf",
+    "ui-testing"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "vision-memory",
+    "visual-cache",
+    "perceptual-hash",
+    "vector-search",
+    "lancedb",
+    "clip",
+    "ai-agents",
+    "cursor",
+    "claude-code",
+    "windsurf",
+    "ui-testing"
+  ]
+}

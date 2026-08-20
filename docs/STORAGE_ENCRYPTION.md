@@ -67,4 +67,4 @@ export LANCEDB_PATH="/Volumes/VisionMemoryEncrypted/.vision-memory-mcp"
 
 1. **Environment Isolation**: Set `STRICT_MODE=true` in `.env` to ensure `file_path` image reads are locked inside the workspace root.
 2. **Key Rotation**: When rotating encryption keys, unmount the volume, re-encrypt with the new passphrase, and re-mount.
-3. **Backup Safeguards**: Always run `export_snapshot` to export an encrypted snapshot archive before unmounting or performing filesystem upgrades.
+3. **Backup Safeguards**: Always run `manage_snapshot(action: 'export')` to export an encrypted snapshot archive before unmounting or performing filesystem upgrades.

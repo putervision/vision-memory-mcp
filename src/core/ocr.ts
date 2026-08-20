@@ -9,23 +9,45 @@ export interface OCRToken {
 export interface OCRResult {
   full_text: string;
   tokens: OCRToken[];
+  engine?: 'unavailable' | 'tesseract' | 'heuristics';
 }
 
 /**
  * Extracts visible text tokens and layout bounding boxes from screenshot buffers.
- * Uses a fast UTF-8 byte stream heuristic for embedded metadata text extraction
- * when full WASM/Tesseract OCR engine is uninitialized.
+ * Returns an empty result with engine: 'unavailable' when no external WASM/Tesseract OCR engine is active,
+ * preventing fake tokens and hallucinated confidence scores on binary image streams.
  */
 export async function extractTextFromImage(buffer: Buffer): Promise<OCRResult> {
   if (!buffer || buffer.length === 0) {
-    return { full_text: '', tokens: [] };
+    return { full_text: '', tokens: [], engine: 'unavailable' };
   }
 
-  // Fast layout text token extraction from image metadata or fallback
+  // Check if buffer is an image binary (PNG, JPEG, WebP, GIF, etc.)
+  const isBinaryImage =
+    (buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47) || // PNG
+    (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) || // JPEG
+    (buffer.length >= 4 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) || // GIF
+    (buffer.length >= 12 &&
+      buffer.toString('ascii', 0, 4) === 'RIFF' &&
+      buffer.toString('ascii', 8, 12) === 'WEBP'); // WebP
+
+  if (isBinaryImage) {
+    // Binary image buffer without external OCR engine -> return honest empty result
+    return { full_text: '', tokens: [], engine: 'unavailable' };
+  }
+
+  // Fallback heuristic for raw ASCII/text buffers (e.g. testing or SVG text)
   try {
-    // Basic text token extraction heuristic
     const sampleText = buffer.toString('utf8', 0, Math.min(buffer.length, 1024));
     const rawTokens = sampleText.match(/[a-zA-Z0-9_\-\.\:\$\#\@]{3,}/g) || [];
+
+    if (rawTokens.length === 0) {
+      return { full_text: '', tokens: [], engine: 'unavailable' };
+    }
 
     const tokens: OCRToken[] = rawTokens.slice(0, 50).map((t, idx) => ({
       text: t,
@@ -34,10 +56,10 @@ export async function extractTextFromImage(buffer: Buffer): Promise<OCRResult> {
     }));
 
     const full_text = tokens.map((t) => t.text).join(' ');
-    return { full_text, tokens };
+    return { full_text, tokens, engine: 'heuristics' };
   } catch (err) {
     logger.debug('Failed to run OCR extraction:', err);
-    return { full_text: '', tokens: [] };
+    return { full_text: '', tokens: [], engine: 'unavailable' };
   }
 }
 

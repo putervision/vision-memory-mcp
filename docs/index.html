@@ -14,7 +14,7 @@
       name="keywords"
       content="vision-memory-mcp, mcp, model context protocol, visual cache, perceptual hashing, lancedb, clip embeddings, llm vision, token optimization, agentic coding"
     />
-    <meta name="author" content="PuterVision LLC" />
+    <meta name="author" content="PuterVision" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#0a0b10" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https:;" />
@@ -34,13 +34,13 @@
       "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
       "applicationCategory": "DeveloperApplication",
       "description": "Persistent visual state cache, perceptual hashing server, and visual baseline verifier for multimodal developer AI agents. Caches screenshots locally to optimize context windows and reduce vision token overhead.",
-      "softwareVersion": "0.9.0",
+      "softwareVersion": "1.0.0",
       "programmingLanguage": "TypeScript",
       "runtimePlatform": "Node.js >= 18",
       "codeRepository": "https://github.com/putervision/vision-memory-mcp",
       "author": {
         "@type": "Organization",
-        "name": "PuterVision LLC",
+        "name": "PuterVision",
         "url": "https://putervision.com"
       },
       "license": "https://opensource.org/licenses/MIT",
@@ -167,7 +167,7 @@
     <main class="container">
       <!-- Hero Section -->
       <section class="hero">
-        <span class="badge">Production Ready v0.9.0 • 29 Core MCP Tools</span>
+        <span class="badge">Production Ready v1.0.0 • 15 Core MCP Tools</span>
         <h1><img src="vision-memory-icon.png" alt="Visual Memory Icon" class="hero-title-icon"><span class="hero-title-text">Visual Memory MCP</span></h1>
 
         <p>
@@ -217,14 +217,14 @@
               <div class="desc-box">
                 <h4>📐 Visual Spec-Driven Development & Layout Diffs</h4>
                 <p>
-                  Registers UI design mockups as visual contract baselines (`set_visual_spec`) and verifies live UI execution against baselines (`verify_visual_spec`, `get_visual_diff`). Calculates layout region deltas and generates visual blockers when UI design drift occurs.
+                  Registers UI design mockups as visual contract baselines (<code>manage_visual_spec</code>) and verifies live UI execution against baselines (<code>manage_visual_spec</code>, <code>compare_states</code>). Calculates layout region deltas and generates visual blockers when UI design drift occurs.
                 </p>
               </div>
 
               <div class="desc-box">
                 <h4>🚀 Subterranean Trajectory Fine-Tuning</h4>
                 <p>
-                  Exposes `export_visual_trajectories` to export multimodal UI state transition paths. Allows developers to fine-tune local open-source models (3B–8B parameters) to execute complex screen workflows implicitly without explicit prompt flowcharts.
+                  Exposes <code>export_trajectories</code> to export multimodal UI state transition paths. Allows developers to fine-tune local open-source models (3B–8B parameters) or correlate session workflows with <code>state-memory-mcp</code>.
                 </p>
               </div>
 
@@ -703,46 +703,46 @@
               color: var(--text-secondary);
             "
           >
-            Equipped with complete spec features including annotations, resources, and all 29 core tools.
+            Equipped with complete spec features including annotations, resources, and all 15 consolidated core tools.
           </p>
           <div style="margin-top: 1rem;">
-            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 29 MCP Tools</span></button>
+            <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 15 MCP Tools</span></button>
           </div>
         </div>
 
-        <!-- Expandable Full 29 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+        <!-- Expandable Full 15 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
         <div id="full-tools-panel" class="full-tools-panel hidden">
           <div class="desc-scan-beam"></div>
           <div class="desc-content-inner">
             <div class="desc-header">
-              <span class="desc-badge">FULL 29 MCP TOOL SUITE</span>
+              <span class="desc-badge">CONSOLIDATED 15 MCP TOOL SUITE</span>
               <h3>Complete Tool Definitions & Function Signatures</h3>
             </div>
 
             <div class="desc-grid">
               <div class="desc-box">
-                <h4>🖼️ Visual Cache & Ingestion (3 Tools)</h4>
+                <h4>🖼️ Visual Perception & Grounding (3 Tools)</h4>
                 <p>
-                  <code>analyze_screenshot</code>, <code>recall_memory</code>, <code>batch_analyze_screenshots</code>.
+                  <code>analyze_screenshot</code> (supports single & batch via <code>items</code>), <code>recall_memory</code>, <code>predict_next_action</code>.
                   <br><br>
                   <strong>How to Leverage:</strong> Call <code>analyze_screenshot</code> before sending any image to an external visual LLM. If <code>is_known: true</code>, reuse the cached layout description instantly in &lt;5ms, bypassing redundant 1,400+ vision token API calls!
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
                   <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
-{ "screenshot": "/path/to/login.png", "route": "/login" }
+{ "screenshot": "/path/to/login.png", "source_url": "/login" }
 
 // Response
-{ "is_known": true, "state_id": "state_login_01", "similarity": 0.992 }</pre>
+{ "is_known": true, "state_id": "state_login_01", "similarity_score": 0.992 }</pre>
                 </details>
               </div>
 
               <div class="desc-box">
-                <h4>🧭 Trajectory & State Navigation (4 Tools)</h4>
+                <h4>🧭 Transitions & Navigation (4 Tools)</h4>
                 <p>
-                  <code>record_outcome</code>, <code>get_navigation_paths</code>, <code>get_session_context</code>, <code>predict_next_action</code>.
+                  <code>record_outcome</code> (transitions & blocker mode), <code>get_navigation_paths</code>, <code>compare_states</code> (visual & video modes), <code>get_session_context</code>.
                   <br><br>
-                  <strong>How to Leverage:</strong> Call <code>record_outcome</code> after every UI action (click/type). When navigating complex UI flows, call <code>get_navigation_paths</code> to retrieve optimal BFS click pathways to reach target screens.
+                  <strong>How to Leverage:</strong> Call <code>record_outcome</code> after every UI action (click/type) or with <code>action_type: 'blocker'</code> to report UI bugs. Call <code>compare_states</code> to compare screens or video runs.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
@@ -755,16 +755,16 @@
               </div>
 
               <div class="desc-box">
-                <h4>🎬 WebM & MP4 Video Memory (4 Tools)</h4>
+                <h4>🎬 Video Memory & Evidence (2 Tools)</h4>
                 <p>
-                  <code>ingest_video</code>, <code>search_video_memory</code>, <code>get_video_timeline</code>, <code>compare_video_trajectories</code>.
+                  <code>manage_video</code> (ingest, search & timeline actions), <code>create_evidence_pack</code>.
                   <br><br>
-                  <strong>How to Leverage:</strong> Ingest WebM/MP4 video files (Playwright E2E test runs, bug repro recordings) into visual state memory timelines with fast-path dHash deduplication and local CLIP search! Call <code>compare_video_trajectories</code> to pinpoint exact visual failure frames between test runs.
+                  <strong>How to Leverage:</strong> Ingest WebM/MP4 video files (Playwright E2E test runs, bug repro recordings) into visual state memory timelines with fast-path dHash deduplication. Call <code>manage_video</code> with <code>action: 'search'</code> or <code>action: 'timeline'</code> to search and inspect keyframe timelines.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
                   <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
-{ "file_path": "./playwright-test.webm", "category": "playwright_test" }
+{ "action": "ingest", "file_path": "./playwright-test.webm", "category": "playwright_test" }
 
 // Response
 { "video_id": "vid_a8b9c012", "duration_ms": 12500, "unique_states_count": 4 }</pre>
@@ -772,36 +772,36 @@
               </div>
 
               <div class="desc-box">
-                <h4>📐 Layout Diffs & Spec Compliance (4 Tools)</h4>
+                <h4>📐 Visual SDD & Spec Compliance (1 Tool)</h4>
                 <p>
-                  <code>compare_states</code>, <code>get_visual_diff</code>, <code>set_visual_spec</code>, <code>verify_visual_spec</code>.
+                  <code>manage_visual_spec</code> (set, verify, list actions).
                   <br><br>
-                  <strong>How to Leverage:</strong> Use <code>set_visual_spec</code> to register Figma design contract baselines. Call <code>verify_visual_spec</code> in Playwright/Cypress pipelines to catch layout drift and visual regressions automatically.
+                  <strong>How to Leverage:</strong> Use <code>manage_visual_spec</code> with <code>action: 'set'</code> to register Figma design contract baselines. Call with <code>action: 'verify'</code> in Playwright/Cypress pipelines to catch layout drift and visual regressions automatically.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
                   <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
-{ "route": "/checkout", "live_screenshot": "/path/to/live.png" }
+{ "action": "verify", "spec_name": "checkout_page", "file_path": "./live-screenshot.png" }
 
 // Response
-{ "compliant": true, "structural_diff_pct": 0.8 }</pre>
+{ "passed": true, "similarity_score": 0.985 }</pre>
                 </details>
               </div>
 
               <div class="desc-box">
-                <h4>📸 Checkpoints, Synchronization & Fine-Tuning (11 Tools)</h4>
+                <h4>📸 Snapshots, Trajectories & Management (5 Tools)</h4>
                 <p>
-                  <code>save_visual_snapshot</code>, <code>diff_visual_snapshots</code>, <code>undo_last_visual_mutation</code>, <code>create_visual_blocker</code>, <code>forget_state</code>, <code>export_visual_trajectories</code>, <code>export_joint_trajectories</code>, <code>get_metrics</code>, <code>export_snapshot</code>, <code>restore_snapshot</code>, <code>wait_for_visual_state</code>.
+                  <code>manage_snapshot</code> (save, diff, export, restore), <code>undo_visual_mutation</code>, <code>forget_state</code>, <code>export_trajectories</code> (JSON, LLaVA, Qwen2-VL, joint), <code>wait_for_visual_state</code>.
                   <br><br>
-                  <strong>How to Leverage:</strong> Scrub sensitive memory via <code>forget_state</code>, await UI state rendering transitions via <code>wait_for_visual_state</code>, call <code>export_snapshot</code> / <code>restore_snapshot</code> for standalone backups, query real-time performance via <code>get_metrics</code>, or call <code>export_joint_trajectories</code> / <code>export_visual_trajectories</code> to export unified multimodal interaction paths.
+                  <strong>How to Leverage:</strong> Unified snapshot management via <code>manage_snapshot</code>, scrub sensitive memory via <code>forget_state</code>, await UI state rendering transitions via <code>wait_for_visual_state</code>, or call <code>export_trajectories</code> for fine-tuning datasets and session correlation. Real-time metrics and version data are automatically accessible via <code>get_session_context</code>.
                 </p>
                 <details style="margin-top: 0.8rem;">
                   <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
                   <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #06b6d4; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
-{ "format": "jsonl", "output_path": "./visual_trajectories.jsonl" }
+{ "action": "save", "name": "v1.0-release" }
 
 // Response
-{ "exported_count": 28, "status": "success" }</pre>
+{ "snapshot_id": "snap_100", "state_count": 42 }</pre>
                 </details>
               </div>
             </div>
@@ -813,6 +813,22 @@
           class="features-grid"
           style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))"
         >
+          <div class="card" style="padding: 1.5rem; border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.04);">
+            <h3 style="color: var(--accent-cyan); margin-bottom: 0.8rem">
+              🏗️ Architecture & Codebase Distillation
+            </h3>
+            <p
+              style="
+                margin-bottom: 1.2rem;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+              "
+            >
+              High-signal architectural overview, 4-tier perception pipeline, component inventory, data flow sequences, and design choices.
+            </p>
+            <a href="codebase-distillation.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Codebase Distillation &rarr;</a>
+          </div>
+
           <div class="card" style="padding: 1.5rem">
             <h3 style="color: var(--accent-cyan); margin-bottom: 0.8rem">
               📁 Exposed Visual Resources
@@ -1064,7 +1080,7 @@
         </div>
 
         <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; line-height: 1.5;">
-          * <strong>Disclaimer & Cost Risk Notice:</strong> All ROI calculations, token savings estimates, and latency metrics are illustrative benchmark estimates based on selected visual LLM token rates and average perceptual cache-hit ratios. Actual token savings, execution speedups, and financial drops vary depending on workflow screen repetition, image resolution, model provider pricing, and prompt structure. PuterVision LLC does not guarantee specific monetary savings or API throughput performance.
+          * <strong>Disclaimer & Cost Risk Notice:</strong> All ROI calculations, token savings estimates, and latency metrics are illustrative benchmark estimates based on selected visual LLM token rates and average perceptual cache-hit ratios. Actual token savings, execution speedups, and financial drops vary depending on workflow screen repetition, image resolution, model provider pricing, and prompt structure. PuterVision does not guarantee specific monetary savings or API throughput performance.
         </p>
       </section>
 
@@ -1462,7 +1478,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           target="_blank"
           rel="noopener noreferrer"
           style="color: var(--accent-cyan); text-decoration: none"
-          >PuterVision LLC</a
+          >PuterVision</a
         >. Direct inquiries to <a href="mailto:contact@putervision.com" style="color: var(--accent-cyan); text-decoration: none;">contact@putervision.com</a>.
       </p>
       <p
@@ -1473,9 +1489,9 @@ This project uses vision-memory-mcp to cache visual UI states.
           opacity: 0.85;
         "
       >
-        <strong>Legal & Liability Disclaimers:</strong> This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall PuterVision LLC or the software authors be liable for database corruption, data loss, or issues resulting from execution.
+        <strong>Legal & Liability Disclaimers:</strong> This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall PuterVision or the software authors be liable for database corruption, data loss, or issues resulting from execution.
         <br><br>
-        <strong>Sensitive Data Notice:</strong> Visual states are cached locally unencrypted at the application level. Users are responsible for ensuring captured screens do not contain credentials, passwords, API keys, or regulated PII. PuterVision LLC is not liable for third-party API costs incurred via user-configured fallback endpoints.
+        <strong>Sensitive Data Notice:</strong> Visual states are cached locally unencrypted at the application level. Users are responsible for ensuring captured screens do not contain credentials, passwords, API keys, or regulated PII. PuterVision is not liable for third-party API costs incurred via user-configured fallback endpoints.
         <br><br>
         <strong>Trademarks:</strong> All product names, trademarks, and registered trademarks (e.g. Cursor, Claude, OpenAI, Playwright, LanceDB) belong to their respective owners and are used strictly for identification purposes.
       </p>
@@ -1619,7 +1635,7 @@ This project uses vision-memory-mcp to cache visual UI states.
           } else {
             fullToolsPanel.classList.remove('phase-in-anim');
             fullToolsPanel.classList.add('hidden');
-            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 29 MCP Tools';
+            toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 15 MCP Tools';
             toggleToolsBtn.classList.remove('active');
           }
         });

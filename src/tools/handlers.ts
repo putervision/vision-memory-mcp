@@ -20,6 +20,7 @@ import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grou
 import { probeVideo, extractKeyframes } from '../core/video-pipeline.js';
 import { categorizeVideoFrames } from '../core/video-categorizer.js';
 import { getCachedDirSize } from '../utils/fs.js';
+import { redactUrl } from '../utils/redact.js';
 import { VERSION } from '../utils/version.js';
 import {
   VisualState,
@@ -28,6 +29,8 @@ import {
   VideoMemoryRecord,
   EvidencePack,
 } from '../types.js';
+import { LEGACY_VISION_TOOL_MAP, translateLegacyVisionCall } from './compat-shim.js';
+import { resolveVisionAction, generateVisionToolGuidance } from '../core/advisor.js';
 
 export async function resolveImageInput(screenshot?: string, filePath?: string): Promise<string> {
   if (filePath) {
@@ -453,7 +456,11 @@ export async function handleCreateEvidencePack(params: {
 }
 
 export function registerAllTools(server: McpServer): void {
-  // 1. Tool: analyze_screenshot
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 1: analyze_screenshot
+  // Ingests a single screenshot OR a batch of screenshots (via `items` array).
+  // Absorbs the former `batch_analyze_screenshots` tool.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'analyze_screenshot',
     {
@@ -464,14 +471,17 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: false,
       },
       description:
-        'Ingest a screenshot or file path, check visual state cache, and return details of the state (generating a new memory entry if not matched).',
+        'Ingest screenshot(s) via base64 or file path, check the visual state cache, and return state details. ' +
+        'On cache miss, generates perceptual hashes (dHash/aHash), CLIP embeddings, and persists a new visual state entry. ' +
+        'Use this tool AFTER capturing a screenshot and BEFORE invoking vision LLMs to avoid redundant token spend. ' +
+        'For batch ingestion, pass an `items` array instead of a single screenshot/file_path.',
       inputSchema: z.object({
-        screenshot: z.string().optional().describe('Base64-encoded image string'),
+        screenshot: z.string().optional().describe('Base64-encoded image string (single mode)'),
         file_path: z
           .string()
           .optional()
           .describe(
-            'Absolute path to a local image file. Use instead of screenshot to avoid base64 overhead'
+            'Absolute path to a local image file (single mode). Use instead of screenshot to avoid base64 overhead'
           ),
         description: z
           .string()
@@ -498,19 +508,135 @@ export function registerAllTools(server: McpServer): void {
           .describe(
             'Response verbosity. compact omits internal fields like hashes, vectors, AX trees. Default: compact'
           ),
+        items: z
+          .array(
+            z.object({
+              screenshot: z.string().optional(),
+              file_path: z.string().optional(),
+              description: z.string().optional(),
+              accessibility_tree: z.string().optional(),
+              source_url: z.string().optional(),
+              tags: z.array(z.string()).optional(),
+            })
+          )
+          .min(1)
+          .max(20)
+          .optional()
+          .describe(
+            'Batch mode: array of 1–20 screenshot items to ingest/analyze. When provided, screenshot/file_path params are ignored.'
+          ),
       }),
     },
     async (params) => {
       try {
-        const imageB64 = await resolveImageInput(params.screenshot, params.file_path);
         const format = params.response_format ?? 'compact';
         const branch = params.git_branch ?? getCurrentBranch();
+
+        // ── Batch mode ──────────────────────────────────────────────────────
+        if (params.items && params.items.length > 0) {
+          const results = [];
+
+          for (const item of params.items) {
+            try {
+              const imageB64 = await resolveImageInput(item.screenshot, item.file_path);
+              const axTree = item.accessibility_tree
+                ? compressAccessibilityTree(item.accessibility_tree)
+                : undefined;
+
+              const retrieval = await retrieveState({
+                screenshot: imageB64,
+                strategy: 'thorough',
+                gitBranch: branch,
+                accessibilityTree: axTree,
+              });
+
+              if (retrieval.is_known && retrieval.state_id) {
+                results.push(formatResponsePayload(retrieval, format));
+                continue;
+              }
+
+              const processed = await processImage(imageB64);
+              const dhash = await calculateDHash(processed.normalizedBuffer);
+              const ahash = await calculateAHash(processed.normalizedBuffer);
+
+              let finalDesc = item.description ?? '';
+              if (!finalDesc) {
+                try {
+                  finalDesc = await analyzeScreenshotWithLLM(imageB64);
+                } catch {
+                  finalDesc = 'New visual state (pending analysis).';
+                }
+              }
+
+              const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
+              const newId = crypto.randomUUID();
+              const newState: VisualState = {
+                id: newId,
+                dhash,
+                ahash,
+                vector,
+                description: finalDesc,
+                structured_data: '{}',
+                accessibility_tree: axTree ?? '{}',
+                thumbnail: processed.thumbnail,
+                original_dimensions: JSON.stringify({
+                  width: processed.originalWidth,
+                  height: processed.originalHeight,
+                }),
+                source_url: item.source_url ? redactUrl(item.source_url) : '',
+                source_agent: 'agent',
+                trace_id: '',
+                git_branch: branch,
+                tags: JSON.stringify(item.tags ?? []),
+                importance_score: 0.5,
+                created_at: Date.now(),
+                last_accessed: Date.now(),
+                access_count: 1,
+                ttl: 0,
+              };
+
+              await storage.addState(newState);
+              memoryCache.set(newState);
+
+              results.push(
+                formatResponsePayload(
+                  {
+                    state_id: newId,
+                    is_known: false,
+                    match_type: 'new',
+                    similarity_score: 0.0,
+                    description: finalDesc,
+                    source_url: item.source_url ? redactUrl(item.source_url) : undefined,
+                    tags: item.tags,
+                  },
+                  format
+                )
+              );
+            } catch (itemErr: any) {
+              results.push({
+                is_known: false,
+                error: itemErr?.message || String(itemErr),
+              });
+            }
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ batch_count: results.length, results }),
+              },
+            ],
+          };
+        }
+
+        // ── Single mode ─────────────────────────────────────────────────────
+        const imageB64 = await resolveImageInput(params.screenshot, params.file_path);
 
         const axTree = params.accessibility_tree
           ? compressAccessibilityTree(params.accessibility_tree)
           : undefined;
 
-        // 1. Run tiered retrieval
         const retrieval = await retrieveState({
           screenshot: imageB64,
           strategy: 'thorough',
@@ -519,7 +645,6 @@ export function registerAllTools(server: McpServer): void {
           accessibilityTree: axTree,
         });
 
-        // 2. If it's a cache hit, return results
         if (retrieval.is_known && retrieval.state_id) {
           if (params.description && params.description !== retrieval.description) {
             await storage.updateState(retrieval.state_id, {
@@ -533,7 +658,6 @@ export function registerAllTools(server: McpServer): void {
           };
         }
 
-        // 3. Cache miss: Ingest new state
         logger.info('Cache miss: generating new state entry...');
         const processed = await processImage(imageB64);
         const dhash = await calculateDHash(processed.normalizedBuffer);
@@ -564,7 +688,7 @@ export function registerAllTools(server: McpServer): void {
             width: processed.originalWidth,
             height: processed.originalHeight,
           }),
-          source_url: params.source_url ?? '',
+          source_url: params.source_url ? redactUrl(params.source_url) : '',
           source_agent: 'agent',
           trace_id: params.trace_id ?? '',
           git_branch: branch,
@@ -611,7 +735,10 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 2. Tool: recall_memory
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 2: recall_memory
+  // Pure read-only search — never writes to the database.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'recall_memory',
     {
@@ -622,7 +749,8 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Search visual state memory using screenshot image, text query, or accessibility tree.',
+        'Search visual state memory by screenshot image, text query, or accessibility tree. ' +
+        'Read-only — never creates or modifies states. Use analyze_screenshot to ingest new states.',
       inputSchema: z.object({
         screenshot: z
           .string()
@@ -700,7 +828,11 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 3. Tool: record_outcome
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 3: record_outcome
+  // Logs UI action transitions. Also supports action_type 'blocker' to
+  // generate a structured visual blocker payload (absorbs create_visual_blocker).
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'record_outcome',
     {
@@ -711,30 +843,104 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: false,
       },
       description:
-        'Log an action transition between two visual states and update transition statistics.',
+        'Log an action transition between two visual states and update transition statistics. ' +
+        'Call this after every click/type/scroll/navigate action. ' +
+        'When action_type is "blocker", generates a structured visual blocker payload for state-memory-mcp ' +
+        'instead of recording a transition (from_state_id becomes the visual_state_id of the blocker).',
       inputSchema: z.object({
-        from_state_id: z.string().describe('Source state ID'),
-        to_state_id: z.string().describe('Destination state ID'),
-        action: z.string().describe('Action description'),
-        action_type: z
-          .enum(['click', 'type', 'navigate', 'scroll', 'custom'])
+        from_state_id: z
+          .string()
+          .describe('Source state ID (or blocker visual_state_id when action_type is "blocker")'),
+        to_state_id: z
+          .string()
           .optional()
-          .describe('Category of UI action'),
-        success: z.boolean().describe('Whether action succeeded'),
+          .describe('Destination state ID (not required when action_type is "blocker")'),
+        action: z
+          .string()
+          .describe('Action description (or blocker description when action_type is "blocker")'),
+        action_type: z
+          .enum(['click', 'type', 'navigate', 'scroll', 'custom', 'blocker'])
+          .optional()
+          .describe('Category of UI action. Use "blocker" to create a visual blocker payload.'),
+        success: z
+          .boolean()
+          .optional()
+          .describe('Whether action succeeded (default: true, ignored for blockers)'),
         duration_ms: z.number().optional().describe('Action duration in ms'),
         git_branch: z.string().optional().describe('Active git branch'),
+        project: z
+          .string()
+          .optional()
+          .describe('state-memory-mcp project name (only used when action_type is "blocker")'),
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
         const format = params.response_format ?? 'compact';
+
+        // ── Blocker mode (absorbs create_visual_blocker) ────────────────
+        if (params.action_type === 'blocker') {
+          const state = await storage.getStateAll(params.from_state_id);
+          if (!state) {
+            throw new Error(`Visual state with ID ${params.from_state_id} not found.`);
+          }
+
+          const project = params.project ?? '';
+          const title = `Visual Blocker: ${params.action.slice(0, 80)}`;
+          const result = {
+            instruction:
+              'Please execute state-memory-mcp:manage_nodes (action: "create") to log a blocker node, and state-memory-mcp:manage_edges (action: "link_visual") to establish a blocked_by_visual_state relationship.',
+            mcp_tool_call: {
+              server: 'state-memory-mcp',
+              tool: 'manage_nodes',
+              arguments: {
+                action: 'create',
+                project: project || undefined,
+                type: 'blocker',
+                title,
+                status: 'active',
+                metadata: {
+                  vision_state_id: state.id,
+                  vision_description: state.description,
+                  source_url: state.source_url,
+                  git_branch: state.git_branch,
+                  bug_details: params.action,
+                },
+                tags: ['visual-regression', 'ui-bug'],
+              },
+            },
+            link_tool_call: {
+              server: 'state-memory-mcp',
+              tool: 'manage_edges',
+              arguments: {
+                action: 'link_visual',
+                project: project || undefined,
+                target_id: 'TARGET_TASK_OR_BLOCKER_ID',
+                visual_state_id: state.id,
+                relationship: 'blocked_by_visual_state',
+                visual_description: state.description,
+                source_url: state.source_url,
+              },
+            },
+          };
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result) }],
+          };
+        }
+
+        // ── Normal transition mode ──────────────────────────────────────
+        if (!params.to_state_id) {
+          throw new Error('to_state_id is required for non-blocker action types.');
+        }
+
         const transition = await recordTransition({
           fromStateId: params.from_state_id,
           toStateId: params.to_state_id,
           action: params.action,
           actionType: params.action_type ?? 'custom',
-          success: params.success,
+          success: params.success ?? true,
           durationMs: params.duration_ms,
         });
 
@@ -757,7 +963,9 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 4. Tool: get_navigation_paths
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 4: get_navigation_paths
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'get_navigation_paths',
     {
@@ -768,7 +976,7 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Trace historical pathways from current state to a target state or state matching description.',
+        'Trace historical pathways from current state to a target state or state matching description via BFS over the transition graph.',
       inputSchema: z.object({
         from_state_id: z
           .string()
@@ -822,26 +1030,54 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 5. Tool: compare_states
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 5: compare_states
+  // Absorbs get_visual_diff (perceptual diff) and compare_video_trajectories
+  // (video keyframe trajectory comparison) into one unified comparison tool.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'compare_states',
     {
-      title: 'Compare Visual States',
+      title: 'Compare Visual States or Video Trajectories',
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
       },
-      description: 'Compare two states visually and structurally with key-level JSON diffs.',
+      description:
+        'Compare two visual states structurally (dHash, CLIP vector, JSON diff, layout delta) or two video trajectories ' +
+        '(keyframe similarity, divergence point). Provide state_a_id/state_b_id for state comparison, or ' +
+        'video_a_id/video_b_id for video trajectory comparison.',
       inputSchema: z.object({
-        state_a_id: z.string().describe('ID of state A'),
-        state_b_id: z.string().describe('ID of state B'),
+        state_a_id: z.string().optional().describe('ID of visual state A (state comparison mode)'),
+        state_b_id: z.string().optional().describe('ID of visual state B (state comparison mode)'),
+        video_a_id: z.string().optional().describe('First video ID (video comparison mode)'),
+        video_b_id: z.string().optional().describe('Second video ID (video comparison mode)'),
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
     async (params) => {
       try {
         const format = params.response_format ?? 'compact';
+
+        // ── Video trajectory comparison mode ────────────────────────────
+        if (params.video_a_id && params.video_b_id) {
+          const res = await handleCompareVideoTrajectories({
+            video_a_id: params.video_a_id,
+            video_b_id: params.video_b_id,
+          });
+          return {
+            content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
+          };
+        }
+
+        // ── Visual state comparison mode ────────────────────────────────
+        if (!params.state_a_id || !params.state_b_id) {
+          throw new Error(
+            'Provide either state_a_id + state_b_id (state comparison) or video_a_id + video_b_id (video comparison).'
+          );
+        }
+
         if (params.state_a_id === params.state_b_id) {
           throw new Error('state_a_id and state_b_id must be different visual states.');
         }
@@ -860,11 +1096,14 @@ export function registerAllTools(server: McpServer): void {
           stateB.structured_data
         );
 
+        // Includes fields from former get_visual_diff
         const result = {
           state_a_id: params.state_a_id,
           state_b_id: params.state_b_id,
           hash_distance: dist,
           vector_similarity: similarity,
+          has_layout_change: dist > 3,
+          layout_delta_ratio: Math.round((dist / 64) * 100) / 100,
           structured_diff: structuredDiff,
           description_a: stateA.description,
           description_b: stateB.description,
@@ -890,7 +1129,9 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 6. Tool: get_session_context
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 6: get_session_context
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'get_session_context',
     {
@@ -901,7 +1142,8 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Fetch aggregated visual context, listing recent/frequent states and active transitions.',
+        'Fetch aggregated visual context: recent states, frequently accessed states, active transitions, and memory stats. ' +
+        'Call this at session start to orient before performing UI actions.',
       inputSchema: z.object({
         include_recent: z
           .number()
@@ -959,6 +1201,9 @@ export function registerAllTools(server: McpServer): void {
         const allTransCount = await storage.countTransitionsAll();
 
         const result = {
+          version: VERSION,
+          mcp_name: 'io.github.putervision/vision-memory-mcp',
+          metrics: metricsCollector.getStats(),
           recent_states: recent,
           frequent_states: frequent,
           active_transitions: activeTransitions,
@@ -989,92 +1234,143 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 7. Tool: save_visual_snapshot
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 7: manage_snapshot
+  // Consolidates save_visual_snapshot, diff_visual_snapshots, export_snapshot,
+  // and restore_snapshot into one tool with an action discriminator.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
-    'save_visual_snapshot',
+    'manage_snapshot',
     {
-      title: 'Save Visual Checkpoint',
+      title: 'Manage Visual Snapshots',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
       },
-      description: 'Saves current visual memory states as a named checkpoint snapshot.',
-      inputSchema: z.object({
-        name: z.string().describe('Unique snapshot checkpoint name'),
-        description: z.string().optional().describe('Notes describing snapshot context'),
-      }),
-    },
-    async (params) => {
-      try {
-        const snap = await saveSnapshot(params.name, params.description);
-        const stateCount = JSON.parse(snap.state_ids).length;
-
-        const result = {
-          snapshot_id: snap.id,
-          name: snap.name,
-          state_count: stateCount,
-        };
-
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-        };
-      } catch (error: any) {
-        logger.error('Error in save_visual_snapshot tool:', error);
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Failed to save visual snapshot: ${error.message}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  // 8. Tool: diff_visual_snapshots
-  server.registerTool(
-    'diff_visual_snapshots',
-    {
-      title: 'Diff Visual Checkpoints',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
       description:
-        'Diff two snapshots to locate additions, deletions, or visual drift regressions.',
+        'Manage visual memory snapshots. Actions: ' +
+        '"save" creates a named checkpoint of current states; ' +
+        '"diff" compares two snapshots for visual drift/regression; ' +
+        '"export" serializes a snapshot to a portable JSON archive; ' +
+        '"restore" imports a snapshot from an exported archive.',
       inputSchema: z.object({
-        snapshot_a_name: z.string().describe('Base snapshot name'),
-        snapshot_b_name: z.string().describe('Target snapshot name to compare against'),
+        action: z
+          .enum(['save', 'diff', 'export', 'restore'])
+          .describe('Snapshot operation to perform'),
+        name: z.string().optional().describe('Snapshot name (required for save, export)'),
+        description: z
+          .string()
+          .optional()
+          .describe('Notes describing snapshot context (used with save)'),
+        state_memory_snapshot_id: z
+          .string()
+          .optional()
+          .describe('Optional state-memory snapshot ID to correlate'),
+        state_memory_milestone_id: z
+          .string()
+          .optional()
+          .describe('Optional state-memory milestone ID to correlate'),
+        snapshot_a_name: z.string().optional().describe('Base snapshot name (required for diff)'),
+        snapshot_b_name: z
+          .string()
+          .optional()
+          .describe('Target snapshot name to compare against (required for diff)'),
+        archive_json: z
+          .string()
+          .optional()
+          .describe('JSON string of exported SnapshotArchive (required for restore)'),
       }),
     },
     async (params) => {
       try {
-        const diff = await diffSnapshots(params.snapshot_a_name, params.snapshot_b_name);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(diff) }],
-        };
+        switch (params.action) {
+          case 'save': {
+            if (!params.name) throw new Error('name is required for save action.');
+            const snap = await saveSnapshot(params.name, params.description, {
+              state_memory_snapshot_id: params.state_memory_snapshot_id,
+              state_memory_milestone_id: params.state_memory_milestone_id,
+            });
+            const stateCount = JSON.parse(snap.state_ids).length;
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    snapshot_id: snap.id,
+                    name: snap.name,
+                    state_count: stateCount,
+                    state_memory_snapshot_id: snap.state_memory_snapshot_id,
+                    state_memory_milestone_id: snap.state_memory_milestone_id,
+                  }),
+                },
+              ],
+            };
+          }
+          case 'diff': {
+            if (!params.snapshot_a_name || !params.snapshot_b_name)
+              throw new Error('snapshot_a_name and snapshot_b_name are required for diff action.');
+            const diff = await diffSnapshots(params.snapshot_a_name, params.snapshot_b_name);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(diff) }],
+            };
+          }
+          case 'export': {
+            if (!params.name) throw new Error('name is required for export action.');
+            const archive = await exportSnapshot(params.name);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(archive, null, 2) }],
+            };
+          }
+          case 'restore': {
+            if (!params.archive_json)
+              throw new Error('archive_json is required for restore action.');
+            const rawParsed = JSON.parse(params.archive_json);
+            const SnapshotArchiveSchema = z.object({
+              version: z.string().optional(),
+              name: z.string().optional(),
+              snapshot: z.object({
+                id: z.string(),
+                name: z.string(),
+                git_branch: z.string().optional(),
+                created_at: z.number().optional(),
+                state_ids: z.string(),
+              }),
+              states: z.array(
+                z.object({
+                  id: z.string(),
+                  dhash: z.string(),
+                  ahash: z.string(),
+                  vector: z.array(z.number()),
+                  description: z.string(),
+                })
+              ),
+              transitions: z.array(z.any()).optional(),
+            });
+            const archiveData = SnapshotArchiveSchema.parse(rawParsed);
+            const result = await restoreSnapshot(archiveData as any);
+            return {
+              content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            };
+          }
+          default:
+            throw new Error(`Unknown snapshot action: ${params.action}`);
+        }
       } catch (error: any) {
-        logger.error('Error in diff_visual_snapshots tool:', error);
+        logger.error('Error in manage_snapshot tool:', error);
         return {
           isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Failed to diff snapshots: ${error.message}`,
-            },
-          ],
+          content: [{ type: 'text', text: `Failed to manage snapshot: ${error.message}` }],
         };
       }
     }
   );
 
-  // 9. Tool: undo_last_visual_mutation
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 8: undo_visual_mutation (renamed from undo_last_visual_mutation)
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
-    'undo_last_visual_mutation',
+    'undo_visual_mutation',
     {
       title: 'Undo Visual Mutation',
       annotations: {
@@ -1082,12 +1378,15 @@ export function registerAllTools(server: McpServer): void {
         destructiveHint: true,
         idempotentHint: false,
       },
-      description: 'Undo the last visual state ingestion or transition edge addition.',
+      description:
+        'Revert the most recent visual state ingestion or transition edge addition on the current git branch.',
       inputSchema: z.object({
         type: z
           .enum(['state', 'transition', 'any'])
           .optional()
-          .describe('Type of mutation to revert'),
+          .describe(
+            'Type of mutation to revert (default: any — reverts the most recent of either)'
+          ),
       }),
     },
     async (params) => {
@@ -1154,7 +1453,7 @@ export function registerAllTools(server: McpServer): void {
           content: [{ type: 'text', text: JSON.stringify(result) }],
         };
       } catch (error: any) {
-        logger.error('Error in undo_last_visual_mutation tool:', error);
+        logger.error('Error in undo_visual_mutation tool:', error);
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to undo mutation: ${error.message}` }],
@@ -1163,90 +1462,9 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 10. Tool: create_visual_blocker
-  server.registerTool(
-    'create_visual_blocker',
-    {
-      title: 'Create Visual Blocker',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Generates a structured visual blocker payload. The calling agent should use the output to call state-memory-mcp:add_node to log a blocker.',
-      inputSchema: z.object({
-        visual_state_id: z.string().describe('ID of the visual state where the blocker occurred'),
-        description: z.string().describe('Description of the visual bug/blocker'),
-        project: z
-          .string()
-          .optional()
-          .describe('The state-memory-mcp project name (defaults to current project)'),
-      }),
-    },
-    async (params) => {
-      try {
-        const state = await storage.getStateAll(params.visual_state_id);
-        if (!state) {
-          throw new Error(`Visual state with ID ${params.visual_state_id} not found.`);
-        }
-
-        const project = params.project ?? '';
-        const title = `Visual Blocker: ${params.description.slice(0, 80)}`;
-        const result = {
-          instruction:
-            'Please execute state-memory-mcp:add_node to log a blocker node, and state-memory-mcp:link_visual_state to establish a blocked_by_visual_state relationship.',
-          mcp_tool_call: {
-            server: 'state-memory-mcp',
-            tool: 'add_node',
-            arguments: {
-              project: project || undefined,
-              type: 'blocker',
-              title,
-              status: 'active',
-              metadata: {
-                vision_state_id: state.id,
-                vision_description: state.description,
-                source_url: state.source_url,
-                git_branch: state.git_branch,
-                bug_details: params.description,
-              },
-              tags: ['visual-regression', 'ui-bug'],
-            },
-          },
-          link_tool_call: {
-            server: 'state-memory-mcp',
-            tool: 'link_visual_state',
-            arguments: {
-              project: project || undefined,
-              target_id: 'TARGET_TASK_OR_BLOCKER_ID',
-              visual_state_id: state.id,
-              relationship: 'blocked_by_visual_state',
-              visual_description: state.description,
-              source_url: state.source_url,
-            },
-          },
-        };
-
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-        };
-      } catch (error: any) {
-        logger.error('Error in create_visual_blocker tool:', error);
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Failed to create visual blocker: ${error.message}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  // 11. Tool: predict_next_action
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 9: predict_next_action
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'predict_next_action',
     {
@@ -1257,7 +1475,8 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Predict the best next UI action from current visual state based on transition success rates and goal alignment.',
+        'Predict the best next UI action from the current visual state based on transition success rates, ' +
+        'goal alignment, and grounded AX tree element targeting.',
       inputSchema: z.object({
         current_state_id: z.string().describe('ID of current active visual state'),
         goal_description: z
@@ -1358,326 +1577,93 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 12. Tool: batch_analyze_screenshots
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 9: manage_visual_spec
+  // Consolidates set_visual_spec, verify_visual_spec, and list_visual_specs.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
-    'batch_analyze_screenshots',
+    'manage_visual_spec',
     {
-      title: 'Batch Analyze Screenshots',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-      },
-      description: 'Process multiple screenshots or file paths in a single batch call.',
-      inputSchema: z.object({
-        items: z
-          .array(
-            z.object({
-              screenshot: z.string().optional(),
-              file_path: z.string().optional(),
-              description: z.string().optional(),
-              accessibility_tree: z.string().optional(),
-              source_url: z.string().optional(),
-              tags: z.array(z.string()).optional(),
-            })
-          )
-          .min(1)
-          .max(20)
-          .describe('List of 1 to 20 screenshot items to ingest/analyze'),
-        git_branch: z.string().optional(),
-        response_format: z.enum(['compact', 'full']).optional(),
-      }),
-    },
-    async (params) => {
-      try {
-        const format = params.response_format ?? 'compact';
-        const branch = params.git_branch ?? getCurrentBranch();
-        const results = [];
-
-        for (const item of params.items) {
-          try {
-            const imageB64 = await resolveImageInput(item.screenshot, item.file_path);
-            const axTree = item.accessibility_tree
-              ? compressAccessibilityTree(item.accessibility_tree)
-              : undefined;
-
-            const retrieval = await retrieveState({
-              screenshot: imageB64,
-              strategy: 'thorough',
-              gitBranch: branch,
-              accessibilityTree: axTree,
-            });
-
-            if (retrieval.is_known && retrieval.state_id) {
-              results.push(formatResponsePayload(retrieval, format));
-              continue;
-            }
-
-            const processed = await processImage(imageB64);
-            const dhash = await calculateDHash(processed.normalizedBuffer);
-            const ahash = await calculateAHash(processed.normalizedBuffer);
-
-            let finalDesc = item.description ?? '';
-            if (!finalDesc) {
-              try {
-                finalDesc = await analyzeScreenshotWithLLM(imageB64);
-              } catch {
-                finalDesc = 'New visual state (pending analysis).';
-              }
-            }
-
-            const vector = await embeddings.generateImageEmbedding(processed.normalizedBuffer);
-            const newId = crypto.randomUUID();
-            const newState: VisualState = {
-              id: newId,
-              dhash,
-              ahash,
-              vector,
-              description: finalDesc,
-              structured_data: '{}',
-              accessibility_tree: axTree ?? '{}',
-              thumbnail: processed.thumbnail,
-              original_dimensions: JSON.stringify({
-                width: processed.originalWidth,
-                height: processed.originalHeight,
-              }),
-              source_url: item.source_url ?? '',
-              source_agent: 'agent',
-              trace_id: '',
-              git_branch: branch,
-              tags: JSON.stringify(item.tags ?? []),
-              importance_score: 0.5,
-              created_at: Date.now(),
-              last_accessed: Date.now(),
-              access_count: 1,
-              ttl: 0,
-            };
-
-            await storage.addState(newState);
-            memoryCache.set(newState);
-
-            const resultObj = {
-              state_id: newId,
-              is_known: false,
-              match_type: 'new',
-              similarity_score: 0.0,
-              description: finalDesc,
-              source_url: item.source_url,
-              tags: item.tags,
-            };
-            results.push(formatResponsePayload(resultObj, format));
-          } catch (itemErr: any) {
-            results.push({
-              is_known: false,
-              error: itemErr?.message || String(itemErr),
-            });
-          }
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                batch_count: results.length,
-                results,
-              }),
-            },
-          ],
-        };
-      } catch (error: any) {
-        logger.error('Error in batch_analyze_screenshots tool:', error);
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Failed to batch analyze screenshots: ${error.message}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  // set_visual_spec
-  server.registerTool(
-    'set_visual_spec',
-    {
-      title: 'Set Visual Spec',
+      title: 'Manage Visual Specs',
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
       },
       description:
-        'Set a screenshot or mockup design as a Visual Spec baseline for UI compliance testing.',
+        'Manage Visual Spec baseline contracts (Visual SDD). Actions: ' +
+        '"set" registers a screenshot or design mockup as baseline, ' +
+        '"verify" tests a live UI screenshot against a baseline, ' +
+        '"list" returns all registered visual specs.',
       inputSchema: z.object({
-        name: z.string().describe('Name identifier for the visual spec.'),
-        screenshot: z.string().optional().describe('Base64 encoded screenshot image.'),
-        file_path: z.string().optional().describe('Absolute file path to mockup image.'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await setVisualSpec({
-          name: params.name,
-          screenshot: params.screenshot,
-          filePath: params.file_path,
-        });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to set visual spec: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // verify_visual_spec
-  server.registerTool(
-    'verify_visual_spec',
-    {
-      title: 'Verify Visual Spec',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Verify a live captured UI screenshot against a registered Visual Spec baseline.',
-      inputSchema: z.object({
-        spec_name: z.string().describe('Name identifier of the visual spec baseline.'),
-        screenshot: z.string().optional().describe('Base64 encoded live screenshot image.'),
-        file_path: z.string().optional().describe('Absolute file path to live screenshot image.'),
+        action: z
+          .enum(['set', 'verify', 'list'])
+          .describe("Action to perform: 'set', 'verify', or 'list'"),
+        name: z.string().optional().describe("Spec name (required for 'set' or 'verify')"),
+        spec_name: z.string().optional().describe("Alternative spec name alias (for 'verify')"),
+        screenshot: z
+          .string()
+          .optional()
+          .describe("Base64 encoded screenshot image (for 'set' or 'verify')"),
+        file_path: z
+          .string()
+          .optional()
+          .describe("Absolute file path to image (for 'set' or 'verify')"),
         tolerance: z
           .number()
           .optional()
-          .describe('Optional dHash Hamming distance tolerance threshold (default: 8).'),
+          .describe("dHash Hamming distance tolerance threshold for 'verify' (default: 8)"),
         sdd_requirement_id: z
           .string()
           .optional()
-          .describe(
-            'Optional state-memory-mcp SDD requirement node ID to link verification result.'
-          ),
+          .describe("Optional state-memory-mcp SDD requirement node ID for 'verify'"),
       }),
     },
     async (params) => {
       try {
-        const res = await verifyVisualSpec({
-          specName: params.spec_name,
-          screenshot: params.screenshot,
-          filePath: params.file_path,
-          tolerance: params.tolerance,
-          sddRequirementId: params.sdd_requirement_id,
-        });
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to verify visual spec: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // list_visual_specs
-  server.registerTool(
-    'list_visual_specs',
-    {
-      title: 'List Visual Specs',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'List all registered Visual Spec baselines across the project and their perceptual hash details.',
-      inputSchema: z.object({}),
-    },
-    async () => {
-      try {
-        const specs = await listVisualSpecs();
-        return {
-          content: [{ type: 'text', text: JSON.stringify(specs, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to list visual specs: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // get_visual_diff
-  server.registerTool(
-    'get_visual_diff',
-    {
-      title: 'Get Visual Diff',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description: 'Calculate perceptual dHash diff and region deltas between two visual states.',
-      inputSchema: z.object({
-        state_id_a: z.string().describe('ID of the first visual state baseline.'),
-        state_id_b: z.string().describe('ID of the second visual state target.'),
-      }),
-    },
-    async (params) => {
-      try {
-        const stateA = await storage.getState(params.state_id_a);
-        const stateB = await storage.getState(params.state_id_b);
-
-        if (!stateA || !stateB) {
-          throw new Error(
-            `One or both visual states not found: ${params.state_id_a}, ${params.state_id_b}`
-          );
+        if (params.action === 'set') {
+          const specName = params.name || params.spec_name;
+          if (!specName) throw new Error("Parameter 'name' is required for action 'set'.");
+          const res = await setVisualSpec({
+            name: specName,
+            screenshot: params.screenshot,
+            filePath: params.file_path,
+          });
+          return { content: [{ type: 'text', text: JSON.stringify(res) }] };
         }
-
-        const distance = hammingDistance(stateA.dhash, stateB.dhash);
-        const similarity = 1 - Math.min(distance / 64, 1);
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                {
-                  state_id_a: params.state_id_a,
-                  state_id_b: params.state_id_b,
-                  dhash_distance: distance,
-                  similarity_score: Math.round(similarity * 1000) / 1000,
-                  has_layout_change: distance > 3,
-                  layout_delta_ratio: Math.round((distance / 64) * 100) / 100,
-                  description_a: stateA.description,
-                  description_b: stateB.description,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        if (params.action === 'verify') {
+          const specName = params.spec_name || params.name;
+          if (!specName)
+            throw new Error("Parameter 'spec_name' (or 'name') is required for action 'verify'.");
+          const res = await verifyVisualSpec({
+            specName,
+            screenshot: params.screenshot,
+            filePath: params.file_path,
+            tolerance: params.tolerance,
+            sddRequirementId: params.sdd_requirement_id,
+          });
+          return { content: [{ type: 'text', text: JSON.stringify(res) }] };
+        }
+        if (params.action === 'list') {
+          const specs = await listVisualSpecs();
+          return { content: [{ type: 'text', text: JSON.stringify(specs, null, 2) }] };
+        }
+        throw new Error(`Unknown visual spec action: ${(params as any).action}`);
       } catch (error: any) {
         return {
           isError: true,
-          content: [{ type: 'text', text: `Failed to calculate visual diff: ${error.message}` }],
+          content: [{ type: 'text', text: `Failed to manage visual spec: ${error.message}` }],
         };
       }
     }
   );
 
-  // export_visual_trajectories
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 13: export_trajectories
+  // Consolidates export_visual_trajectories + export_joint_trajectories.
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
-    'export_visual_trajectories',
+    'export_trajectories',
     {
       title: 'Export Visual Trajectories',
       annotations: {
@@ -1686,28 +1672,85 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Export multimodal visual state transition trajectories for local model fine-tuning.',
+        'Export visual state transition trajectories. ' +
+        'Formats: "json" (raw state steps), "llava" / "qwen2_vl" (VLM fine-tuning datasets), ' +
+        '"joint" (interleaved workflow events correlated by session/trace ID for state-memory-mcp).',
       inputSchema: z.object({
-        git_branch: z.string().optional().describe('Optional git branch filter.'),
-        limit: z
-          .number()
-          .optional()
-          .describe('Maximum number of trajectories to export (default: 50).'),
         format: z
-          .enum(['json', 'llava', 'qwen2_vl'])
+          .enum(['json', 'llava', 'qwen2_vl', 'joint'])
           .optional()
-          .describe('Fine-tuning dataset export format (json, llava, qwen2_vl)'),
+          .describe('Export format (default: json)'),
+        git_branch: z.string().optional().describe('Optional git branch filter'),
+        trace_id: z
+          .string()
+          .optional()
+          .describe('Optional trace ID / session ID filter (used with joint format)'),
+        limit: z.number().optional().describe('Maximum number of states to export (default: 50)'),
       }),
     },
     async (params) => {
       try {
+        const exportFmt = params.format || 'json';
+
+        // ── Joint format (formerly export_joint_trajectories) ───────────
+        if (exportFmt === 'joint') {
+          const states = await storage.listStatesAll('', params.limit || 50);
+          const filteredStates = params.trace_id
+            ? states.filter((s) => s.trace_id === params.trace_id)
+            : states;
+
+          const steps = filteredStates.map((s, idx) => {
+            let groundedElements: any[] = [];
+            if (s.grounded_elements) {
+              try {
+                groundedElements = JSON.parse(s.grounded_elements);
+              } catch (_) {}
+            }
+            let parsedTags: string[] = [];
+            if (s.tags) {
+              try {
+                parsedTags = JSON.parse(s.tags);
+              } catch (_) {}
+            }
+            return {
+              step_index: idx + 1,
+              timestamp: s.created_at || Date.now(),
+              iso_timestamp: new Date(s.created_at || Date.now()).toISOString(),
+              source: 'vision_memory',
+              session_id: s.trace_id || '',
+              visual_state_id: s.id,
+              description: s.description || '',
+              source_url: s.source_url || '',
+              importance_score: s.importance_score || 0.5,
+              grounded_elements: groundedElements,
+              tags: parsedTags,
+            };
+          });
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    trace_id: params.trace_id || 'all',
+                    total_steps: steps.length,
+                    steps,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          };
+        }
+
+        // ── Visual trajectory formats (json, llava, qwen2_vl) ──────────
         const branch = params.git_branch || getCurrentBranch();
         const states = await storage.listStatesAll(
           `git_branch = '${escapeSql(branch)}'`,
           params.limit || 50
         );
-
-        const exportFmt = params.format || 'json';
 
         if (exportFmt === 'llava') {
           const llavaDataset = states.map((s) => ({
@@ -1759,76 +1802,183 @@ export function registerAllTools(server: McpServer): void {
       } catch (error: any) {
         return {
           isError: true,
-          content: [
-            { type: 'text', text: `Failed to export visual trajectories: ${error.message}` },
-          ],
+          content: [{ type: 'text', text: `Failed to export trajectories: ${error.message}` }],
         };
       }
     }
   );
 
-  // Tool: export_joint_trajectories
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 10: manage_video
+  // Consolidates ingest_video and query_video_memory (search + timeline).
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
-    'export_joint_trajectories',
+    'manage_video',
     {
-      title: 'Export Joint Trajectories',
+      title: 'Manage Video Memory',
       annotations: {
-        readOnlyHint: true,
+        readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: true,
+        idempotentHint: false,
       },
       description:
-        'Export unified interleaved visual state transitions and workflow graph events correlated by session/trace ID.',
+        'Manage WebM, MP4, and GIF video recordings in visual memory. Actions: ' +
+        '"ingest" extracts keyframes, deduplicates, and builds sequence transitions; ' +
+        '"search" queries stored video recordings by keyword/category/tags; ' +
+        '"timeline" retrieves the chronological keyframe timeline for a specific video_id.',
       inputSchema: z.object({
-        trace_id: z.string().optional().describe('Optional trace ID / session ID filter'),
-        limit: z.number().optional().describe('Maximum number of states to export (default: 50)'),
+        action: z
+          .enum(['ingest', 'search', 'timeline'])
+          .describe("Action to perform: 'ingest', 'search', or 'timeline'"),
+        file_path: z
+          .string()
+          .optional()
+          .describe("Absolute file path to video file (for 'ingest')"),
+        video_data: z.string().optional().describe("Base64 encoded video buffer (for 'ingest')"),
+        fps: z
+          .number()
+          .optional()
+          .describe("Frame sampling rate per second for 'ingest' (default: 1.0)"),
+        scene_threshold: z
+          .number()
+          .optional()
+          .describe('Scene change detection threshold 0.0-1.0 (default: 0.2)'),
+        category: z
+          .string()
+          .optional()
+          .describe('Video category (e.g. playwright_test, bug_repro)'),
+        tags: z.array(z.string()).optional().describe('Array of classification tags'),
+        source_agent: z.string().optional().describe('Source agent identifier'),
+        trace_id: z.string().optional().describe('Trace or session correlation ID'),
+        query: z.string().optional().describe("Search query string (required for 'search')"),
+        video_id: z
+          .string()
+          .optional()
+          .describe("Video record ID to retrieve timeline (required for 'timeline')"),
+        limit: z.number().optional().describe('Max search results (default: 20)'),
       }),
     },
     async (params) => {
       try {
-        const states = await storage.listStatesAll('', params.limit || 50);
-        const filteredStates = params.trace_id
-          ? states.filter((s) => s.trace_id === params.trace_id)
-          : states;
+        if (params.action === 'ingest') {
+          const res = await handleIngestVideo({
+            file_path: params.file_path,
+            video_data: params.video_data,
+            fps: params.fps,
+            scene_threshold: params.scene_threshold,
+            category: params.category,
+            tags: params.tags,
+            source_agent: params.source_agent,
+            trace_id: params.trace_id,
+          });
+          return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+        }
+        if (params.action === 'search') {
+          if (!params.query) throw new Error("Parameter 'query' is required for action 'search'.");
+          const res = await handleSearchVideoMemory({
+            query: params.query,
+            category: params.category,
+            limit: params.limit,
+          });
+          return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+        }
+        if (params.action === 'timeline') {
+          if (!params.video_id)
+            throw new Error("Parameter 'video_id' is required for action 'timeline'.");
+          const res = await handleGetVideoTimeline({ video_id: params.video_id });
+          return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+        }
+        throw new Error(`Unknown video action: ${(params as any).action}`);
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to manage video: ${error.message}` }],
+        };
+      }
+    }
+  );
 
-        const steps = filteredStates.map((s, idx) => {
-          let groundedElements: any[] = [];
-          if (s.grounded_elements) {
-            try {
-              groundedElements = JSON.parse(s.grounded_elements);
-            } catch (_) {}
-          }
-          let parsedTags: string[] = [];
-          if (s.tags) {
-            try {
-              parsedTags = JSON.parse(s.tags);
-            } catch (_) {}
-          }
-          return {
-            step_index: idx + 1,
-            timestamp: s.created_at || Date.now(),
-            iso_timestamp: new Date(s.created_at || Date.now()).toISOString(),
-            source: 'vision_memory',
-            session_id: s.trace_id || '',
-            visual_state_id: s.id,
-            description: s.description || '',
-            source_url: s.source_url || '',
-            importance_score: s.importance_score || 0.5,
-            grounded_elements: groundedElements,
-            tags: parsedTags,
-          };
-        });
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 11: create_evidence_pack
+  // ═══════════════════════════════════════════════════════════════════════════
+  server.registerTool(
+    'create_evidence_pack',
+    {
+      title: 'Create Evidence Pack',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+      },
+      description:
+        'Package keyframe IDs, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs ' +
+        'into an immutable, cryptographically hashable evidence pack for compliance and audit trails.',
+      inputSchema: z.object({
+        keyframe_state_ids: z.array(z.string()).describe('Array of keyframe visual state IDs'),
+        source_video_id: z.string().optional().describe('Optional source video ID'),
+        linked_state_memory_nodes: z
+          .object({
+            blocker_ids: z.array(z.string()).optional(),
+            decision_ids: z.array(z.string()).optional(),
+            observation_ids: z.array(z.string()).optional(),
+            task_ids: z.array(z.string()).optional(),
+          })
+          .optional()
+          .describe('State memory node IDs linked to this visual evidence pack'),
+      }),
+    },
+    async (params) => {
+      try {
+        const res = await handleCreateEvidencePack(params);
+        const primaryTargetId =
+          params.linked_state_memory_nodes?.task_ids?.[0] ||
+          params.linked_state_memory_nodes?.decision_ids?.[0] ||
+          params.linked_state_memory_nodes?.blocker_ids?.[0] ||
+          params.linked_state_memory_nodes?.observation_ids?.[0];
+
+        const stateMemoryToolCalls = {
+          instruction:
+            'Please execute state-memory-mcp:manage_nodes (action: "create", type: "artifact") to register this cryptographic visual evidence pack in your state graph ledger.',
+          mcp_tool_call: {
+            server: 'state-memory-mcp',
+            tool: 'manage_nodes',
+            arguments: {
+              action: 'create',
+              type: 'artifact',
+              title: `Visual Evidence Pack: ${res.id}`,
+              status: 'current',
+              metadata: {
+                evidence_pack_id: res.id,
+                payload_hash: res.payload_hash,
+                source_video_id: res.source_video_id,
+                keyframe_count: res.keyframe_state_ids.length,
+                created_at: res.created_at,
+              },
+              tags: ['evidence-pack', 'multimodal-proof', 'audit-trail'],
+            },
+          },
+          ...(primaryTargetId
+            ? {
+                link_tool_call: {
+                  server: 'state-memory-mcp',
+                  tool: 'manage_edges',
+                  arguments: {
+                    action: 'add',
+                    source_id: primaryTargetId,
+                    target_id: 'NEW_ARTIFACT_ID_OR_EVIDENCE_PACK_ID',
+                    type: 'produces',
+                  },
+                },
+              }
+            : {}),
+        };
 
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify(
-                {
-                  trace_id: params.trace_id || 'all',
-                  total_steps: steps.length,
-                  steps,
-                },
+                { ...res, state_memory_tool_calls: stateMemoryToolCalls },
                 null,
                 2
               ),
@@ -1838,129 +1988,15 @@ export function registerAllTools(server: McpServer): void {
       } catch (error: any) {
         return {
           isError: true,
-          content: [
-            { type: 'text', text: `Failed to export joint trajectories: ${error.message}` },
-          ],
+          content: [{ type: 'text', text: `Failed to create evidence pack: ${error.message}` }],
         };
       }
     }
   );
 
-  // 17. Tool: get_metrics
-  server.registerTool(
-    'get_metrics',
-    {
-      title: 'Get Cache & Query Metrics',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Query cache-hit ratio, average visual similarity scores, and token-savings estimates.',
-      inputSchema: z.object({}),
-    },
-    async () => {
-      try {
-        const stats = metricsCollector.getStats();
-        return {
-          content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to get metrics: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 18. Tool: export_snapshot
-  server.registerTool(
-    'export_snapshot',
-    {
-      title: 'Export Snapshot Archive',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Export a named visual snapshot as a full standalone JSON archive containing states, transitions, and metadata.',
-      inputSchema: z.object({
-        name: z.string().describe('Name or ID of visual snapshot checkpoint to export'),
-      }),
-    },
-    async (params) => {
-      try {
-        const archive = await exportSnapshot(params.name);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(archive, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to export snapshot: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 19. Tool: restore_snapshot
-  server.registerTool(
-    'restore_snapshot',
-    {
-      title: 'Restore Snapshot Archive',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-      },
-      description: 'Restore a visual memory snapshot from an exported archive JSON object.',
-      inputSchema: z.object({
-        archive_json: z.string().describe('JSON string of exported SnapshotArchive'),
-      }),
-    },
-    async (params) => {
-      try {
-        const rawParsed = JSON.parse(params.archive_json);
-        const SnapshotArchiveSchema = z.object({
-          version: z.string().optional(),
-          name: z.string().optional(),
-          snapshot: z.object({
-            id: z.string(),
-            name: z.string(),
-            git_branch: z.string().optional(),
-            created_at: z.number().optional(),
-            state_ids: z.string(),
-          }),
-          states: z.array(
-            z.object({
-              id: z.string(),
-              dhash: z.string(),
-              ahash: z.string(),
-              vector: z.array(z.number()),
-              description: z.string(),
-            })
-          ),
-          transitions: z.array(z.any()).optional(),
-        });
-
-        const archive = SnapshotArchiveSchema.parse(rawParsed);
-        const result = await restoreSnapshot(archive as any);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to restore snapshot: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 20. Tool: forget_state
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 14: forget_state
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'forget_state',
     {
@@ -1997,7 +2033,9 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 21. Tool: wait_for_visual_state
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Tool 15: wait_for_visual_state
+  // ═══════════════════════════════════════════════════════════════════════════
   server.registerTool(
     'wait_for_visual_state',
     {
@@ -2008,7 +2046,8 @@ export function registerAllTools(server: McpServer): void {
         idempotentHint: true,
       },
       description:
-        'Poll for a target visual state ID until it exists in memory or timeout occurs, avoiding spinning agent loops.',
+        'Poll for a target visual state ID until it exists in memory or timeout occurs. ' +
+        'Use this to avoid agent spin-loops when waiting for asynchronous screenshots.',
       inputSchema: z.object({
         target_state_id: z.string().describe('Target visual state ID to wait for'),
         timeout_ms: z.number().optional().describe('Maximum timeout in ms (default: 10000)'),
@@ -2034,223 +2073,46 @@ export function registerAllTools(server: McpServer): void {
     }
   );
 
-  // 22. Tool: app_version
-  server.registerTool(
-    'app_version',
-    {
-      title: 'Get Application Version',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Get version, package name, MCP identifier, and server information of vision-memory-mcp.',
-      inputSchema: z.object({}),
-    },
-    async () => {
-      try {
-        const payload = {
-          name: '@putervision/vision-memory-mcp',
-          mcp_name: 'io.github.putervision/vision-memory-mcp',
-          version: VERSION,
-          description:
-            'Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees.',
-          environment: {
-            node_version: process.version,
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Legacy Tool Compatibility Layer (v0.9 -> v1.0)
+  // Activated when VISION_MEMORY_COMPAT=true
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (process.env.VISION_MEMORY_COMPAT === 'true') {
+    for (const [legacyName, mapping] of Object.entries(LEGACY_VISION_TOOL_MAP)) {
+      server.registerTool(
+        legacyName,
+        {
+          title: `[Deprecated] ${legacyName}`,
+          annotations: {
+            readOnlyHint: [
+              'get_metrics',
+              'get_version',
+              'app_version',
+              'get_video_timeline',
+              'list_visual_specs',
+              'diff_visual_snapshots',
+              'search_video_memory',
+            ].includes(legacyName),
+            destructiveHint: false,
+            openWorldHint: false,
           },
-        };
-        return {
-          content: [{ type: 'text', text: JSON.stringify(payload) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to retrieve version: ${error.message}` }],
-        };
-      }
+          description: `[DEPRECATED in vision-memory-mcp v1.0] Legacy alias for ${mapping.tool}. Please migrate to ${mapping.tool}.`,
+          inputSchema: z.record(z.any()) as any,
+        },
+        async (args: any) => {
+          const { tool, transformedArgs } = translateLegacyVisionCall(legacyName, args);
+          const targetTool = (server as any)._registeredTools?.[tool];
+          if (!targetTool) {
+            return {
+              isError: true,
+              content: [
+                { type: 'text', text: `Target tool handler not found for legacy tool: ${tool}` },
+              ],
+            };
+          }
+          return await targetTool.handler(transformedArgs);
+        }
+      );
     }
-  );
-
-  // 23. Tool: ingest_video
-  server.registerTool(
-    'ingest_video',
-    {
-      title: 'Ingest WebM/MP4 Video Recording',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-      },
-      description:
-        'Ingest a WebM or MP4 video file, extract keyframes, deduplicate static intervals with dHash, generate CLIP embeddings and sequence transitions, and save video memory.',
-      inputSchema: z.object({
-        file_path: z.string().optional().describe('Absolute file path to WebM or MP4 video file'),
-        video_data: z.string().optional().describe('Base64 encoded WebM or MP4 video buffer'),
-        fps: z.number().optional().describe('Frame sampling rate per second (default: 1.0)'),
-        scene_threshold: z
-          .number()
-          .optional()
-          .describe('Scene change detection threshold 0.0-1.0 (default: 0.2)'),
-        category: z
-          .string()
-          .optional()
-          .describe('Video category (e.g. playwright_test, screen_recording, bug_repro)'),
-        tags: z.array(z.string()).optional().describe('Array of tags for filtering'),
-        source_agent: z.string().optional().describe('Source agent identifier'),
-        trace_id: z.string().optional().describe('Trace or session correlation ID'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await handleIngestVideo(params);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to ingest video: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 24. Tool: search_video_memory
-  server.registerTool(
-    'search_video_memory',
-    {
-      title: 'Search Video Memory Records',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description: 'Search stored video recordings by description, category, tags, or file path.',
-      inputSchema: z.object({
-        query: z.string().describe('Search query string'),
-        category: z.string().optional().describe('Optional category filter'),
-        limit: z.number().optional().describe('Max results to return (default: 20)'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await handleSearchVideoMemory(params);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to search video memory: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 25. Tool: get_video_timeline
-  server.registerTool(
-    'get_video_timeline',
-    {
-      title: 'Get Video State Timeline',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Fetch chronological keyframe timeline of visual states, timestamps, and metadata for an ingested video ID.',
-      inputSchema: z.object({
-        video_id: z.string().describe('Video record ID (e.g. vid_12345)'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await handleGetVideoTimeline(params);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to get video timeline: ${error.message}` }],
-        };
-      }
-    }
-  );
-
-  // 26. Tool: compare_video_trajectories
-  server.registerTool(
-    'compare_video_trajectories',
-    {
-      title: 'Compare Video Trajectories',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Compare two video recordings (e.g. expected vs failing test video) to calculate visual similarity and pinpoint frame divergence.',
-      inputSchema: z.object({
-        video_a_id: z.string().describe('First video ID'),
-        video_b_id: z.string().describe('Second video ID'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await handleCompareVideoTrajectories(params);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [
-            { type: 'text', text: `Failed to compare video trajectories: ${error.message}` },
-          ],
-        };
-      }
-    }
-  );
-
-  // 27. Tool: create_evidence_pack
-  server.registerTool(
-    'create_evidence_pack',
-    {
-      title: 'Create Immutable Evidence Pack',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: true,
-      },
-      description:
-        'Package keyframe IDs, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs into an immutable, cryptographically hashable evidence pack for compliance & audit trails.',
-      inputSchema: z.object({
-        keyframe_state_ids: z.array(z.string()).describe('Array of keyframe visual state IDs'),
-        source_video_id: z.string().optional().describe('Optional source video ID'),
-        linked_state_memory_nodes: z
-          .object({
-            blocker_ids: z.array(z.string()).optional(),
-            decision_ids: z.array(z.string()).optional(),
-            observation_ids: z.array(z.string()).optional(),
-            task_ids: z.array(z.string()).optional(),
-          })
-          .optional()
-          .describe('State memory node IDs linked to this visual evidence pack'),
-      }),
-    },
-    async (params) => {
-      try {
-        const res = await handleCreateEvidencePack(params);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to create evidence pack: ${error.message}` }],
-        };
-      }
-    }
-  );
+  }
 }

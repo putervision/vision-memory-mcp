@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.9.0';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';
 
 function showHelp() {
   console.log(`
@@ -45,6 +45,7 @@ Commands:
   import <file>      Import visual memory graph from a JSON file
   query <img-path>   Query visual cache for a local screenshot file
   ingest <img-path> <desc> Ingest a local screenshot with a provided layout description
+  tools              List all 15 consolidated MCP tools and descriptions
 
 Options:
   --limit <n>        Limit results for inspect (default: 20)
@@ -222,6 +223,33 @@ async function runCli() {
         console.error(`Unknown video sub-command: ${subAction}. Options: ingest, inspect, list`);
         process.exit(1);
       }
+      break;
+    }
+
+    case 'tools':
+    case 'list-tools': {
+      console.log(`\n📦 @putervision/vision-memory-mcp v${pkgVersion} — 15 Consolidated MCP Tools:\n`);
+      const tools = [
+        ['analyze_screenshot', 'Ingest screenshot(s) (single/batch via items), lookup cache, return layout description & grounded elements'],
+        ['recall_memory', 'Search visual memory by description query or base64 image query (read-only)'],
+        ['record_outcome', 'Save UI action execution outcomes, transitions, or log visual blockers (action_type: "blocker")'],
+        ['get_navigation_paths', 'Find path between visual states using BFS navigation graph'],
+        ['compare_states', 'Compare visual states structurally (layout diff) or compare video recordings (video_a_id/video_b_id)'],
+        ['get_session_context', 'Fetch aggregated visual context, cache hit ratios, token savings metrics, and server version info'],
+        ['manage_snapshot', 'Unified snapshot checkpoints (save, diff, export, restore)'],
+        ['undo_visual_mutation', 'Revert accidental state or transition edge ingestions'],
+        ['predict_next_action', 'Predict best next UI action and target coordinates based on transition success rates & AX tree'],
+        ['manage_visual_spec', 'Visual SDD design contract baseline registration (set), live verification (verify), and listing (list)'],
+        ['manage_video', 'Unified video memory operations for ingestion (ingest), semantic search (search), keyframe timelines (timeline)'],
+        ['create_evidence_pack', 'Create cryptographic, multi-modal evidence pack linking video keyframes, tasks, and visual proof'],
+        ['export_trajectories', 'Export multimodal visual transitions and joint workflow trajectories (json, llava, qwen2_vl, joint)'],
+        ['forget_state', 'Purge a specific state and vector embedding from storage for privacy'],
+        ['wait_for_visual_state', 'Poll for target visual state until present or timeout occurs'],
+      ];
+      tools.forEach(([name, desc], i) => {
+        console.log(`  ${String(i + 1).padStart(2, ' ')}. ${name.padEnd(25, ' ')} : ${desc}`);
+      });
+      console.log();
       break;
     }
 

@@ -165,9 +165,9 @@ describe('Handlers Deep Coverage Suite', () => {
     });
   });
 
-  describe('export_visual_trajectories formats', () => {
+  describe('export_trajectories formats', () => {
     it('should export visual trajectories in llava and qwen2_vl formats', async () => {
-      const tool = toolMap.get('export_visual_trajectories');
+      const tool = toolMap.get('export_trajectories');
       expect(tool).toBeDefined();
 
       const resLlava = await tool!({ format: 'llava' });
@@ -178,7 +178,7 @@ describe('Handlers Deep Coverage Suite', () => {
     });
   });
 
-  describe('undo_last_visual_mutation', () => {
+  describe('undo_visual_mutation', () => {
     it('should undo mutation when a transition exists', async () => {
       const s1 = {
         id: 'undo-s1',
@@ -219,7 +219,7 @@ describe('Handlers Deep Coverage Suite', () => {
       };
       await storage.addTransition(transition);
 
-      const tool = toolMap.get('undo_last_visual_mutation');
+      const tool = toolMap.get('undo_visual_mutation');
       expect(tool).toBeDefined();
 
       const res = await tool!({});

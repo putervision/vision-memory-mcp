@@ -1,3 +1,3 @@
 declare const __APP_VERSION__: string | undefined;
 
-export const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.9.0';
+export const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0';

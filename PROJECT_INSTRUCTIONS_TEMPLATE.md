@@ -20,27 +20,22 @@ This project uses `vision-memory-mcp` to cache visual states, perceptual hashes,
 5. **Transition Tracking**: Call `record_outcome` after interactive steps (clicks, typing, navigation) to record state transitions in the visual graph.
 6. **Privacy Scrubbing**: Call `forget_state` to purge sensitive or secret states from disk storage.
 
-### 2. Available MCP Tools (23 Core Tools)
-- `analyze_screenshot` — Query or ingest visual layout snapshots, returning description & grounded elements
-- `recall_memory` — Search visual memories by text query or perceptual similarity
-- `record_outcome` — Record action and outcome transitions between states
+### 2. Available MCP Tools (15 Core Tools)
+- `analyze_screenshot` — Query or ingest visual layout snapshots (single or batch `items`), returning description & grounded elements
+- `recall_memory` — Search visual memories by text query or perceptual similarity (read-only)
+- `record_outcome` — Record action and outcome transitions between states or log visual blockers (`action_type: 'blocker'`)
 - `get_navigation_paths` — Retrieve shortest navigation paths between visual states
-- `compare_states` — Diff two visual states to detect UI changes
-- `get_session_context` — Retrieve summary context briefing of recent/frequent states
 - `predict_next_action` — Predict optimal next UI action and target coordinates from current state
-- `batch_analyze_screenshots` — Ingest or query up to 20 screenshots in a single batch call
-- `set_visual_spec` — Establish design mockup or screenshot as a Visual Spec baseline contract
-- `verify_visual_spec` — Verify live runtime screenshots against a Visual Spec baseline
-- `get_visual_diff` — Calculate perceptual dHash diff and region deltas between states
-- `save_visual_snapshot` / `diff_visual_snapshots` — Manage visual checkpoints and detect visual regression
-- `undo_last_visual_mutation` — Revert accidental state or transition edge ingestions
-- `create_visual_blocker` — Generate structured visual blocker payload for `state-memory-mcp`
+- `compare_states` — Diff two visual states or compare video trajectories (`video_a_id`/`video_b_id`)
+- `get_session_context` — Retrieve summary context briefing of recent/frequent states, cache metrics, and version info
+- `manage_snapshot` — Unified snapshot management (`save`, `diff`, `export`, `restore`) for visual checkpoints
+- `manage_visual_spec` — Register, verify, and list Visual Spec baseline design contracts (Visual SDD)
+- `manage_video` — Ingest WebM/MP4 recordings, search video keyframes, and retrieve timelines
+- `create_evidence_pack` — Package cryptographic evidence packs linking video keyframes to state-memory DAGs
+- `export_trajectories` — Export multimodal transition & joint workflow trajectories (`json`, `llava`, `qwen2_vl`, `joint`)
+- `undo_visual_mutation` — Revert accidental state or transition edge ingestions
 - `forget_state` — Purge a specific state and vector embedding from storage for privacy
-- `export_visual_trajectories` / `export_joint_trajectories` — Export multimodal transition & joint workflow trajectories
-- `get_metrics` — Query cache hit ratios, token savings estimates, and latency statistics
-- `export_snapshot` / `restore_snapshot` — Export and restore full standalone snapshot archives
 - `wait_for_visual_state` — Poll for target visual state until present or timeout occurs
-- `app_version` — Query server build version, MCP identifier, package name, and runtime environment
 
 ### 3. Agent Auto-Run Permissions
 To allow AI agents to query the visual cache and manage brain images automatically without requesting permission prompts:

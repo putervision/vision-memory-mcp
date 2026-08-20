@@ -3,6 +3,33 @@
 All notable changes to `@putervision/vision-memory-mcp` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-08-19
+
+### Major Release — High-Coherence Tool Consolidation (29 ➔ 15 Tools) & v1.0.0 GA
+
+This major version release optimizes server coherence and eliminates tool disambiguation friction for AI coding agents (such as Cursor, Claude Code, Gemini, and Windsurf), achieving a streamlined 15-tool surface with full backward-compatibility migration documentation.
+
+#### Consolidated 15 Tools Architecture (29 ➔ 15 Tools)
+- **`analyze_screenshot` (Perception & Batch Ingestion)**: Absorbed `batch_analyze_screenshots` into `analyze_screenshot` via the `items` array parameter, providing unified single and batch screenshot ingestion with per-item error isolation.
+- **`manage_visual_spec` (Visual SDD Baseline Contracts)**: Merged `set_visual_spec`, `verify_visual_spec`, and `list_visual_specs` into a single tool with `action: 'set' | 'verify' | 'list'`.
+- **`manage_video` (Unified Video Memory Operations)**: Merged `ingest_video`, `search_video_memory`, and `get_video_timeline` into a single tool with `action: 'ingest' | 'search' | 'timeline'`.
+- **`get_session_context` (Unified Context, Metrics & Version)**: Enriched `get_session_context` to provide recent/frequent states, transition graphs, disk stats, real-time cache hit ratios, token savings estimates, and server version/runtime information (absorbing standalone `get_metrics` and `get_version`).
+- **`compare_states` (Visual Diffs & Video Trajectory Comparison)**: Absorbed `get_visual_diff` and `compare_video_trajectories` into `compare_states`. Returns `has_layout_change`, `layout_delta_ratio`, structural deltas, or video similarity and frame divergence (`video_a_id`, `video_b_id`).
+- **`record_outcome` (Transitions & Visual Blockers)**: Absorbed `create_visual_blocker` into `record_outcome` with `action_type: 'blocker'`, generating structured instructions and visual blocker payloads for `@putervision/state-memory-mcp`.
+- **`manage_snapshot` (Unified Checkpoint Management)**: Merged `save_visual_snapshot`, `diff_visual_snapshots`, `export_snapshot`, and `restore_snapshot` into a single tool with the `action` discriminator (`'save'`, `'diff'`, `'export'`, `'restore'`).
+- **`export_trajectories` (Unified Multimodal Exporter)**: Merged `export_visual_trajectories` and `export_joint_trajectories` into `export_trajectories`, supporting `'json'`, `'llava'`, `'qwen2_vl'`, and `'joint'` formats.
+- **`undo_visual_mutation` (Rollback)**: Cleanly renamed from `undo_last_visual_mutation` with support for state, transition, or any recent mutations.
+
+#### Added & Improved
+- **Official Glama Profile**: Added `glama.json` with MCP server schema, categorization, and keywords.
+- **High-Disambiguation Tool Descriptions**: Calibrated descriptions and input schemas for LLM agent routing.
+- **Test Suite**: Added `tests/unit/consolidated-tools.test.ts` validating all 15 consolidated tools end-to-end (253 / 253 tests passing across 56 test files).
+- **Documentation & Rules Sync**: Synchronized `server.json`, `manifest.json`, `README.md`, `CLAUDE.md`, `docs/api-reference.md`, `docs/index.html`, `docs/llms.txt`, and all IDE rules (`.cursor`, `.gemini`, `.github`, `.vscode`, `.windsurf`).
+
+---
+
 ## [0.9.0] - 2026-08-11
 
 ### Added (Minor Version Release — 29 Core MCP Tools, Video Ingestion & Evidence Packs)

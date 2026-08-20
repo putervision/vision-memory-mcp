@@ -7,6 +7,7 @@ import {
   registerProject,
   unregisterProject,
   getProjectFromRegistry,
+  getRegistryPath,
   REGISTRY_PATH,
 } from '../../src/core/registry.js';
 import { MemoryCache, getCurrentBranch } from '../../src/core/cache.js';
@@ -38,21 +39,24 @@ describe('Core Extra Coverage Suite', () => {
   });
 
   describe('registry.ts', () => {
-    const testRegistryFile = path.join(os.homedir(), '.vision-memory-mcp', 'projects.json');
-    let backupContent: string | null = null;
+    let tmpDir: string;
+    let origEnvReg: string | undefined;
 
     beforeEach(() => {
-      if (fs.existsSync(testRegistryFile)) {
-        backupContent = fs.readFileSync(testRegistryFile, 'utf-8');
-      }
+      origEnvReg = process.env.VISION_MEMORY_REGISTRY_PATH;
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vis-core-extra-reg-'));
+      process.env.VISION_MEMORY_REGISTRY_PATH = path.join(tmpDir, 'projects.json');
     });
 
     afterEach(() => {
-      if (backupContent !== null) {
-        fs.writeFileSync(testRegistryFile, backupContent);
-      } else if (fs.existsSync(testRegistryFile)) {
+      if (origEnvReg !== undefined) {
+        process.env.VISION_MEMORY_REGISTRY_PATH = origEnvReg;
+      } else {
+        delete process.env.VISION_MEMORY_REGISTRY_PATH;
+      }
+      if (fs.existsSync(tmpDir)) {
         try {
-          fs.unlinkSync(testRegistryFile);
+          fs.rmSync(tmpDir, { recursive: true, force: true });
         } catch {}
       }
     });
@@ -76,8 +80,9 @@ describe('Core Extra Coverage Suite', () => {
     });
 
     it('should handle corrupt registry file gracefully', () => {
-      fs.mkdirSync(path.dirname(testRegistryFile), { recursive: true });
-      fs.writeFileSync(testRegistryFile, '{ invalid json');
+      const regPath = getRegistryPath();
+      fs.mkdirSync(path.dirname(regPath), { recursive: true });
+      fs.writeFileSync(regPath, '{ invalid json');
       const reg = getRegistry();
       expect(typeof reg).toBe('object');
     });

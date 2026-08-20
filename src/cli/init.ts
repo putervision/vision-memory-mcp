@@ -5,6 +5,7 @@ import { registerProject, getRegistry, unregisterProject } from '../core/registr
 
 function getInstructionsTemplate(): string {
   return `
+<!-- vision-memory-mcp:start -->
 ## Visual Memory (vision-memory-mcp)
 
 This project utilizes \`vision-memory-mcp\` to cache visual states, record layout transitions, provide element grounding, and avoid repetitive LLM vision calls.
@@ -19,24 +20,22 @@ This project utilizes \`vision-memory-mcp\` to cache visual states, record layou
 5. **Transitions**: Call \`record_outcome\` after every click/type/scroll action to construct navigation paths.
 6. **Privacy & Cleanup**: Call \`forget_state\` to purge sensitive or secret states from storage.
 
-### 2. Tool Reference Summary (23 Core MCP Tools)
-* \`analyze_screenshot\`: Ingest screenshot, lookup cache, return layout description and grounded elements.
-* \`recall_memory\`: Search visual memory by description query or base64 image query.
-* \`record_outcome\`: Save UI action execution outcomes and transitions between states.
+### 2. Tool Reference Summary (15 Core MCP Tools)
+* \`analyze_screenshot\`: Ingest screenshot(s) (single or batch via \`items\`), lookup cache, return layout description and grounded elements.
+* \`recall_memory\`: Search visual memory by description query or base64 image query (read-only).
+* \`record_outcome\`: Save UI action execution outcomes, transitions, or log visual blockers (\`action_type: 'blocker'\`).
 * \`get_navigation_paths\`: Find path between states using BFS navigation graph.
-* \`compare_states\`: Compare two visual states structurally and vector-semantically.
-* \`get_session_context\`: Fetch recent states, frequent states, and transitions.
-* \`predict_next_action\`: Predict best next UI action and target coordinates based on transition success rates.
-* \`batch_analyze_screenshots\`: Process multiple screenshots in a single batch call.
-* \`set_visual_spec\` / \`verify_visual_spec\` / \`get_visual_diff\`: UI compliance testing and mockup verification.
-* \`save_visual_snapshot\` / \`diff_visual_snapshots\`: Manage visual checkpoints and detect visual regression.
-* \`undo_last_visual_mutation\`: Revert accidental state or transition edge ingestions.
+* \`predict_next_action\`: Predict best next UI action and target coordinates based on transition success rates and AX tree grounding.
+* \`compare_states\`: Compare visual states structurally (\`has_layout_change\`) or compare video recordings (\`video_a_id\`/\`video_b_id\`).
+* \`get_session_context\`: Fetch aggregated visual context, recent/frequent states, transitions, cache hit ratios, token savings metrics, and server version info.
+* \`manage_snapshot\`: Unified snapshot management (\`save\`, \`diff\`, \`export\`, \`restore\`) for visual checkpoints and regression detection.
+* \`manage_visual_spec\`: Visual SDD design contract baseline registration (\`set\`), live verification (\`verify\`), and listing (\`list\`).
+* \`manage_video\`: Unified video memory operations for ingestion (\`ingest\`), semantic search (\`search\`), and keyframe timelines (\`timeline\`).
+* \`create_evidence_pack\`: Create cryptographic, multi-modal evidence pack linking video keyframes, state graph tasks, and visual proof.
+* \`export_trajectories\`: Export multimodal visual transitions and joint workflow trajectories (\`json\`, \`llava\`, \`qwen2_vl\`, \`joint\`).
+* \`undo_visual_mutation\`: Revert accidental state or transition edge ingestions.
 * \`forget_state\`: Purge a specific state and vector embedding from storage for privacy.
-* \`export_visual_trajectories\` / \`export_joint_trajectories\`: Export multimodal transition & joint workflow trajectories.
-* \`get_metrics\`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
-* \`export_snapshot\` / \`restore_snapshot\`: Export and restore full standalone snapshot archives.
 * \`wait_for_visual_state\`: Poll for target visual state until present or timeout occurs.
-* \`app_version\`: Query server build version, MCP identifier, package name, and runtime environment.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
@@ -45,6 +44,7 @@ To allow cache query and ingestion commands to run automatically without prompti
   * \`"read_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow reading captured screenshots)
   * \`"write_file(.*\\\\.gemini/antigravity/brain/.*)"\` (Allow saving visual states)
 * **VS Code / Cursor IDE (\`settings.json\`)**: Ensure the agent has execution permissions for \`command(vision-memory-mcp)\` and read/write access to the workspace's local \`.vision-memory-mcp/\` cache directory.
+<!-- vision-memory-mcp:end -->
 `;
 }
 
@@ -130,8 +130,20 @@ function upsertInstructionBlock(
     return { updatedContent, status: 'updated' };
   }
 
-  if (content.includes('vision-memory-mcp')) {
-    return { updatedContent: content, status: 'unchanged' };
+  // Upgrade legacy unbracketed section
+  const legacyHeading = '## Visual Memory (vision-memory-mcp)';
+  const legacyIndex = content.indexOf(legacyHeading);
+  if (legacyIndex !== -1) {
+    const afterLegacy = content.substring(legacyIndex);
+    const nextSectionMatch = afterLegacy.slice(legacyHeading.length).search(/\n(?=<!--|## )/);
+    const legacyEndIndex =
+      nextSectionMatch !== -1
+        ? legacyIndex + legacyHeading.length + nextSectionMatch
+        : content.length;
+    const before = content.substring(0, legacyIndex);
+    const after = content.substring(legacyEndIndex);
+    const updatedContent = `${before}${newBlock.trim()}\n\n${after.trimStart()}`;
+    return { updatedContent, status: 'updated' };
   }
 
   const separator = content.endsWith('\n') ? '\n' : '\n\n';
@@ -283,25 +295,27 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 4. **Cache Hit**: If \`is_known\` is \`true\`, read the returned \`description\` and do NOT call your vision LLM.
 5. **Cache Miss**: If \`is_known\` is \`false\`, inspect the image with your vision model, summarize the layout, and register it back by calling \`analyze_screenshot\` with both the \`screenshot\` and \`description\` parameters.
 6. **Log Transitions**: Right after taking any UI action (click, type, navigate, scroll), call \`record_outcome\` to build the navigation graph.
-7. **Snapshotting**: Call \`save_visual_snapshot\` when reaching milestones, and \`diff_visual_snapshots\` to check for visual regressions.
+7. **Snapshotting**: Call \`manage_snapshot\` (\`action: "save"\`) when reaching milestones, and \`manage_snapshot\` (\`action: "diff"\`) to check for visual regressions.
 
 ### 2. Complete Tool Reference
 
 | Tool Name | Key Inputs | Description |
 |-----------|------------|-------------|
-| \`analyze_screenshot\` | \`screenshot\` (base64), \`description\`?, \`accessibility_tree\`?, \`tags\`?, \`force_refresh\`? | Main ingestion and visual state retrieval tool. |
-| \`recall_memory\` | \`query\`?, \`screenshot\`?, \`strategy\`?, \`limit\`?, \`include_transitions\`? | Search visual memory by text query or image query. |
-| \`record_outcome\` | \`from_state_id\`, \`to_state_id\`?, \`to_screenshot\`?, \`action\`, \`success\`, \`notes\`? | Record UI action outcomes to build the navigation graph. |
+| \`analyze_screenshot\` | \`screenshot\`? (base64), \`file_path\`?, \`description\`?, \`items\`? | Main ingestion (single or batch) and visual state retrieval tool. |
+| \`recall_memory\` | \`query\`?, \`screenshot\`?, \`file_path\`?, \`strategy\`?, \`limit\`? | Search visual memory by text query or image query (read-only). |
+| \`record_outcome\` | \`from_state_id\`, \`to_state_id\`?, \`action\`, \`action_type\`? ('blocker' \\| 'click' \\| etc.) | Record UI action transitions or log visual blockers for state-memory. |
 | \`get_navigation_paths\` | \`from_state_id\`?, \`to_state_id\`?, \`to_description\`?, \`max_hops\`? | Find historical path or instructions between states. |
-| \`compare_states\` | \`state_a_id\`, \`state_b_id\` | Compare two states visually (hash distance) and semantically. |
-| \`get_session_context\` | \`include_recent\`?, \`include_frequent\`? | Get recent/frequent states and current database statistics. |
-| \`save_visual_snapshot\` | \`name\`, \`description\`? | Save current visual memory states as a named checkpoint. |
-| \`diff_visual_snapshots\` | \`snapshot_a_name\`, \`snapshot_b_name\` | Compare two checkpoints to detect additions or visual regressions. |
-| \`undo_last_visual_mutation\` | \`type\`? ('state' \\| 'transition' \\| 'any') | Revert the last state ingestion or transition edge addition. |
-| \`predict_next_action\` | \`current_state_id\`, \`goal_description\`? | Predict best next UI action and target coordinates. |
-| \`set_visual_spec\` / \`verify_visual_spec\` | \`name\`, \`screenshot\` | Register and verify visual design contract baselines. |
+| \`predict_next_action\` | \`current_state_id\`, \`goal_description\`?, \`goal_state_id\`? | Predict best next UI action and grounded element handles (\`target_selector\`, \`target_coords\`). |
+| \`compare_states\` | \`state_a_id\` & \`state_b_id\` OR \`video_a_id\` & \`video_b_id\` | Compare two states visually (\`has_layout_change\`) or compare video runs. |
+| \`get_session_context\` | \`include_recent\`?, \`include_frequent\`? | Get recent/frequent states, transition graphs, disk stats, cache metrics, and version info. |
+| \`manage_snapshot\` | \`action\` ('save' \\| 'diff' \\| 'export' \\| 'restore'), \`name\`?, \`archive_json\`? | Unified snapshot management for visual checkpoints and regression detection. |
+| \`manage_visual_spec\` | \`action\` ('set' \\| 'verify' \\| 'list'), \`name\`?, \`screenshot\`?, \`tolerance\`? | Register and verify visual design contract baselines (Visual SDD). |
+| \`manage_video\` | \`action\` ('ingest' \\| 'search' \\| 'timeline'), \`file_path\`?, \`query\`?, \`video_id\`? | Ingest WebM/MP4 recordings, search video keyframes, or retrieve timelines. |
+| \`create_evidence_pack\` | \`keyframe_state_ids\`, \`source_video_id\`?, \`linked_state_memory_nodes\`? | Package immutable evidence packs linking video keyframes to state-memory DAGs. |
+| \`export_trajectories\` | \`format\`? ('json' \\| 'llava' \\| 'qwen2_vl' \\| 'joint'), \`trace_id\`? | Export multimodal trajectories for model fine-tuning or joint workflow exports. |
+| \`undo_visual_mutation\` | \`type\`? ('state' \\| 'transition' \\| 'any') | Revert the last visual state ingestion or transition edge addition. |
 | \`forget_state\` | \`state_id\` | Purge a specific state and vector embedding for privacy. |
-| \`export_visual_trajectories\` | \`git_branch\`?, \`format\`? | Export multimodal trajectories for local model fine-tuning. |
+| \`wait_for_visual_state\` | \`target_state_id\`, \`timeout_ms\`? | Poll for target visual state until present or timeout occurs. |
 
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:
@@ -601,10 +615,10 @@ Use video ingestion whenever you encounter:
 
 When diagnosing bugs or linking test runs to task nodes:
 
-1. **Ingest Video**: Call \`ingest_video\` with file path and action timestamps.
+1. **Ingest Video**: Call \`manage_video\` (\`action: "ingest"\`) with file path and action timestamps.
 2. **Extract Evidence Payload**: Read the returned \`evidence_payload\` containing \`source_video_id\`, \`frame_range\`, and \`timestamps_ms\`.
 3. **Build Evidence Pack**: Call \`create_evidence_pack\` linking \`keyframe_state_ids\` with \`state-memory-mcp\` task or blocker node IDs.
-4. **Compare Trajectories (On Failure)**: Call \`compare_video_trajectories(video_a_id, video_b_id)\` to pinpoint exact frame divergence points.
+4. **Compare Trajectories (On Failure)**: Call \`compare_states(video_a_id: "...", video_b_id: "...")\` to pinpoint exact frame divergence points.
 
 ---
 
@@ -626,12 +640,12 @@ vision-memory-mcp video list
 
 ---
 
-## 5. MCP Tool Reference (5 Core Video Tools)
+## 5. Consolidated Video MCP Tools Reference
 
-- \`ingest_video\`: Ingests video file/base64, extracts keyframes, dHash deduplicates, and generates CLIP vector embeddings.
-- \`get_video_timeline\`: Fetches step-by-step keyframes, exact timestamps (\`timestamp_ms\`), OCR snippets, and grounded target handles.
-- \`compare_video_trajectories\`: Calculates similarity score between two recordings and pinpoints exact timestamp divergence.
-- \`search_video_memory\`: Searches video memory by description query, category, tags, or file path.
+- \`manage_video\` (\`action: "ingest"\`): Ingests video file/base64, extracts keyframes, dHash deduplicates, and generates CLIP vector embeddings.
+- \`manage_video\` (\`action: "timeline"\`): Fetches step-by-step keyframes, exact timestamps (\`timestamp_ms\`), OCR snippets, and grounded target handles.
+- \`manage_video\` (\`action: "search"\`): Searches video memory by description query, category, tags, or file path.
+- \`compare_states\` (\`video_a_id\`, \`video_b_id\`): Calculates similarity score between two recordings and pinpoints exact timestamp divergence.
 - \`create_evidence_pack\`: Produces an immutable, cryptographically hashable evidence pack payload linking keyframes to task graph nodes.
 `;
 }

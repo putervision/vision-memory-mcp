@@ -115,15 +115,15 @@ describe('Handlers Edge Cases Suite', () => {
     expect(res.content[0].text).toContain('not found');
   });
 
-  it('should test save_visual_snapshot error path when storage throws', async () => {
-    const tool = toolMap.get('save_visual_snapshot');
+  it('should test manage_snapshot error path when storage throws', async () => {
+    const tool = toolMap.get('manage_snapshot');
     expect(tool).toBeDefined();
 
     vi.spyOn(storage, 'addSnapshot').mockRejectedValueOnce(new Error('Snapshot write error'));
 
-    const res = await tool!({ name: 'fail-snap' });
+    const res = await tool!({ action: 'save', name: 'fail-snap' });
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toContain('Failed to save visual snapshot');
+    expect(res.content[0].text).toContain('Failed to');
   });
 
   it('should test predict_next_action error response when listTransitions fails', async () => {

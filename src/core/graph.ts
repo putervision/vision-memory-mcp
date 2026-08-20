@@ -87,7 +87,7 @@ export async function findNavigationPaths(params: {
   const branch = getCurrentBranch();
 
   // Find target state IDs
-  let targetStateIds: string[] = [];
+  const targetStateIds: string[] = [];
   if (params.toStateId) {
     targetStateIds.push(params.toStateId);
   } else if (params.toDescription) {

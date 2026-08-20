@@ -1061,7 +1061,7 @@ export class StorageManager {
   async createVectorIndex(): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
 
-    const count = (await this.statesTable.query().toArray()).length;
+    const count = await this.countStates();
     if (count < 256) {
       logger.info(
         `Skipping vector index creation. Current row count (${count}) is too low (requires ~256+ rows for training).`

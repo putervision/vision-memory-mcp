@@ -186,8 +186,8 @@ describe('Handlers Coverage Suite', () => {
     expect(res.content[0].text).toContain('memory_stats');
   });
 
-  it('should test batch_analyze_screenshots tool', async () => {
-    const tool = toolMap.get('batch_analyze_screenshots');
+  it('should test analyze_screenshot in batch mode', async () => {
+    const tool = toolMap.get('analyze_screenshot');
     expect(tool).toBeDefined();
 
     const res = await tool!({
@@ -197,24 +197,25 @@ describe('Handlers Coverage Suite', () => {
     expect(res.content[0].text).toContain('batch_count');
   });
 
-  it('should test set_visual_spec and verify_visual_spec tools', async () => {
-    const setTool = toolMap.get('set_visual_spec');
-    const verifyTool = toolMap.get('verify_visual_spec');
+  it('should test manage_visual_spec tool for set, verify, and list', async () => {
+    const specTool = toolMap.get('manage_visual_spec');
+    expect(specTool).toBeDefined();
 
-    expect(setTool).toBeDefined();
-    expect(verifyTool).toBeDefined();
-
-    await setTool!({ name: 'Checkout Spec', screenshot: dummyBase64 });
-    const verifyRes = await verifyTool!({
+    await specTool!({ action: 'set', name: 'Checkout Spec', screenshot: dummyBase64 });
+    const verifyRes = await specTool!({
+      action: 'verify',
       spec_name: 'Checkout Spec',
       screenshot: dummyBase64,
       tolerance: 0.1,
     });
 
     expect(verifyRes.content[0].text).toContain('Checkout Spec');
+
+    const listRes = await specTool!({ action: 'list' });
+    expect(listRes.content[0].text).toContain('Checkout Spec');
   });
 
-  it('should test get_visual_diff tool', async () => {
+  it('should test compare_states as visual diff tool', async () => {
     const s1 = {
       id: 'diff-s1',
       dhash: '0000000000000000000000000000000000000000000000000000000000000000',
@@ -260,11 +261,11 @@ describe('Handlers Coverage Suite', () => {
     await storage.addState(s1);
     await storage.addState(s2);
 
-    const tool = toolMap.get('get_visual_diff');
+    const tool = toolMap.get('compare_states');
     expect(tool).toBeDefined();
 
-    const res = await tool!({ state_id_a: 'diff-s1', state_id_b: 'diff-s2' });
-    expect(res.content[0].text).toContain('dhash_distance');
+    const res = await tool!({ state_a_id: 'diff-s1', state_b_id: 'diff-s2' });
+    expect(res.content[0].text).toContain('has_layout_change');
   });
 
   it('should test forget_state tool', async () => {
@@ -298,17 +299,16 @@ describe('Handlers Coverage Suite', () => {
     expect(res.content[0].text).toContain('purged');
   });
 
-  it('should test export_snapshot and restore_snapshot tools', async () => {
-    const exportTool = toolMap.get('export_snapshot');
-    const restoreTool = toolMap.get('restore_snapshot');
-    const saveSnapTool = toolMap.get('save_visual_snapshot');
+  it('should test manage_snapshot export and restore actions', async () => {
+    const tool = toolMap.get('manage_snapshot');
+    expect(tool).toBeDefined();
 
-    await saveSnapTool!({ name: 'snap-for-archive' });
+    await tool!({ action: 'save', name: 'snap-for-archive' });
 
-    const exportRes = await exportTool!({ name: 'snap-for-archive' });
+    const exportRes = await tool!({ action: 'export', name: 'snap-for-archive' });
     expect(exportRes.content[0].text).toContain('snapshot');
 
-    const restoreRes = await restoreTool!({ archive_json: exportRes.content[0].text });
+    const restoreRes = await tool!({ action: 'restore', archive_json: exportRes.content[0].text });
     expect(restoreRes.content[0].text).toContain('restored_states');
   });
 

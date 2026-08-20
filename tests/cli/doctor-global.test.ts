@@ -12,8 +12,11 @@ describe('Vision Memory Global Doctor CLI Tests', () => {
   );
   const project1Path = path.join(tmpDir, 'project1');
   const project2Path = path.join(tmpDir, 'project2');
+  let origEnvReg: string | undefined;
 
   beforeEach(() => {
+    origEnvReg = process.env.VISION_MEMORY_REGISTRY_PATH;
+    process.env.VISION_MEMORY_REGISTRY_PATH = path.join(tmpDir, 'projects.json');
     fs.mkdirSync(project1Path, { recursive: true });
     fs.mkdirSync(project2Path, { recursive: true });
     fs.mkdirSync(path.join(project1Path, '.vision-memory-mcp'), { recursive: true });
@@ -27,6 +30,11 @@ describe('Vision Memory Global Doctor CLI Tests', () => {
     unregisterProject('doctor-proj1-test');
     unregisterProject('doctor-proj2-test');
     unregisterProject('stale-doctor-test');
+    if (origEnvReg !== undefined) {
+      process.env.VISION_MEMORY_REGISTRY_PATH = origEnvReg;
+    } else {
+      delete process.env.VISION_MEMORY_REGISTRY_PATH;
+    }
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     } catch {}

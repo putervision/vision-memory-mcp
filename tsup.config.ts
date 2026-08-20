@@ -12,6 +12,11 @@ export default defineConfig({
   shims: false,
   minify: false,
   splitting: false,
+  external: [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.optionalDependencies || {}),
+    ...Object.keys(pkg.peerDependencies || {}),
+  ],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

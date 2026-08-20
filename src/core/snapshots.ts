@@ -10,7 +10,11 @@ import { VERSION } from '../utils/version.js';
 /**
  * Save current visual states as a named checkpoint snapshot.
  */
-export async function saveSnapshot(name: string, description?: string): Promise<VisualSnapshot> {
+export async function saveSnapshot(
+  name: string,
+  description?: string,
+  options?: { state_memory_snapshot_id?: string; state_memory_milestone_id?: string }
+): Promise<VisualSnapshot> {
   const branch = getCurrentBranch();
   logger.info(`Saving visual snapshot: "${name}" on branch "${branch}"`);
 
@@ -30,6 +34,8 @@ export async function saveSnapshot(name: string, description?: string): Promise<
     git_branch: branch,
     created_at: Date.now(),
     state_ids: JSON.stringify(stateIds),
+    state_memory_snapshot_id: options?.state_memory_snapshot_id,
+    state_memory_milestone_id: options?.state_memory_milestone_id,
   };
 
   await storage.addSnapshot(snapshot);

@@ -56,10 +56,10 @@ Before you begin, ensure you have the following installed locally:
   - `graph.ts`: UI transition graph recording and BFS navigation pathfinding.
   - `snapshots.ts`: Checkpointing and snapshot diffing logic.
   - `image-pipeline.ts`: Image resizing, 512-alignment, and thumbnail generation.
-- **`src/tools/handlers.ts`**: Implementations for all 23 MCP tools.
+- **`src/tools/handlers.ts`**: Implementations for all 15 MCP tools.
 - **`src/vision/analyzer.ts`**: Optional L4 vision model fallback describer.
 - **`docs/`**: Project landing page website and interactive ROI calculator.
-- **`tests/`**: Vitest unit test suite.
+- **`tests/`**: Vitest unit test suite (69 test files, 300 tests).
 
 ---
 

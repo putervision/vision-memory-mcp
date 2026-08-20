@@ -1,34 +1,44 @@
 
+<!-- vision-memory-mcp:start -->
 ## Visual Memory (vision-memory-mcp)
 
-This project utilizes `vision-memory-mcp` to cache visual states, record layout transitions, and avoid repetitive LLM vision calls.
+This project utilizes `vision-memory-mcp` to cache visual states, record layout transitions, provide element grounding, and avoid repetitive LLM vision calls.
 
 ### 1. Mandatory Workflow & Priority
-1. **Orient**: Call `get_session_context` to align your state context at the start of work.
+1. **Orient**: Call `get_session_context` to align your visual state context at the start of work.
 2. **Search**: Call `recall_memory` (text/image search) before recreating duplicate UI state paths.
 3. **Ingest/Verify**: ALWAYS call `analyze_screenshot` before querying any front-end vision models.
-   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context.
+   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context and use `grounded_elements` (selectors, coordinates) for action target selection.
    - **Cache Miss (`is_known: false`)**: Query your vision model, then run `analyze_screenshot` with both the image and description to seed the cache.
-4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
-5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
+4. **Action Target Execution**: Use `predict_next_action` to retrieve `grounded_target` handles (`target_selector`, `target_coords`) for deterministic UI clicks and typing.
+5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
+6. **Privacy & Cleanup**: Call `forget_state` to purge sensitive or secret states from storage.
 
-### 2. Tool Reference Summary
-* `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description.
-* `recall_memory`: Search visual memory by description query or base64 image query.
-* `record_outcome`: Save UI action execution outcomes and transitions between states.
+### 2. Tool Reference Summary (15 Core MCP Tools)
+* `analyze_screenshot`: Ingest screenshot(s) (single or batch via `items`), lookup cache, return layout description and grounded elements.
+* `recall_memory`: Search visual memory by description query or base64 image query (read-only).
+* `record_outcome`: Save UI action execution outcomes, transitions, or log visual blockers (`action_type: 'blocker'`).
 * `get_navigation_paths`: Find path between states using BFS navigation graph.
-* `compare_states`: Compare two visual states structurally and vector-semantically.
-* `get_session_context`: Fetch recent states, frequent states, and transitions.
-* `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
-* `undo_last_visual_mutation`: Revert the last visual mutation.
+* `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates and AX tree grounding.
+* `compare_states`: Compare visual states structurally (`has_layout_change`) or compare video recordings (`video_a_id`/`video_b_id`).
+* `get_session_context`: Fetch aggregated visual context, recent/frequent states, transitions, cache hit ratios, token savings metrics, and server version info.
+* `manage_snapshot`: Unified snapshot management (`save`, `diff`, `export`, `restore`) for visual checkpoints and regression detection.
+* `manage_visual_spec`: Visual SDD design contract baseline registration (`set`), live verification (`verify`), and listing (`list`).
+* `manage_video`: Unified video memory operations for ingestion (`ingest`), semantic search (`search`), and keyframe timelines (`timeline`).
+* `create_evidence_pack`: Create cryptographic, multi-modal evidence pack linking video keyframes, state graph tasks, and visual proof.
+* `export_trajectories`: Export multimodal visual transitions and joint workflow trajectories (`json`, `llava`, `qwen2_vl`, `joint`).
+* `undo_visual_mutation`: Revert accidental state or transition edge ingestions.
+* `forget_state`: Purge a specific state and vector embedding from storage for privacy.
+* `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
 
-### 3. Agent Permissions & Auto-Run Configuration
+#### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
 * **Google Antigravity (`~/.gemini/config/config.json`)**: Add these rules to your `"globalPermissionGrants"` -> `"allow"` list:
   * `"command(vision-memory-mcp)"` (Allow running the CLI without parameters prompts)
   * `"read_file(.*\\.gemini/antigravity/brain/.*)"` (Allow reading captured screenshots)
   * `"write_file(.*\\.gemini/antigravity/brain/.*)"` (Allow saving visual states)
 * **VS Code / Cursor IDE (`settings.json`)**: Ensure the agent has execution permissions for `command(vision-memory-mcp)` and read/write access to the workspace's local `.vision-memory-mcp/` cache directory.
+<!-- vision-memory-mcp:end -->
 
 ## State Memory (state-memory-mcp)
 
@@ -36,32 +46,32 @@ This project tracks workflow state, tasks, design decisions, and blockers using 
 
 ### 1. Priority Order
 Before doing any coding or investigation:
-1. `start_session` — Start a tracking session for full change attribution.
-2. `get_project_summary` — Run to understand current project state, active branches, and overall progress.
-3. `next_tasks` — Query prioritized runnable tasks.
-4. `find_blockers` — Identify any active blockers preventing progress.
-5. `list_nodes` — Find pending tasks, past decisions, or milestones.
-6. `trace_dependencies` — Trace what depends on or blocks a task.
+1. `manage_sessions` — Start a tracking session (`action: "start", agent_id: "..."`).
+2. `get_analytics` — Run `action: "summary"` to understand project state, active branches, and progress.
+3. `manage_tasks` — Query prioritized runnable tasks (`action: "next"`).
+4. `manage_tasks` — Identify active blockers (`action: "find_blockers"`).
+5. `manage_nodes` — Find pending tasks, past decisions, or milestones (`action: "list"` or `action: "search"`).
+6. `query_graph` — Trace dependencies or extract subgraphs (`action: "trace"` or `action: "subgraph"`).
 
 ### 2. When to Write to the Graph
 You MUST update the graph as you work:
-- **Starting a session**: Always call `start_session(agent_id: "my-agent")` to track all mutations under a unique session.
-- **Starting a new task**: Create a node with `add_node(type: "task", title: "...", session_id: session_id)`.
-- **Making a design or implementation decision**: Document it with `add_node(type: "decision", title: "...", metadata: { "rationale": "..." }, session_id: session_id)`.
-- **Encountering a blocker**: Record the blocker with `add_node(type: "blocker", ..., session_id: session_id)` and connect it using `add_edge(type: "blocks", source_id: blocker_id, target_id: task_id, session_id: session_id)`.
-- **Adding observation notes**: Atomically log notes using `add_note(text: "...", attach_to: node_id)`.
-- **Batch updates**: Bulk update tasks/nodes using `batch_update(ids: ["..."], status: "done")`.
-- **Completing a task**: Update status to done using `update_node(id: task_id, status: "done", session_id: session_id)`.
-- **Creating/generating a new file**: Create an artifact node with `add_node(type: "artifact", ..., session_id: session_id)` and connect it using `add_edge(type: "produces", ..., session_id: session_id)`.
+- **Starting a session**: Always call `manage_sessions(action: "start", agent_id: "...")`.
+- **Starting a new task**: Create a node with `manage_nodes(action: "create", type: "task", title: "...")`.
+- **Making a decision**: Document it with `manage_nodes(action: "create", type: "decision", title: "...", metadata: { rationale: "..." })`.
+- **Encountering a blocker**: Record the blocker with `manage_nodes(action: "create", type: "blocker", ...)` and connect it with `manage_edges(action: "add", type: "blocks", source_id: blocker_id, target_id: task_id)`.
+- **Adding observation notes**: Atomically log notes using `manage_nodes(action: "add_note", text: "...", attach_to: node_id)`.
+- **Batch updates**: Bulk update tasks/nodes using `manage_nodes(action: "batch_update", ids: ["..."], status: "done")`.
+- **Completing a task**: Mark done and link artifacts/visual proof with `manage_tasks(action: "complete", task_id: "...")`.
+- **Creating a new file**: Create an artifact node with `manage_nodes(action: "create", type: "artifact", ...)` and connect it using `manage_edges(action: "add", type: "produces", ...)`.
 
 ### 3. Workflow Pattern
-1. **Start of session**: Call `start_session` to align and track work, then run `get_project_summary`, `next_tasks`, and `find_blockers`.
+1. **Start of session**: Call `manage_sessions(action: "start")`, then run `get_analytics(action: "summary")` and `manage_tasks(action: "next")`.
 2. **Task decomposition**: Decompose user requests into tasks and add them to the graph.
-3. **Execution**: Mark tasks as "in_progress", document design decisions as they occur, and log blockers if you hit any obstacles.
-4. **Validation & Resolution**: Run `validate_graph` to ensure no cycles/orphans/contradictions, mark tasks as "done", document completed artifacts, and resolve blockers. Call `end_session` to finalize.
+3. **Execution**: Mark tasks as "in_progress", document design decisions, and log blockers if you hit any obstacles.
+4. **Validation & Resolution**: Run `run_diagnostics(action: "validate")`, mark tasks as "done" via `manage_tasks(action: "complete")`, and call `manage_sessions(action: "end")`.
 
 ### 4. Codebase Seeding on Initialization
-If the project was just initialized or is missing high-level structure (Plans, Milestones, Decisions):
+If the project is missing high-level structure (Plans, Milestones, Decisions):
 1. **Inspect the Codebase**: Read the README and core files to understand the roadmap and architecture.
-2. **Scaffold the Roadmap**: Create a `plan` node (e.g., "Project Roadmap") and add `milestone` nodes representing key target phases, connecting them using `part_of` edges.
-3. **Scaffold Architecture**: Create `decision` nodes representing core technical choices (e.g., choice of databases, frameworks) and link them to the milestones/tasks using `decided_in` edges.
+2. **Scaffold the Roadmap**: Create a `plan` node and `milestone` nodes representing key target phases, connecting them using `part_of` edges.
+3. **Scaffold Architecture**: Create `decision` nodes representing core technical choices and link them using `decided_in` edges.

@@ -35,8 +35,15 @@ export function compressAccessibilityTree(treeJson: string): string {
       const role = (node.role || node.type || '').toLowerCase();
       const children = node.children ? filterNode(node.children) : undefined;
       const isInteractive = interactiveRoles.has(role);
+      const hasTextContent = Boolean(
+        (node.name || node.label || node.text || '').toString().trim()
+      );
 
-      if (isInteractive || (children && (Array.isArray(children) ? children.length > 0 : true))) {
+      if (
+        isInteractive ||
+        hasTextContent ||
+        (children && (Array.isArray(children) ? children.length > 0 : true))
+      ) {
         const cleanNode: any = {};
         if (node.role) cleanNode.role = node.role;
         if (node.name || node.label || node.text)
@@ -84,8 +91,12 @@ function compareAccessTrees(tree1?: string, tree2?: string): boolean {
   }
 }
 
-function distanceToSimilarity(dist: number): number {
-  const similarity = 1 - dist / 2;
+/**
+ * Convert LanceDB cosine distance (1 - cos(theta)) to similarity score [0, 1].
+ * For cosine metric, distance = 1 - similarity, so similarity = 1 - distance.
+ */
+export function distanceToSimilarity(dist: number): number {
+  const similarity = 1 - dist;
   return Math.max(0, Math.min(1, similarity));
 }
 
@@ -185,10 +196,10 @@ export async function retrieveState(params: {
       // Retrieve state hashes across primary and sub-directory databases (lightweight projection)
       let allStateHashes = await storage.listStateHashesAll(
         `git_branch = '${escapeSql(branch)}'`,
-        1000
+        10000
       );
       if (allStateHashes.length === 0) {
-        allStateHashes = await storage.listStateHashesAll(undefined, 1000);
+        allStateHashes = await storage.listStateHashesAll(undefined, 10000);
       }
 
       let bestMatch: (typeof allStateHashes)[0] | null = null;

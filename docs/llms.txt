@@ -1,6 +1,6 @@
-# PuterVision LLC — MCP Research & Development Labs
+# PuterVision — MCP Research & Development Labs
 
-> PuterVision LLC is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
+> PuterVision is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
 
 ## Core Research Focus
 - **Deterministic Context Stores**: SQLite-backed state graph memory for AI coding agents to eliminate LLM hallucination in task tracking and audit trails.
@@ -19,8 +19,9 @@
 ### 2. Visual Memory MCP (`@putervision/vision-memory-mcp`)
 - **Website**: https://visionmemorymcp.com
 - **Repository**: https://github.com/putervision/vision-memory-mcp
-- **Description**: Visual perception cache & perceptual hashing MCP server (v0.9.0, 29 Core MCP Tools). Caches webpage, app screenshots, and WebM/MP4 video files locally using dHash, local CLIP vector search, and accessibility trees to optimize LLM vision token overhead.
-- **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, WebM & MP4 video frame digesting, Dual-MCP evidence packs (`create_evidence_pack`), element grounding & target action prediction, PII redaction, visual spec regression engine, standalone snapshot archives, real-time token metrics.
+- **Description**: Visual perception cache & perceptual hashing MCP server (v1.0.0, 15 Core MCP Tools). Caches webpage, app screenshots, and WebM/MP4 video files locally using dHash, local CLIP vector search, and accessibility trees to optimize LLM vision token overhead.
+- **Architecture & Codebase Distillation**: https://visionmemorymcp.com/codebase-distillation.md
+- **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, WebM & MP4 video frame digesting, Dual-MCP evidence packs (`create_evidence_pack`), element grounding & target action prediction, PII redaction, visual spec regression engine (`manage_visual_spec`), standalone snapshot archives (`manage_snapshot`), real-time token metrics (`get_session_context`).
 
 
 ## Canonical URLs & References

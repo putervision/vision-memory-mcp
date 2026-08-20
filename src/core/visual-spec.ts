@@ -16,6 +16,11 @@ export interface VisualSpecResult {
   tolerance_threshold: number;
   message: string;
   sdd_requirement_id?: string;
+  state_memory_tool_calls?: {
+    instruction: string;
+    mcp_tool_call?: Record<string, unknown>;
+    link_tool_call?: Record<string, unknown>;
+  };
 }
 
 /**
@@ -150,6 +155,59 @@ export async function verifyVisualSpec(params: {
     ? `UI screenshot complies with visual spec "${params.specName}" (Hamming distance ${distance} <= ${threshold}).`
     : `Visual drift detected against spec "${params.specName}"! Hamming distance ${distance} > ${threshold} or similarity ${similarity.toFixed(2)} < 0.80.`;
 
+  let stateMemoryToolCalls: any = undefined;
+  if (params.sddRequirementId) {
+    if (isCompliant) {
+      stateMemoryToolCalls = {
+        instruction: `Please execute state-memory-mcp:manage_edges (action: "link_visual") to record visual verification for requirement "${params.sddRequirementId}".`,
+        link_tool_call: {
+          server: 'state-memory-mcp',
+          tool: 'manage_edges',
+          arguments: {
+            action: 'link_visual',
+            target_id: params.sddRequirementId,
+            visual_state_id: specState.id,
+            relationship: 'verifies_visual_state',
+            visual_description: `Visual Spec: ${params.specName}`,
+          },
+        },
+      };
+    } else {
+      stateMemoryToolCalls = {
+        instruction: `Please execute state-memory-mcp:manage_nodes (action: "create") to log a visual drift blocker, and state-memory-mcp:manage_edges (action: "link_visual") to link it to requirement "${params.sddRequirementId}".`,
+        mcp_tool_call: {
+          server: 'state-memory-mcp',
+          tool: 'manage_nodes',
+          arguments: {
+            action: 'create',
+            type: 'blocker',
+            title: `Visual Drift Blocker: Spec "${params.specName}" failed (distance ${distance} > ${threshold})`,
+            status: 'active',
+            metadata: {
+              spec_name: params.specName,
+              sdd_requirement_id: params.sddRequirementId,
+              dhash_distance: distance,
+              similarity_score: similarity,
+              spec_state_id: specState.id,
+            },
+            tags: ['visual-regression', 'sdd-drift'],
+          },
+        },
+        link_tool_call: {
+          server: 'state-memory-mcp',
+          tool: 'manage_edges',
+          arguments: {
+            action: 'link_visual',
+            target_id: params.sddRequirementId,
+            visual_state_id: specState.id,
+            relationship: 'blocked_by_visual_state',
+            visual_description: `Visual Drift: Spec "${params.specName}"`,
+          },
+        },
+      };
+    }
+  }
+
   return {
     spec_name: params.specName,
     is_compliant: isCompliant,
@@ -159,6 +217,7 @@ export async function verifyVisualSpec(params: {
     tolerance_threshold: threshold,
     message,
     sdd_requirement_id: params.sddRequirementId,
+    state_memory_tool_calls: stateMemoryToolCalls,
   };
 }
 

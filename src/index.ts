@@ -69,6 +69,79 @@ async function main() {
       }
     );
 
+    server.registerResource(
+      'memory-health',
+      new ResourceTemplate('memory://health', { list: undefined }),
+      {
+        description: 'Check operational status of LanceDB, Sharp, CLIP, and server version',
+        mimeType: 'application/json',
+      },
+      async (uri: URL) => {
+        const { embeddings } = await import('./core/embeddings.js');
+        const health = {
+          status: 'healthy',
+          version: VERSION,
+          database: 'LanceDB (connected)',
+          clip_model_ready: embeddings.isReady(),
+          fallback_mode: embeddings.isFallback,
+          uptime_seconds: Math.floor(process.uptime()),
+        };
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'application/json',
+              text: JSON.stringify(health, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
+    server.registerResource(
+      'memory-metrics',
+      new ResourceTemplate('memory://metrics', { list: undefined }),
+      {
+        description: 'Query real-time cache hit ratios, token savings, and tier latency statistics',
+        mimeType: 'application/json',
+      },
+      async (uri: URL) => {
+        const { metricsCollector } = await import('./core/metrics.js');
+        const stats = metricsCollector.getStats();
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'application/json',
+              text: JSON.stringify(stats, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
+    server.registerResource(
+      'memory-specs',
+      new ResourceTemplate('memory://specs', { list: undefined }),
+      {
+        description: 'List active visual SDD design specification baselines',
+        mimeType: 'application/json',
+      },
+      async (uri: URL) => {
+        const { listVisualSpecs } = await import('./core/visual-spec.js');
+        const specs = await listVisualSpecs();
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'application/json',
+              text: JSON.stringify(specs, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
     // 4. Register Tools & Prompts
     logger.info('Registering tools...');
     registerAllTools(server);

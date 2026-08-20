@@ -70,6 +70,8 @@ export interface VisualSnapshot {
   git_branch: string; // Active git branch when snapshot was taken
   created_at: number; // Epoch ms
   state_ids: string; // JSON array string of VisualState.id representing snapshot scope
+  state_memory_snapshot_id?: string; // Optional correlated state-memory snapshot ID
+  state_memory_milestone_id?: string; // Optional correlated state-memory milestone ID
 }
 
 export type RetrievalStrategy = 'fast' | 'semantic' | 'thorough';

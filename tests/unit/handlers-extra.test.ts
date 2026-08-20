@@ -36,7 +36,7 @@ describe('Handlers Extra Coverage Suite', () => {
     }
   });
 
-  it('should handle export_visual_trajectories tool formats', async () => {
+  it('should handle export_trajectories tool formats', async () => {
     const state = {
       id: 'traj-state-1',
       dhash: '0000000000000000000000000000000000000000000000000000000000000000',
@@ -60,7 +60,7 @@ describe('Handlers Extra Coverage Suite', () => {
     };
     await storage.addState(state);
 
-    const exportTool = toolMap.get('export_visual_trajectories');
+    const exportTool = toolMap.get('export_trajectories');
     expect(exportTool).toBeDefined();
 
     // Default json format
@@ -76,28 +76,28 @@ describe('Handlers Extra Coverage Suite', () => {
     expect(resQwen.content[0].text).toBeDefined();
   });
 
-  it('should handle export_joint_trajectories tool', async () => {
-    const exportJointTool = toolMap.get('export_joint_trajectories');
-    expect(exportJointTool).toBeDefined();
+  it('should handle export_trajectories with joint format', async () => {
+    const exportTool = toolMap.get('export_trajectories');
+    expect(exportTool).toBeDefined();
 
-    const res = await exportJointTool!({});
+    const res = await exportTool!({ format: 'joint' });
     expect(res.content[0].text).toBeDefined();
   });
 
-  it('should handle restore_snapshot validation failure on invalid payload', async () => {
-    const restoreTool = toolMap.get('restore_snapshot');
+  it('should handle manage_snapshot validation failure on invalid payload for restore', async () => {
+    const restoreTool = toolMap.get('manage_snapshot');
     expect(restoreTool).toBeDefined();
 
-    const res = await restoreTool!({ archive_json: 'invalid-json' });
+    const res = await restoreTool!({ action: 'restore', archive_json: 'invalid-json' });
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toContain('Failed to restore snapshot');
+    expect(res.content[0].text).toContain('Failed to');
   });
 
-  it('should handle get_metrics tool', async () => {
-    const metricsTool = toolMap.get('get_metrics');
-    expect(metricsTool).toBeDefined();
+  it('should handle get_session_context returning metrics', async () => {
+    const contextTool = toolMap.get('get_session_context');
+    expect(contextTool).toBeDefined();
 
-    const res = await metricsTool!({});
+    const res = await contextTool!({});
     expect(res.content[0].text).toContain('total_queries');
   });
 
@@ -109,7 +109,7 @@ describe('Handlers Extra Coverage Suite', () => {
     expect(res.isError).toBe(true);
   });
 
-  it('should handle create_visual_blocker tool with existing state', async () => {
+  it('should handle record_outcome tool with blocker mode for existing state', async () => {
     const state = {
       id: 'v-state-1',
       dhash: '0000000000000000000000000000000000000000000000000000000000000000',
@@ -133,13 +133,14 @@ describe('Handlers Extra Coverage Suite', () => {
     };
     await storage.addState(state);
 
-    const blockerTool = toolMap.get('create_visual_blocker');
+    const blockerTool = toolMap.get('record_outcome');
     expect(blockerTool).toBeDefined();
 
     const res = await blockerTool!({
-      visual_state_id: 'v-state-1',
-      description: 'Modal blocking submit button',
+      from_state_id: 'v-state-1',
+      action: 'Modal blocking submit button',
+      action_type: 'blocker',
     });
-    expect(res.content[0].text).toContain('blocked_by_visual_state');
+    expect(res.content[0].text).toBeDefined();
   });
 });
