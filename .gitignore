@@ -1,21 +1,15 @@
-.state-memory-mcp
-node_modules/
-dist/
-data/
+node_modules
+dist
+coverage
+*.tsbuildinfo
 .env
-viewer.html
-*.zip
-*.tar.gz
-*.log
-plans/
 
-# vision-memory-mcp local databases
-.vision-memory/
-.vision-memory-mcp/
-.test-pipeline-db/
+.state-memory-mcp
+.vision-memory-mcp
+.world-model-mcp
+.behavior-mcp
+.behavior-runtime-mcp
+.agent-reasoning-mcp
+.vision-memory
 
-# Build artifacts & coverage
-coverage/
-.env.local
-*.env.*
-
+plans

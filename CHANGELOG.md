@@ -5,7 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-08-19
+## [1.1.1] - 2026-08-30
+
+### 🚀 Synchronized Ecosystem Release
+- Synchronized version across package manifests, CLI runtime, and documentation.
+- Integrated dual-memory and hybrid telemetry correlation with the Pentad autonomous gaming suite.
+
+## [1.1.0] - 2026-08-19
 
 ### Major Release — High-Coherence Tool Consolidation (29 ➔ 15 Tools) & v1.0.0 GA
 

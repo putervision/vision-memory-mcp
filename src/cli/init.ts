@@ -425,6 +425,30 @@ Run these commands in the terminal for management and analytics:
   mergeMcpConfig(root, '.cursor/mcp.json', 'Cursor', mcpCursor, 'mcpServers');
   mergeMcpConfig(root, '.vscode/mcp.json', 'VS Code', mcpVscode, 'servers');
 
+  // Windsurf: .windsurf/mcp.json (if workspace directory exists)
+  const windsurfDir = path.join(root, '.windsurf');
+  if (fs.existsSync(windsurfDir)) {
+    mergeMcpConfig(root, '.windsurf/mcp.json', 'Windsurf', mcpCursor, 'mcpServers');
+  }
+
+  // Claude Desktop (if directory exists on system)
+  const claudeDir =
+    process.platform === 'darwin'
+      ? path.join(homedir, 'Library', 'Application Support', 'Claude')
+      : process.platform === 'win32'
+        ? path.join(process.env.APPDATA || path.join(homedir, 'AppData', 'Roaming'), 'Claude')
+        : path.join(homedir, '.config', 'Claude');
+
+  if (fs.existsSync(claudeDir)) {
+    mergeMcpConfig(
+      claudeDir,
+      'claude_desktop_config.json',
+      'Claude Desktop',
+      mcpCursor,
+      'mcpServers'
+    );
+  }
+
   // Merge into Antigravity user config: ~/.gemini/config/mcp_config.json
   const geminiConfigDir = path.join(homedir, '.gemini/config');
   const geminiConfigFile = path.join(geminiConfigDir, 'mcp_config.json');
@@ -453,6 +477,30 @@ Run these commands in the terminal for management and analytics:
     } else {
       fs.writeFileSync(geminiConfigFile, JSON.stringify(mcpAntigravity, null, 2) + '\n', 'utf-8');
       console.log(`      ✅ Google Antigravity (mcp_config.json) — created`);
+    }
+
+    // Auto-grant permissions in ~/.gemini/config/config.json
+    const geminiConfigJson = path.join(geminiConfigDir, 'config.json');
+    if (fs.existsSync(geminiConfigJson)) {
+      try {
+        const raw = fs.readFileSync(geminiConfigJson, 'utf-8');
+        const data = JSON.parse(raw);
+        if (data.userSettings?.globalPermissionGrants?.allow) {
+          let updated = false;
+          for (const perm of ['command(vision-memory-mcp)']) {
+            if (!data.userSettings.globalPermissionGrants.allow.includes(perm)) {
+              data.userSettings.globalPermissionGrants.allow.push(perm);
+              updated = true;
+            }
+          }
+          if (updated) {
+            fs.writeFileSync(geminiConfigJson, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+            console.log(
+              '      ✅ Google Antigravity (config.json) — granted command(vision-memory-mcp)'
+            );
+          }
+        }
+      } catch {}
     }
   } catch (err: any) {
     console.log(`      ⚠️  Failed to update Google Antigravity config: ${err.message}`);

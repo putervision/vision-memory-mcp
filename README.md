@@ -170,7 +170,7 @@ While `vision-memory-mcp` is designed for visual frontend state caching, UI test
 ## 🧪 Testing
 
 ```bash
-# Run full unit and integration test suite across all 69 test files (300 tests)
+# Run full unit and integration test suite across all 72 test files (312 tests)
 npm run test
 ```
 

@@ -286,7 +286,7 @@ describe('v1.0.0 Consolidated MCP Tools E2E Unit Test Suite', () => {
     const ctxRes = await contextHandler({});
     expect(ctxRes.content).toBeDefined();
     const ctxData = JSON.parse(ctxRes.content[0].text);
-    expect(ctxData.version).toBe('1.0.0');
+    expect(ctxData.version).toBe('1.1.1');
     expect(ctxData.mcp_name).toBe('io.github.putervision/vision-memory-mcp');
     expect(ctxData.metrics).toBeDefined();
     expect(ctxData.memory_stats).toBeDefined();

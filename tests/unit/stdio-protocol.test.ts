@@ -13,8 +13,9 @@ describe('Area 3: E2E Standard I/O (Stdio) MCP Protocol Tests', () => {
   });
 
   it('should output current version from CLI binary with --version', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8'));
     const output = execSync(`node "${cliPath}" --version`, { encoding: 'utf-8' }).trim();
-    expect(output).toBe('1.0.0');
+    expect(output).toBe(pkg.version);
   });
 
   it('should support --skip-model-load flag in CLI help documentation', () => {

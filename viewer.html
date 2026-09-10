@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision Memory Visualizer - main</title>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/3d-force-graph@1.72.0/dist/3d-force-graph.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/three-spritetext@1.8.2/dist/three-spritetext.min.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #050811;
+      --sidebar-bg: rgba(10, 15, 30, 0.85);
+      --card-bg: rgba(22, 30, 49, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-color: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.3);
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+    h1, h2, h3, .brand {
+      font-family: 'Outfit', sans-serif;
+    }
+    #graph-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    #sidebar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 400px;
+      background: var(--sidebar-bg);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border-left: 1px solid var(--border-color);
+      padding: 24px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+      z-index: 10;
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+    }
+    .brand {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .card h3 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .node-detail-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      word-break: break-word;
+      line-height: 1.4;
+    }
+    .tag {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: #38bdf8;
+      display: inline-block;
+      margin-right: 4px;
+      margin-top: 4px;
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+      width: fit-content;
+    }
+    .badge-state { background: rgba(56, 189, 248, 0.2); color: #60a5fa; }
+    .badge-transition { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    
+    .meta-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding-bottom: 6px;
+    }
+    .meta-label {
+      color: var(--text-muted);
+    }
+    .meta-value {
+      color: #fff;
+      font-weight: 500;
+      max-width: 60%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .thumbnail-container {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-height: 180px;
+      position: relative;
+      cursor: zoom-in;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    }
+    .thumbnail-container img {
+      width: 100%;
+      height: auto;
+      max-height: 180px;
+      object-fit: contain;
+      transition: transform 0.3s;
+    }
+    .thumbnail-container:hover img {
+      transform: scale(1.05);
+    }
+    .layout-modes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .btn-toggle {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 8px 4px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      transition: background 0.2s, border-color 0.2s;
+      text-align: center;
+    }
+    .btn-toggle:hover {
+      background: #1e293b;
+    }
+    .btn-toggle.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border-color: #38bdf8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    }
+    .roi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .roi-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .roi-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #38bdf8;
+      font-family: 'Outfit', sans-serif;
+    }
+    .roi-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    /* Expanded modal */
+    #image-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      cursor: zoom-out;
+    }
+    #image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      object-fit: contain;
+      border: 2px solid #555;
+      border-radius: 4px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="graph-container"></div>
+  <div id="sidebar">
+    <div>
+      <div class="brand">🧠 Vision Memory</div>
+      <div style="font-size: 12px; color: var(--text-muted)">Active Branch: <b>main</b></div>
+    </div>
+
+    <!-- ROI & Metrics Card -->
+    <div class="card" id="metrics-card">
+      <h3>Productivity ROI & Savings</h3>
+      <div class="roi-grid">
+        <div class="roi-card">
+          <div class="roi-value" id="roi-time">0h</div>
+          <div class="roi-label">Est. Time Saved</div>
+        </div>
+        <div class="roi-card">
+          <div class="roi-value" id="roi-money">$0.00</div>
+          <div class="roi-label">Est. Savings</div>
+        </div>
+        <div class="roi-card">
+          <div class="roi-value" id="roi-tokens">0k</div>
+          <div class="roi-label">Tokens Saved</div>
+        </div>
+        <div class="roi-card">
+          <div class="roi-value" id="roi-rate">0%</div>
+          <div class="roi-label">Cache Hit Rate</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Layout Mode Card -->
+    <div class="card">
+      <h3>3D Graph Layout</h3>
+      <div class="layout-modes">
+        <button id="layout-physics" class="btn-toggle active" onclick="setLayout('physics')">Physics</button>
+        <button id="layout-dag-td" class="btn-toggle" onclick="setLayout('dag-td')">Flow (TD)</button>
+        <button id="layout-dag-lr" class="btn-toggle" onclick="setLayout('dag-lr')">Flow (LR)</button>
+      </div>
+    </div>
+
+    <!-- Detail Inspector Card -->
+    <div id="detail-card" class="card" style="display: none;">
+      <h3>Inspector</h3>
+      <div id="detail-badge" class="badge"></div>
+      <div id="detail-title" class="node-detail-title"></div>
+      
+      <!-- Thumbnail for Node -->
+      <div id="detail-thumb-container" class="thumbnail-container" onclick="openModal()">
+        <img id="detail-thumb-img" src="" alt="Perceptual Thumbnail">
+      </div>
+
+      <div id="detail-meta" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      
+      <div id="detail-tags-section">
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 2px;">Tags</div>
+        <div id="detail-tags"></div>
+      </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="card" id="stats-card">
+      <h3>Database Stats</h3>
+      <div class="meta-item">
+        <span class="meta-label">Total Cached States</span>
+        <span class="meta-value" id="stats-nodes">0</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Recorded Transitions</span>
+        <span class="meta-value" id="stats-links">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for full screen visual thumbnail -->
+  <div id="image-modal" onclick="closeModal()">
+    <img id="modal-img" src="" alt="Expanded View">
+  </div>
+
+  <script>
+    const allGraphNodes = [{"id":"state-b","label":"Settings Panel","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961410413,"access_count":1},{"id":"state-c","label":"Billing Section","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961410413,"access_count":1},{"id":"state-b","label":"Settings Panel","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961423115,"access_count":1},{"id":"state-c","label":"Billing Section","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961423115,"access_count":1},{"id":"state-red","label":"Solid Red Screen","val":2,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961410504,"access_count":2},{"id":"state-red","label":"Solid Red Screen","val":2,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961423260,"access_count":2},{"id":"state-b","label":"Settings Panel","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961435383,"access_count":1},{"id":"state-c","label":"Billing Section","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961435383,"access_count":1},{"id":"state-red","label":"Solid Red Screen","val":1,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961435515,"access_count":1},{"id":"state-a","label":"Dashboard Screen","val":3,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961410413,"access_count":3},{"id":"state-a","label":"Dashboard Screen","val":3,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961423115,"access_count":3},{"id":"state-a","label":"Dashboard Screen","val":3,"thumbnail":"","color":"#e2e8f0","source_url":"","tags":[],"created_at":1783961435383,"access_count":3},{"id":"8c451725-971b-40a9-ab18-0fcca6974f36","label":"A screenshot of the Antigravity desktop application window titled \"Evaluate MCP Capabilities And Plan\". The interface features a dark UI. On the left sidebar, there is a list of Pinned Conversations, Projects including \"vision-memory-mcp\" (with active chat selected), \"state-memory-mcp\", and \"realms\". In the main chat area, a user message asks \"why am i not seeing vision-memory-mcp in your list?\". The response shows a JSON block of a tool call get_session_context displaying total_states: 0, total_transitions: 0, and a summary list of online servers. The bottom text input bar reads \"Ask anything, @ to mention, / for actions\", with \"Gemini 3.5 Flash (High)\" selected as the active model.","val":3,"thumbnail":"data:image/webp;base64,UklGRmYBAABXRUJQVlA4IFoBAAAwCQCdASpAAEAAPm0ukkakIqGhKhZtEIANiWkAAB3y8MYJw56jrT5CaLI9UQm1xm7LL4ba4Y4LmDHt3nqYTmK41UJ4Q9bfJNPbVHij8mvBNqBAAP75he/1raF3rzyUqo0yDwevKoQx38NGzB2MGuX4e5eEeWw7VhGr7Lxjx5+q7gLSJbGLPjGgGfqrgecHpKt2hP7oL8XLqtjXGegbGr/aNoqjO5ci1hvJrxaaGalVhodZhxHcYTj3nxXPKGnUlweWHTWtCuySeT6movhgGIdR5za/nB82p27VOuVYLx9GkokHmVqtWy6t+b2XoMgiGx/nAQ/gcVhtdy1h0AvCXRzUEKjJ1cyMR8jB1ufzTOjpFNIiNCDZRXvQlzVRp6ZRXWjZryPZOWLWui3Ru3eD6to+gaDGicjTjkWQkxj+X8wYOFLpiSVbJE7F7/PtmyLQAq+24YJBm0fgAAAA","color":"#e2e8f0","source_url":"app://antigravity","tags":["antigravity","ui-screenshot"],"created_at":1783964702340,"access_count":3},{"id":"8dd2023e-c972-45f3-81d9-90614212744e","label":"A screenshot of the Antigravity desktop application window overlaid on top of a web browser and a text editor. Inside the Antigravity window, the active chat displays a green JSON text output from a successful exact_hash match on the visual state cache, displaying the description of the previous state. Below the main application window, a terminal prompt shows \"beast@beast:~/Downloads/working/vision-memory-mcp$\".","val":4,"thumbnail":"data:image/webp;base64,UklGRpgBAABXRUJQVlA4IIwBAABQCwCdASpAAEAAPm00lUgkIqIhIgxAgA2JaQDTnzJgkAFOQ0e7z8X8pPIs9o7RVNI/kmuOEjE+dWBANU3qD3TsCWqxNypB0mEBBg7jByGl7h503vGNYcU3Azu4eexwIjakAAAA/vr6YjbW8WsphZmCfNGU5XcTo7uewS0aVUyLM1vs/AkRz46h2pg1Yrglwr4Ds3SWsrgMYHtZ8rbMAjQUJd4TTmpBPta++4hmPOS5M+F9DLKC9eLw/AhFauTt2EFmzfNEBPK1t2wAedi7rrLyQjrOXV9FIMPvuD7AwpyklegIZefsCY49yOIHgrLBeOrgESJ/Fm6dMXLBAFHgD6DzoGkY2BJhKqnDn4pB1h0UvPuhjEjDk21Yd94Ut8e9ZYRxDLrAdKGAaVeXRBmdxEeBmMDifu3wNPD+knQJ+x6cQ5evlu8qLI+D6EEJqB8X3HVyw307+f9JIOB/1BmZ3V5YAZwGaF0ULi1pqjrX9ax3B7pg2GeHJEnC+4db117cp2Dm7NOxwq4xXKluAAA=","color":"#818cf8","source_url":"app://antigravity","tags":["antigravity","ui-screenshot-nested"],"created_at":1783965619041,"access_count":4},{"id":"00f84f58-93b9-42df-b140-e60bca0fb6d4","label":"A screenshot of VS Code showing the vision-memory-mcp project workspace, with .agents/skills/vision-memory-mcp/SKILL.md open in the editor. The terminal at the bottom shows scaffolding messages and says initialization is complete.","val":3,"thumbnail":"data:image/webp;base64,UklGRkoDAABXRUJQVlA4ID4DAAAQEACdASpAAEAAPm0wkkakIyGhKhZtEIANiWcswD4qij1aq9AG2zuwDefZ9G1DKffm8wMIDyNVcI8p4DjtHxrVoNrhLNYFeAqxOY4GmTY16ZFEVNJr3IcxlU4Seb92zm8FPHM6YFDq7CVb8xulVvnWvChqZA0QBYR8oU16FyW5WRlGmumC4S2ZwAD+/QP2mEYTB3wEwWivIrGuN7CF8lfvI8tCyI9L9c0nblSRjeGY3sbcf9Ic65W6e/JwmLuqJ7+f06zpDebln98u+HEr9NjmtraPYAQ0Bg7iBqm1Se6NFo6PwQiuFK87Z7a6o5iU6M/yV9CzD5GuP7gzJqFrNabqWPWD+uIESFEyWahxOsZgziOE8q2qKsvP//q9+t+B+8uQ8w9I0gui5hDhS74kxw9o4XUeifmEDrFsj7qC6Dz5ADnFGdv1CT9dpVHLTQ3Vf79Rti0axL0Euywv7J7eyl2XxzVD9f8J+Vtj9r2QxQmv9pssDWcKFOsekJOu1VQjI5SLxnEhvaKyJKUfYSsVBzenShafh2uhRAuWImbcmbrCdo4jO5WQBngqYfL9oBxzvhT+iHxsyWmUnr+UiduI6nIgUfhzfgbOrfZ54H+LfXxN3xgIkTBWailaV1nVLGXLIdigL75oUl768AMO7Y+9rld/ynO/LEAYA9knKiSM2D4to1zNvNwfbXJ2m3tjsvvL8ORBlhITh3psE2Uj8UaIlvXZ0DENC2l89S2SgdNho6lq28m083+P6vr83EO0CHmQrahKHCkjbGRKKFjfoxFZYh0mB/tKrDsx13t490rUUXhKszOxN7cVyvCDDwYiT5PthIJGQ2V5CP+ZyN63TII8W6DbNeUNc9OqxavwhqgutwKJwiHF2/OJ7CiOeSO0/CSBIS8Fx22B+O8gvHysj8yFkNGE7MJ/NSLRQIeZhMeJwXimXQ9PodgAWuRNt9WPWIBS6Wkru8DsK2o2848XZM/x6ZvW/5zcoy2kkT5teu3BYrKsm+4EVqH15QIm7bvYvNyeSkhLCanjdBRTNmDnz6pvQ8YFO7i7Z4ATFGN7ZTjMrEG83rwomG7icZnmfQPxvO12xS5JGQCajXGWTnja5LUoAA==","color":"#e2e8f0","source_url":"app://cli","tags":["cli-manual"],"created_at":1783967389067,"access_count":3},{"id":"b93f7e2d-c26d-4a8d-8a99-2f4524298149","label":"A screenshot of VS Code showing the vision-memory-mcp project workspace. The editor displays a split diff of mcp_config.json, changing the vision-memory-mcp server configuration command from direct 'vision-memory-mcp' execution to running via 'npx -y vision-memory-mcp'. The terminal panel at the bottom shows commands executing 'vision-memory-mcp --version', showing it updated from v0.1.5 to v0.1.7.","val":2,"thumbnail":"data:image/webp;base64,UklGRlICAABXRUJQVlA4IEYCAAAQDACdASpAAEAAPm00lEckIyIhJgsQgA2JZwDMLf/qd0VTPACRa4IY+I1EdwJsHFafo6wUsGLzyaLsOVeLRXw5jgUE3y+vdYiFgt7burJdba2y0nvPyGOzcWj280WuNgOcY8Zz29mO5gAA/v3nSTsz9XTARmx50ml0TYtOkcBb08mQ6U5wsoQQ13ULM/JwMjAiZD8P4wHz62VI+Jc+3aFMSql28iZiyCJqBbGcbXwPyQ+yWJ5dw+WKUMjOGE/XamjbpVJ12ciDu/3O14O7R8b56E83kVEx00txHkwLXoP+AlNTYKw6S/Nmu/HTNujUzDmnvNxuY5X1kNHVxWBTGA0D6Ll00F9Evrq05+4Z4tcRpbMq6sVHt7bk5uRND10uM0SYF/B5lAfCU+D5TDkZ/D0uxV1UhKDnFYG6wO/20wmpvnSCaH66SVtLaqL2p0J7oavIKgtciK9UHTcquMCkvWuW3DbFIFlDIVb0gyi64kqCUp7VRgu4jfycGS7nMQr2FWVbUu+WC8srS6nHP+V/eMex3AuFtghw2eOgEtB/EeZcxpvDonGkggucA9MkUaYBXhbFgXoAc+Y2hLmjI94jwC9Ni2jJVcD0WzcPet6IlLCI0S+9JHddqMmk5l3FFS3sf0RnFSvkybesMroFVYtzy/aPgtU1OpBjtVN/2aNrajEOpSwwZAm8EkN1E071xP2YA11UIKBgzYigyM6Fg8B8nMQpFvsEFk8SVW/R58WvvMaqyIWcJTOQbCHmG4ibSWYDHT4/hboAAAA=","color":"#e2e8f0","source_url":"app://cli","tags":["cli-manual"],"created_at":1783968563998,"access_count":2},{"id":"46e77c18-4df0-4aba-bf37-017696f0cfbc","label":"A screenshot of VS Code showing the user's config.json settings file open. The editor displays the globalPermissionGrants allow array, showing that read_file and write_file permissions for the brain directory have been appended at the end of the array, specifically read_file(/home/beast/\\.gemini/antigravity/brain/.*) and write_file(/home/beast/\\.gemini/antigravity/brain/.*).","val":1,"thumbnail":"data:image/webp;base64,UklGRqQCAABXRUJQVlA4IJgCAAAQDwCdASpAAEAAPm0ylEekIyIhJgpwgA2JZwDMV0o5iBnVN+rDHrnpcUDPNeB0Y+I1EdwIGDqOxH4DCUoDwAauePihpwGfAHVIIAnTatzqfcbEpJWk3+hbDnBkD1563dUBOe1EEFRkSEd3MggAbzCizHuhVc6+TO91DplYQ6prlYAA/v3niftoVWq4kKU9OJm4crcAClYLnEuW3F75kXw4N6HjFUa1pjIwx5xuEne1HYnfbVS0kJqgQXRr1263/5sgQyDIT9MpXOHRJEiTskwnuQ7952nBh4mdXkUr4VlAt4xywZ+MS1wo/wmQsunxk5u3FvYH5L5wqJiZ3bdvWfMIQQGjWR4NJqcM/h3mL9gz1aQJl3dOFRwvWGu/K9a9JGn0dtOUayqvIwLwY/Edk+STCRg4CBTGUWPqzuC8tzRiYSwZHRAFn9lxj7IA5SKY3XuUHMvyUQFFfIYEbAC3B/7BpNbqZETD0Fd+fq7gi8V6QEc3iaBQfGlnCsz6BNr3HiRWzvnXvyicPJuZrBrf3kGiVOqmeI8xJkfhjeqS2LkTcQGyB3rZsgeh9QkINYa4zo5SaoJm6S57NJP/eeL4NOU5W/7mCiCFVcQ6g7uQ/sEcNexoSerITXvKdvTYbw0TQ3XhVTuYbzUVSxOD2xrjPNxwZbngWJcdX+Bepq+EDiXgDLhJyCrXcKAytuKqz5YNacthENLZN9l8i5JCdAUeumpcUsOduNXL0YRJIbsEDLqibJaC+UAfS/76zON2upAEek0Az/nVVkf4/Mk28w/O+wQpsEDhUzGq9b8/XRjoKuZK3KxZBDB4OX8TohJB3fHmhWiDE56SSP+0+IK9Kyf5Ku6Gwb68Xoh1OhiAs8POJ1NgITllBAgRAAAA","color":"#e2e8f0","source_url":"app://cli","tags":["cli-manual"],"created_at":1783970518632,"access_count":1},{"id":"9ca9ab6c-123d-4277-b0f7-429207ada588","label":"A screenshot of VS Code showing the user's config.json settings file open. The editor shows the new wildcard permission 'command(node dist/cli\\.js.*)' added at line 141 at the end of the globalPermissionGrants allow array. The Antigravity desktop application's right-hand sidebar panel is open, showing project structures, conversation histories, and pinned chats.","val":2,"thumbnail":"data:image/webp;base64,UklGRqICAABXRUJQVlA4IJYCAAAwEACdASpAAEAAPm00lEckIyIhJhqrsIANiWcA0XXitUocxyOSrrnfszl0RAGSmsJnaouKYkpPf1PX7B20+j/3Gl+dz/ACxoOJk8rLeUr6X1XU+LixgiWrt0wSgbqxq/LR0wHo8FI90IHT24iPLAEC6q/fFVTMZnvdG/wrE4ACHQEthZQKIvQ26AAA/v4aQWHqmpxCMNLla69EUHEcwOoGNk773DEssEjjNGB31fGCBm/K9O7w+eyWfQVAfd7dUhQgUG7r4KKhXMWt/4gv5x4etx/VnQQ3FMzsebiqe3FQQPEKI1wilEhb10qFTd2ZD/1Iy+YeOhT8a6sToMZi6x4wWtCrUQ3fGvMGh39D5MHaPP1Qihc1HoFin9yzJnydMJ03KVTcWZNSTeo8zdFsVmkXG8U+TbQuTmQo1gEzpCkPDsDMRmtAbGsJ0NeNrYB0UNI3inkapN50ArbdAcx5nMQS5hGVAvHInx1PmnAtrUh2wamJk5Er1tjX99+cpGmHAwDAV6hAURnR09Dyfh+NaA3B5GsUozeyOK+f4FO/7pF5M+ZnjF8AMlvxcRqPeOENEqR2QsKLTKb5lWvW/GJcQgIat3yO4greY2TMobIyb7mHTwK1wwqp3Ukzssdlk3odc45cJY6fquQameqsZFUuxii7QDLSlpZvIEXlrpG9v8tiqh5YQAMwgL3wHWfn1DevHFDoKusi9B5ePhsPXfHtwdRhbG+wgohK33cD7odfmEHbYvIftQIfHd+M87MlWDnpySI2DCNhYIhWM149NzXvEzckfwMiN1HzwqWkij3ou2iCUanjw1+kTY6oIEXDNZJ6VY8utk56BoXaxw78qyXcib1+lgRINXDn9CNGdnTsbHW/xTIqIAAAAA==","color":"#e2e8f0","source_url":"app://cli","tags":["cli-manual"],"created_at":1783970659546,"access_count":2},{"id":"4261b313-c565-4069-af56-31c5f0b3eab1","label":"A screenshot of VS Code showing the user's config.json settings file open, displaying line 141 as \"command(node dist/cli.js)\". The right-hand chat panel is visible showing the previous interaction where the agent successfully tested the command prefix rule, returning a file-not-found error.","val":2,"thumbnail":"data:image/webp;base64,UklGRkYCAABXRUJQVlA4IDoCAABwDQCdASpAAEAAPm0ylUakIyIhLBgJmIANiWcAVsX4A8LfGlGCmgS31jWxH5ipBjt4Dui/Cd+6xlZfD4OwNkY7r59o0I/Z+3KibYcKjLvGWnj1DaMjkMFWhXvof7mjhbgY1F3mKaZStB0X3WkU2q8HD/ZkAAD+++9lPgNO1NwTpWFdswounJp8q2VXkjYoCYyWwgM3mzF2kOatCEl4Vl5jwIzcHnaaATT2Gg0mQwyTMnTmoVTXdZGIwq3/cioIwk8CQd/yaM1mkvrQR4aRB9XoozQTiL7a97kAkM0D5ap7szbCToM/DwUGLKxyXAhjBR+15EUySRHFyG0aajL/ogpe6sO0huL6zWlFfYrh4yE0xGgwyJ5zZUcToLRZzw2jlZNdpOfWIpvceitDO55hRVA5dzwI2W+JYPBdUmIgghQkaUhO3pMfebTOMKA5GsFQNUsYcjF3Jld8gXQmy7x78wFf0snGlIPMd5AECqnCDqb4WNf8ySP6F6zINuOGlMveL2g8HvV/dDXnqQMooBvSZd9mi/xMk8W1CmICgKy/4uMPVo+ny/LvOTdFIZIQy7ENpT9NwjSqyTG8QojsApOcikJKgi/9D5iWTfgORVNgDbg+YsB8nJ7zITiFUjmZgS3g1SUWKQA22nDzbdC5en2MtyeIZvCRH/Vx93RLY7mGxR1gGH5MS8IoGZW/v0oWk17yBngMKLo7St9O+R31rvapnnpG74VR7ezKW/12nBrRIDYN80ofCnNru9GgAAA=","color":"#e2e8f0","source_url":"app://cli","tags":["cli-manual"],"created_at":1783971086357,"access_count":2}];
+    const allGraphLinks = [{"source":"state-a","target":"state-b","action":"click settings","success_count":3,"failure_count":1,"success_rate":0.75,"width":2,"color":"#f59e0b80"},{"source":"state-b","target":"state-c","action":"click billing link","success_count":3,"failure_count":0,"success_rate":1,"width":1.5,"color":"#10b98180"}];
+
+    // Initialize 3D Force Graph
+    const Graph = ForceGraph3D()(document.getElementById('graph-container'))
+      .backgroundColor('#050811')
+      .nodeId('id')
+      .nodeLabel(node => `State ID: ${node.id}`)
+      .nodeColor(node => node.color)
+      .nodeVal(node => Math.max(1, node.val))
+      .nodeOpacity(0.95)
+      .nodeResolution(24)
+      .linkSource('source')
+      .linkTarget('target')
+      .linkColor(link => link.color)
+      .linkWidth(link => link.width || 2)
+      .linkLabel(link => link.label || link.action)
+      .linkDirectionalArrowLength(6)
+      .linkDirectionalArrowRelPos(0.95)
+      .linkDirectionalParticles(2)
+      .linkDirectionalParticleSpeed(0.007)
+      .linkCurvature(0.2)
+      .onNodeClick(handleNodeClick)
+      .onLinkClick(handleLinkClick)
+      .onNodeHover(handleNodeHover)
+      .onBackgroundClick(handleBackgroundClick)
+      .graphData({ nodes: allGraphNodes, links: allGraphLinks });
+
+    // Custom SpriteText node labels (sit above the node)
+    Graph.nodeThreeObject(node => {
+      // Create shortened visual descriptive label
+      const desc = node.label || 'Screen State';
+      const labelText = desc.length > 25 ? desc.slice(0, 22) + '...' : desc;
+      const sprite = new SpriteText(labelText);
+      sprite.color = '#e2e8f0';
+      sprite.textHeight = 3.5;
+      sprite.backgroundColor = node.color + '22'; // 13% opacity backdrop
+      sprite.padding = 1.8;
+      sprite.borderRadius = 3;
+      sprite.position.y = 8; // Float above
+      return sprite;
+    })
+    .nodeThreeObjectExtend(true);
+
+    function handleNodeClick(node) {
+      showNodeDetails(node);
+      
+      // Fly to node animation
+      Graph.cameraPosition(
+        { x: node.x + 100, y: node.y + 100, z: node.z + 100 },
+        node, 
+        1000
+      );
+    }
+
+    function handleLinkClick(link) {
+      showLinkDetails(link);
+    }
+
+    function handleNodeHover(node) {
+      document.body.style.cursor = node ? 'pointer' : 'default';
+    }
+
+    function handleBackgroundClick() {
+      document.getElementById('detail-card').style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function showNodeDetails(node) {
+      document.getElementById('detail-card').style.display = 'flex';
+      
+      const badge = document.getElementById('detail-badge');
+      badge.className = 'badge badge-state';
+      badge.textContent = 'State';
+      
+      document.getElementById('detail-title').textContent = node.label || 'Unnamed UI State';
+      
+      // Setup image thumbnail
+      const thumbImg = document.getElementById('detail-thumb-img');
+      const thumbContainer = document.getElementById('detail-thumb-container');
+      if (node.thumbnail) {
+        thumbImg.src = node.thumbnail;
+        thumbContainer.style.display = 'flex';
+      } else {
+        thumbContainer.style.display = 'none';
+      }
+
+      const meta = document.getElementById('detail-meta');
+      meta.innerHTML = `
+        <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="${escapeHtml(node.id)}">${escapeHtml(node.id)}</span></div>
+        <div class="meta-item"><span class="meta-label">Access Hits</span><span class="meta-value">${node.access_count} times</span></div>
+        <div class="meta-item"><span class="meta-label">Source URL</span><span class="meta-value" title="${escapeHtml(node.source_url || 'Unknown')}">${escapeHtml(node.source_url || 'Unknown')}</span></div>
+        <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${escapeHtml(new Date(node.created_at).toLocaleDateString())}</span></div>
+      `;
+
+      const tagsContainer = document.getElementById('detail-tags');
+      tagsContainer.innerHTML = '';
+      if (node.tags && node.tags.length > 0) {
+        node.tags.forEach(t => {
+          const span = document.createElement('span');
+          span.className = 'tag';
+          span.textContent = t;
+          tagsContainer.appendChild(span);
+        });
+        document.getElementById('detail-tags-section').style.display = 'block';
+      } else {
+        document.getElementById('detail-tags-section').style.display = 'none';
+      }
+    }
+
+    function showLinkDetails(link) {
+      document.getElementById('detail-card').style.display = 'flex';
+      document.getElementById('detail-thumb-container').style.display = 'none';
+      
+      const badge = document.getElementById('detail-badge');
+      badge.className = 'badge badge-transition';
+      badge.textContent = 'Transition';
+
+      document.getElementById('detail-title').textContent = `Action: ${link.action}`;
+      
+      const ratePercentage = Math.round(link.success_rate * 100);
+      const totalCount = link.success_count + link.failure_count;
+      
+      const meta = document.getElementById('detail-meta');
+      meta.innerHTML = `
+        <div class="meta-item"><span class="meta-label">From State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="${escapeHtml(link.source.id)}">${escapeHtml(link.source.id)}</span></div>
+        <div class="meta-item"><span class="meta-label">To State</span><span class="meta-value" style="font-family:monospace; font-size:11px;" title="${escapeHtml(link.target.id)}">${escapeHtml(link.target.id)}</span></div>
+        <div class="meta-item"><span class="meta-label">Success Rate</span><span class="meta-value" style="color: ${link.success_rate >= 0.8 ? '#34d399' : '#fbbf24'}">${ratePercentage}% (${link.success_count}/${totalCount})</span></div>
+        <div class="meta-item"><span class="meta-label">Failures</span><span class="meta-value" style="color:#f87171">${link.failure_count} times</span></div>
+      `;
+      document.getElementById('detail-tags-section').style.display = 'none';
+    }
+
+    function openModal() {
+      const src = document.getElementById('detail-thumb-img').src;
+      if (src) {
+        document.getElementById('modal-img').src = src;
+        document.getElementById('image-modal').style.display = 'flex';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('image-modal').style.display = 'none';
+    }
+
+    function setLayout(mode) {
+      document.getElementById('layout-physics').classList.remove('active');
+      document.getElementById('layout-dag-td').classList.remove('active');
+      document.getElementById('layout-dag-lr').classList.remove('active');
+      document.getElementById('layout-' + mode).classList.add('active');
+
+      if (mode === 'physics') {
+        Graph.dagMode(null);
+        Graph.d3Force('charge').strength(-150);
+      } else if (mode === 'dag-td') {
+        Graph.dagMode('td');
+      } else if (mode === 'dag-lr') {
+        Graph.dagMode('lr');
+      }
+    }
+
+    function calculateROI() {
+      let totalHits = 0;
+      let totalLookups = 0;
+      allGraphNodes.forEach(n => {
+        const count = n.access_count || 1;
+        totalLookups += count;
+        if (count > 1) {
+          totalHits += (count - 1);
+        }
+      });
+
+      // ROI constants
+      const SECONDS_SAVED_PER_HIT = 3.8; // LLM response baseline
+      const TOKENS_SAVED_PER_HIT = 1200; // Baseline multimodal token footprint
+      const DOLLAR_COST_PER_MILLION_TOKENS = 3.00;
+
+      const timeSavedSeconds = totalHits * SECONDS_SAVED_PER_HIT;
+      const timeSavedHours = timeSavedSeconds / 3600;
+      const tokensSaved = totalHits * TOKENS_SAVED_PER_HIT;
+      const dollarsSaved = (tokensSaved / 1000000) * DOLLAR_COST_PER_MILLION_TOKENS;
+      const hitRate = totalLookups > 0 ? (totalHits / totalLookups) * 100 : 0;
+
+      // Populate ROI panel
+      document.getElementById('roi-time').textContent = timeSavedHours.toFixed(1) + 'h';
+      document.getElementById('roi-money').textContent = '$' + dollarsSaved.toFixed(2);
+      document.getElementById('roi-tokens').textContent = Math.round(tokensSaved / 1000).toLocaleString() + 'k';
+      document.getElementById('roi-rate').textContent = Math.round(hitRate) + '%';
+
+      // Populate Stats panel
+      document.getElementById('stats-nodes').textContent = allGraphNodes.length;
+      document.getElementById('stats-links').textContent = allGraphLinks.length;
+    }
+
+    calculateROI();
+  </script>
+</body>
+</html>

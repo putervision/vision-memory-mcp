@@ -42,7 +42,7 @@ describe('version and system metadata in vision-memory-mcp', () => {
   });
 
   it('should export correct VERSION constant', () => {
-    expect(VERSION).toBe('1.0.0');
+    expect(VERSION).toBe('1.1.1');
   });
 
   it('should return version and mcp_name in get_session_context tool', async () => {

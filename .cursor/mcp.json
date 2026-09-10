@@ -2,16 +2,55 @@
   "mcpServers": {
     "state-memory-mcp": {
       "command": "state-memory-mcp",
-      "args": ["run"],
+      "args": [
+        "run"
+      ],
       "env": {
         "STATE_MEMORY_MCP_PROJECT": "vision-memory-mcp"
       }
     },
     "vision-memory-mcp": {
       "command": "vision-memory-mcp",
-      "args": ["run"],
+      "args": [
+        "run"
+      ],
       "env": {
         "LANCEDB_PATH": "./.vision-memory"
+      }
+    },
+    "webcrypt": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "webcrypt",
+        "mcp"
+      ]
+    },
+    "world-model-mcp": {
+      "command": "world-model-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "WORLD_MODEL_MCP_PROJECT": "vision-memory-mcp"
+      }
+    },
+    "agent-reasoning-mcp": {
+      "command": "agent-reasoning-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "REASONING_PROJECT": "vision-memory-mcp"
+      }
+    },
+    "behavior-mcp": {
+      "command": "behavior-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "BEHAVIOR_PROJECT": "vision-memory-mcp"
       }
     }
   }

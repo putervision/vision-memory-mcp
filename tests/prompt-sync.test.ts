@@ -69,6 +69,48 @@ describe('Vision Memory Prompt & Instruction Linter Suite', () => {
     'use_blackboard',
   ]);
 
+  const pentadTools = new Set([
+    // world-model-mcp
+    'update_entity',
+    'query_entities',
+    'set_relation',
+    'get_spatial_map',
+    'simulate_movement',
+    'ingest_observation',
+    'get_expected_view',
+    'link_to_goal',
+    'manage_spatial_spec',
+    'use_spatial_blackboard',
+    'generate_game_inputs',
+    'wait_for_spatial_state',
+    // behavior-mcp
+    'load_behavior',
+    'set_parameters',
+    'get_status',
+    'abort_behavior',
+    'register_trigger',
+    'replay_recording',
+    'get_metrics',
+    'manage_behaviors',
+    'manage_blackboard',
+    'manage_runtime_db',
+    // agent-reasoning-mcp
+    'set_goal',
+    'evaluate_situation',
+    'replan',
+    'assess_risk',
+    'query_knowledge',
+    'set_utility_weights',
+    'get_decision_trace',
+    'manage_beliefs',
+    'manage_intentions',
+    'manage_reasoning_db',
+    // webcrypt-mcp
+    'encrypt_payload',
+    'manage_keys',
+    'sign_verify',
+  ]);
+
   it('should ensure all referenced vision tools in prompt files exist in tool registry or compat map', () => {
     for (const filePath of instructionFiles) {
       if (!fs.existsSync(filePath)) continue;
@@ -104,7 +146,8 @@ describe('Vision Memory Prompt & Instruction Linter Suite', () => {
             registeredVisionTools.has(name) ||
             legacyVisionTools.has(name) ||
             knownDualMemoryTypes.has(name) ||
-            dualMemoryStateTools.has(name);
+            dualMemoryStateTools.has(name) ||
+            pentadTools.has(name);
           expect(
             isValid,
             `File ${filePath} references unknown vision tool or action "${name}". Must be in registered tools or legacy map.`

@@ -99,6 +99,35 @@ async function main() {
     );
 
     server.registerResource(
+      'vision-health',
+      new ResourceTemplate('vision:///health', { list: undefined }),
+      {
+        description: 'Check operational status of vision-memory-mcp server',
+        mimeType: 'application/json',
+      },
+      async (uri: URL) => {
+        const { embeddings } = await import('./core/embeddings.js');
+        const health = {
+          status: 'healthy',
+          version: VERSION,
+          database: 'LanceDB (connected)',
+          clip_model_ready: embeddings.isReady(),
+          uptime_seconds: Math.floor(process.uptime()),
+          timestamp: new Date().toISOString(),
+        };
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: 'application/json',
+              text: JSON.stringify(health, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
+    server.registerResource(
       'memory-metrics',
       new ResourceTemplate('memory://metrics', { list: undefined }),
       {
