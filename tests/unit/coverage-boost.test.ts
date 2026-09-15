@@ -26,8 +26,9 @@ describe('Coverage Boost Unit Test Suite', () => {
     }
   });
 
-  it('should verify VERSION constant is 1.2.0', () => {
-    expect(VERSION).toBe('1.2.0');
+  it('should verify VERSION constant is valid semver', () => {
+    expect(typeof VERSION).toBe('string');
+    expect(VERSION.split('.').length).toBe(3);
   });
 
   it('should handle empty keyframe state IDs in handleCreateEvidencePack', async () => {

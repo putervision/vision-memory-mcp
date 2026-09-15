@@ -418,6 +418,18 @@ export class StorageManager {
 
   async addState(state: VisualState): Promise<void> {
     if (!this.statesTable) throw new Error('States table not initialized.');
+    if (state.vector && Array.isArray(state.vector)) {
+      if (state.vector.length !== config.EMBEDDING_DIMENSIONS) {
+        throw new Error(
+          `Invalid vector dimensions: expected ${config.EMBEDDING_DIMENSIONS}, got ${state.vector.length}`
+        );
+      }
+      for (let i = 0; i < state.vector.length; i++) {
+        if (!Number.isFinite(state.vector[i])) {
+          throw new Error(`Invalid vector embedding: element at index ${i} is non-finite or NaN.`);
+        }
+      }
+    }
     logger.debug(`Inserting visual state: ${state.id}`);
     await this.enqueueWrite(async () => {
       await this.statesTable!.add([state as any]);

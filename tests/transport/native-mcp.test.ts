@@ -7,6 +7,7 @@ import {
   validateParams,
 } from '../../src/transport/native-mcp.js';
 import { createNativeServer } from '../../src/server.js';
+import { VERSION } from '../../src/utils/version.js';
 
 describe('NativeMcpServer Conformance Suite for vision-memory-mcp', () => {
   let server: NativeMcpServer;
@@ -14,7 +15,7 @@ describe('NativeMcpServer Conformance Suite for vision-memory-mcp', () => {
   beforeEach(() => {
     server = new NativeMcpServer({
       name: 'vision-memory-mcp',
-      version: '1.2.0',
+      version: VERSION,
     });
 
     // Register a test tool
@@ -118,7 +119,7 @@ describe('NativeMcpServer Conformance Suite for vision-memory-mcp', () => {
         },
         serverInfo: {
           name: 'vision-memory-mcp',
-          version: '1.2.0',
+          version: VERSION,
         },
       });
     });

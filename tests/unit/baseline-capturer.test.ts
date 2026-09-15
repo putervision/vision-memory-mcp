@@ -8,6 +8,7 @@ import {
   listVisualSpecs,
   exportVisualSpecSuite,
 } from '../../src/core/visual-spec.js';
+import { VERSION } from '../../src/utils/version.js';
 
 async function createTestImage(width = 100, height = 100): Promise<Buffer> {
   try {
@@ -77,7 +78,7 @@ describe('Visual Spec Suite & Baseline Capturer Unit Tests', () => {
     expect(fs.existsSync(outPath)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
-    expect(content.version).toBe('1.2.0');
+    expect(content.version).toBe(VERSION);
     expect(content.specs.length).toBeGreaterThanOrEqual(1);
   });
 

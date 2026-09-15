@@ -42,7 +42,8 @@ describe('version and system metadata in vision-memory-mcp', () => {
   });
 
   it('should export correct VERSION constant', () => {
-    expect(VERSION).toBe('1.2.0');
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8'));
+    expect(VERSION).toBe(pkg.version);
   });
 
   it('should return version and mcp_name in get_session_context tool', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
   "keywords": [
     "mcp",
@@ -80,7 +80,9 @@
     "test:coverage": "vitest run --coverage",
     "test:matrix": "bash scripts/test-matrix.sh",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.test.json --noEmit"
+    "typecheck": "tsc -p tsconfig.test.json --noEmit",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "version:sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1"

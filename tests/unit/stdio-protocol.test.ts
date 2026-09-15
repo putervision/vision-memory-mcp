@@ -7,9 +7,7 @@ describe('Area 3: E2E Standard I/O (Stdio) MCP Protocol Tests', () => {
   const cliPath = path.resolve(process.cwd(), 'dist/cli.js');
 
   beforeAll(() => {
-    if (!fs.existsSync(cliPath)) {
-      execSync('npm run build', { stdio: 'inherit' });
-    }
+    execSync('npm run build', { stdio: 'pipe' });
   });
 
   it('should output current version from CLI binary with --version', () => {

@@ -3,6 +3,7 @@ import { NativeMcpServer as McpServer } from '../../src/transport/native-mcp.js'
 import { registerAllTools } from '../../src/tools/handlers.js';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';
+import { VERSION } from '../../src/utils/version.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -286,7 +287,7 @@ describe('v1.0.0 Consolidated MCP Tools E2E Unit Test Suite', () => {
     const ctxRes = await contextHandler({});
     expect(ctxRes.content).toBeDefined();
     const ctxData = JSON.parse(ctxRes.content[0].text);
-    expect(ctxData.version).toBe('1.2.0');
+    expect(ctxData.version).toBe(VERSION);
     expect(ctxData.mcp_name).toBe('io.github.putervision/vision-memory-mcp');
     expect(ctxData.metrics).toBeDefined();
     expect(ctxData.memory_stats).toBeDefined();

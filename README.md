@@ -1,6 +1,7 @@
 # @putervision/vision-memory-mcp
 
 [![npm version](https://img.shields.io/npm/v/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
+[![version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./CHANGELOG.md)
 [![npm downloads](https://img.shields.io/npm/dm/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
 [![CI](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.18.0-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)

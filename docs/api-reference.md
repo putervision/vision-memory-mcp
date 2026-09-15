@@ -1,4 +1,4 @@
-# 📘 @putervision/vision-memory-mcp Formal API Reference (v1.2.0)
+# 📘 @putervision/vision-memory-mcp Formal API Reference (v1.2.1)
 
 This document provides formal API specifications, parameter schemas, return shapes, and practical leverage descriptions for all **15 Core Model Context Protocol (MCP) tools** provided by `@putervision/vision-memory-mcp`.
 
