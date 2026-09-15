@@ -1,22 +1,35 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
 import { logger } from '../logger.js';
 
-export function registerAllPrompts(server: McpServer): void {
+export function registerAllPrompts(server: any): void {
   logger.info('Registering MCP standard prompts...');
 
+  const registerPrompt = (
+    name: string,
+    metadata: { title: string; description: string; argsSchema?: Record<string, any> },
+    handler: (args: any, extra?: { signal?: AbortSignal }) => Promise<any> | any
+  ) => {
+    if (typeof server.registerPrompt === 'function') {
+      server.registerPrompt(name, metadata, handler);
+    } else if (typeof server.prompt === 'function') {
+      server.prompt(name, metadata.description, metadata.argsSchema || {}, handler);
+    }
+  };
+
   // 1. Prompt: analyze-ui-state
-  server.registerPrompt(
+  registerPrompt(
     'analyze-ui-state',
     {
       title: 'Analyze UI State',
       description:
         'Prompt for analyzing screen layout, key components, and actionable elements from a visual state record.',
       argsSchema: {
-        state_id: z.string().describe('Visual state ID to analyze and summarize'),
+        properties: {
+          state_id: { type: 'string', description: 'Visual state ID to analyze and summarize' },
+        },
+        required: ['state_id'],
       },
     },
-    (args) => {
+    (args: any) => {
       return {
         messages: [
           {
@@ -32,18 +45,21 @@ export function registerAllPrompts(server: McpServer): void {
   );
 
   // 2. Prompt: diagnose-visual-regression
-  server.registerPrompt(
+  registerPrompt(
     'diagnose-visual-regression',
     {
       title: 'Diagnose Visual Regression',
       description:
         'Prompt for diagnosing visual differences between two snapshot checkpoints or visual states.',
       argsSchema: {
-        baseline_snapshot: z.string().describe('Name or ID of the baseline snapshot'),
-        current_snapshot: z.string().describe('Name or ID of the current snapshot'),
+        properties: {
+          baseline_snapshot: { type: 'string', description: 'Name or ID of the baseline snapshot' },
+          current_snapshot: { type: 'string', description: 'Name or ID of the current snapshot' },
+        },
+        required: ['baseline_snapshot', 'current_snapshot'],
       },
     },
-    (args) => {
+    (args: any) => {
       return {
         messages: [
           {
@@ -59,18 +75,24 @@ export function registerAllPrompts(server: McpServer): void {
   );
 
   // 3. Prompt: navigate-to-goal
-  server.registerPrompt(
+  registerPrompt(
     'navigate-to-goal',
     {
       title: 'Navigate to Goal UI State',
       description:
         'Prompt for finding and executing the optimal sequence of actions to reach a target visual state or goal.',
       argsSchema: {
-        current_state_id: z.string().describe('Current active visual state ID'),
-        goal_description: z.string().describe('Target goal description or desired outcome'),
+        properties: {
+          current_state_id: { type: 'string', description: 'Current active visual state ID' },
+          goal_description: {
+            type: 'string',
+            description: 'Target goal description or desired outcome',
+          },
+        },
+        required: ['current_state_id', 'goal_description'],
       },
     },
-    (args) => {
+    (args: any) => {
       return {
         messages: [
           {

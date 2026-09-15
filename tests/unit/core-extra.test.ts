@@ -13,7 +13,7 @@ import {
 import { MemoryCache, getCurrentBranch } from '../../src/core/cache.js';
 import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../../src/core/grounding.js';
 import { processImage } from '../../src/core/image-pipeline.js';
-import { getDirSize } from '../../src/utils/fs.js';
+import { getDirSize, getCachedDirSize } from '../../src/utils/fs.js';
 import { logger } from '../../src/logger.js';
 import { config } from '../../src/config.js';
 
@@ -279,6 +279,15 @@ describe('Core Extra Coverage Suite', () => {
     it('should calculate directory size and return 0 for non-existent path', async () => {
       const size = await getDirSize('/path/does/not/exist/999');
       expect(size).toBe(0);
+    });
+
+    it('should calculate directory size and cached size for real directory', () => {
+      const size = getDirSize(process.cwd());
+      expect(size).toBeGreaterThan(0);
+      const cached = getCachedDirSize(process.cwd());
+      expect(cached).toBeGreaterThan(0);
+      const forced = getCachedDirSize(process.cwd(), true);
+      expect(forced).toBeGreaterThan(0);
     });
   });
 

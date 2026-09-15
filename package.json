@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
   "keywords": [
     "mcp",
@@ -83,29 +83,29 @@
     "typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
-    "@modelcontextprotocol/sdk": "^1.0.4",
-    "zod": "^3.23.8"
+    "@huggingface/transformers": "^3.8.1"
   },
   "optionalDependencies": {
     "@lancedb/lancedb": "^0.13.0",
-    "sharp": "^0.35.3"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^3.2.7",
-    "eslint": "^9.39.5",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^10.8.0",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.63.0",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "@hono/node-server": "^2.0.5",
     "esbuild": "^0.28.1",
-    "sharp": "$sharp"
+    "nanoid": "^3.3.18",
+    "sharp": "$sharp",
+    "vite": "^6.0.0"
   },
   "engines": {
     "node": ">=18.18.0"

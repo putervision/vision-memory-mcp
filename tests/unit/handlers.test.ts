@@ -2,7 +2,7 @@ process.env.LANCEDB_PATH = './data/test-handlers-db';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NativeMcpServer as McpServer } from '../../src/transport/native-mcp.js';
 import { storage } from '../../src/core/storage.js';
 import { registerAllTools } from '../../src/tools/handlers.js';
 

@@ -125,3 +125,59 @@ await client.callTool({
   arguments: { action: "ingest", file_path: "./test-run.webm" }
 });
 ```
+
+---
+
+## ⚡️ Upgrading to v1.1: Native Transport & Predictive Trap Detection
+
+Version 1.1 brings zero-dependency native MCP transport, canonical documentation resources, and loop/backdrop trap detection.
+
+### 1. Zero-Dependency Native Transport (`PV_NATIVE_TRANSPORT=1`)
+You can run `vision-memory-mcp` with zero dependency on `@modelcontextprotocol/sdk` and `zod` by setting `PV_NATIVE_TRANSPORT=1`:
+
+```json
+{
+  "mcpServers": {
+    "vision-memory": {
+      "command": "node",
+      "args": ["/path/to/vision-memory-mcp/dist/index.js"],
+      "env": {
+        "PV_NATIVE_TRANSPORT": "1"
+      }
+    }
+  }
+}
+```
+
+- High-performance, memory-efficient JSON-RPC 2.0 framing directly on Node.js `readline`.
+- Dynamic MCP protocol version negotiation (`2024-11-05`+).
+- Clean stdio pipe without stdout pollution.
+
+### 2. Canonical Tool Documentation Resources (`pv://docs/...`)
+Tool documentation and schemas can now be inspected directly via standard MCP resources without loading the full parameter schema into every context window:
+- URI template: `pv://docs/{toolName}`
+- Individual resources: `pv://docs/analyze_screenshot`, `pv://docs/predict_next_action`, etc.
+
+### 3. Predictive Loop & Backdrop Trap Detection (`detect_traps: true`)
+When calling `predict_next_action`, set `detect_traps: true` to enable predictive self-loop and modal backdrop detection:
+```typescript
+const result = await client.callTool({
+  name: "predict_next_action",
+  arguments: {
+    current_state_id: "vs_123",
+    target_goal: "Submit payment",
+    detect_traps: true
+  }
+});
+// result contains:
+// {
+//   recommended_action: "...",
+//   traps_detected: {
+//     in_failure_loop: false,
+//     consecutive_failures: 0,
+//     has_modal_backdrop: true,
+//     suggested_escape: "dismiss_modal"
+//   }
+// }
+```
+

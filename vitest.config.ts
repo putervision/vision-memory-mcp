@@ -7,15 +7,16 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: 'v8',
-      include: [
-        'src/core/**/*.ts',
-        'src/tools/**/*.ts',
-        'src/utils/**/*.ts',
-        'src/vision/**/*.ts',
-        'src/config.ts',
-        'src/logger.ts',
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/cli.ts',
+        'src/cli/**',
+        'src/index.ts',
+        'src/lib.ts',
+        'src/server.ts',
+        'src/schema/types.ts',
       ],
-      exclude: ['src/cli/**/*.ts', 'src/cli.ts'],
     },
   },
 });

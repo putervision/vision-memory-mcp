@@ -1,15 +1,48 @@
-import {
-  McpServer,
-  ResourceTemplate,
-} from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { storage } from './core/storage.js';
 import { embeddings } from './core/embeddings.js';
-import { registerAllTools } from './tools/handlers.js';
-import { registerAllPrompts } from './tools/prompts.js';
+import { server, createNativeServer } from './server.js';
+import { NativeStdioTransport } from './transport/native-mcp.js';
 import { logger } from './logger.js';
 import { runAutoInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
+
+let isShuttingDown = false;
+let activeServer: { close(): Promise<void> } = server;
+
+async function shutdown(reason: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info(`Shutting down gracefully (${reason})...`);
+
+  const forceExitTimer = setTimeout(() => {
+    logger.warn('Shutdown timed out waiting for database optimization. Forcing exit...');
+    process.exit(reason === 'uncaughtException' || reason === 'unhandledRejection' ? 1 : 0);
+  }, 1000);
+  forceExitTimer.unref();
+
+  try {
+    await activeServer.close();
+    logger.info('MCP server connection closed.');
+  } catch (err: any) {
+    logger.error('Error closing MCP server:', err?.message || String(err));
+  }
+
+  try {
+    await Promise.race([
+      storage.optimize(),
+      new Promise((resolve) => setTimeout(resolve, 800)),
+    ]);
+    logger.info('Database optimization check finished.');
+  } catch (err) {
+    logger.error('Failed to optimize database during shutdown:', err);
+  }
+
+  if (reason === 'uncaughtException' || reason === 'unhandledRejection') {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
+}
 
 async function main() {
   logger.info(`Starting vision-memory-mcp server v${VERSION}...`);
@@ -28,210 +61,30 @@ async function main() {
       logger.warn('CLIP pre-warming error:', err);
     });
 
-    // 2. Instantiate MCP Server
-    const server = new McpServer({
-      name: 'vision-memory-mcp',
-      version: VERSION,
-    });
-
-    // 3. Register Resource Templates
-    logger.info('Registering resource templates...');
-    server.registerResource(
-      'memory-state',
-      new ResourceTemplate('memory://states/{stateId}', {
-        list: undefined,
-      }),
-      {
-        description: 'Read a cached visual state record by ID',
-        mimeType: 'application/json',
-      },
-      async (uri: URL, variables: any) => {
-        const stateId = variables.stateId;
-        if (!stateId) {
-          throw new Error('stateId parameter is required.');
-        }
-        logger.debug(`Reading memory state resource: ${stateId}`);
-        const state = await storage.getState(stateId);
-
-        if (!state) {
-          throw new Error(`State with ID "${stateId}" not found.`);
-        }
-
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify(state, null, 2),
-            },
-          ],
-        };
-      }
-    );
-
-    server.registerResource(
-      'memory-health',
-      new ResourceTemplate('memory://health', { list: undefined }),
-      {
-        description: 'Check operational status of LanceDB, Sharp, CLIP, and server version',
-        mimeType: 'application/json',
-      },
-      async (uri: URL) => {
-        const { embeddings } = await import('./core/embeddings.js');
-        const health = {
-          status: 'healthy',
-          version: VERSION,
-          database: 'LanceDB (connected)',
-          clip_model_ready: embeddings.isReady(),
-          fallback_mode: embeddings.isFallback,
-          uptime_seconds: Math.floor(process.uptime()),
-        };
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify(health, null, 2),
-            },
-          ],
-        };
-      }
-    );
-
-    server.registerResource(
-      'vision-health',
-      new ResourceTemplate('vision:///health', { list: undefined }),
-      {
-        description: 'Check operational status of vision-memory-mcp server',
-        mimeType: 'application/json',
-      },
-      async (uri: URL) => {
-        const { embeddings } = await import('./core/embeddings.js');
-        const health = {
-          status: 'healthy',
-          version: VERSION,
-          database: 'LanceDB (connected)',
-          clip_model_ready: embeddings.isReady(),
-          uptime_seconds: Math.floor(process.uptime()),
-          timestamp: new Date().toISOString(),
-        };
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify(health, null, 2),
-            },
-          ],
-        };
-      }
-    );
-
-    server.registerResource(
-      'memory-metrics',
-      new ResourceTemplate('memory://metrics', { list: undefined }),
-      {
-        description: 'Query real-time cache hit ratios, token savings, and tier latency statistics',
-        mimeType: 'application/json',
-      },
-      async (uri: URL) => {
-        const { metricsCollector } = await import('./core/metrics.js');
-        const stats = metricsCollector.getStats();
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify(stats, null, 2),
-            },
-          ],
-        };
-      }
-    );
-
-    server.registerResource(
-      'memory-specs',
-      new ResourceTemplate('memory://specs', { list: undefined }),
-      {
-        description: 'List active visual SDD design specification baselines',
-        mimeType: 'application/json',
-      },
-      async (uri: URL) => {
-        const { listVisualSpecs } = await import('./core/visual-spec.js');
-        const specs = await listVisualSpecs();
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              mimeType: 'application/json',
-              text: JSON.stringify(specs, null, 2),
-            },
-          ],
-        };
-      }
-    );
-
-    // 4. Register Tools & Prompts
-    logger.info('Registering tools...');
-    registerAllTools(server);
-    logger.info('Registering prompts...');
-    registerAllPrompts(server);
-
-    // 5. Connect Stdio Transport
-    logger.info('Connecting Stdio transport stream...');
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+    // 2. Native MCP Transport Wiring (Zero-Dependency)
+    logger.info('Starting vision-memory-mcp with Native MCP Transport (Zero SDK)...');
+    const native = createNativeServer();
+    const nativeTransport = new NativeStdioTransport();
+    await native.connect(nativeTransport);
+    activeServer = native;
 
     logger.info('vision-memory-mcp server connected and running.');
-
-    // 6. Handle Graceful Shutdown
-    let isShuttingDown = false;
-    const shutdown = async (reason: string) => {
-      if (isShuttingDown) return;
-      isShuttingDown = true;
-      logger.info(`Shutting down gracefully (${reason})...`);
-      
-      const forceExitTimer = setTimeout(() => {
-        logger.warn('Shutdown timed out waiting for database optimization. Forcing exit...');
-        process.exit(reason === 'uncaughtException' || reason === 'unhandledRejection' ? 1 : 0);
-      }, 1000);
-      forceExitTimer.unref();
-
-      try {
-        await Promise.race([
-          storage.optimize(),
-          new Promise((resolve) => setTimeout(resolve, 800))
-        ]);
-        logger.info('Database optimization check finished.');
-      } catch (err) {
-        logger.error('Failed to optimize database during shutdown:', err);
-      }
-
-      if (reason === 'uncaughtException' || reason === 'unhandledRejection') {
-        process.exit(1);
-      } else {
-        process.exit(0);
-      }
-    };
-
-    process.on('SIGINT', () => void shutdown('SIGINT'));
-    process.on('SIGTERM', () => void shutdown('SIGTERM'));
-    process.on('uncaughtException', (err) => {
-      logger.error('Uncaught Exception:', err);
-      void shutdown('uncaughtException');
-    });
-    process.on('unhandledRejection', (reason, promise) => {
-      logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      void shutdown('unhandledRejection');
-    });
-    process.stdin.on('close', () => void shutdown('stdin close'));
-    if (typeof (transport as any).onclose === 'function') {
-      (transport as any).onclose = () => void shutdown('transport close');
-    }
   } catch (error) {
     logger.error('Fatal error starting server:', error);
     process.exit(1);
   }
 }
+
+process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  void shutdown('uncaughtException');
+});
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  void shutdown('unhandledRejection');
+});
+process.stdin.on('close', () => void shutdown('stdin close'));
 
 main();

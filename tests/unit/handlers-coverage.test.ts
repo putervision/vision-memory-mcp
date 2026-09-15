@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NativeMcpServer as McpServer } from '../../src/transport/native-mcp.js';
 import { registerAllTools } from '../../src/tools/handlers.js';
 import { storage } from '../../src/core/storage.js';
 import { config } from '../../src/config.js';

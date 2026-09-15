@@ -71,4 +71,40 @@ describe('Vision Memory Legacy Compatibility Shim', () => {
     expect(tool).toBe('unknown_tool');
     expect(transformedArgs).toEqual({ foo: 'bar' });
   });
+
+  it('should translate every registered legacy tool without error', () => {
+    const samplePayload: Record<string, any> = {
+      screenshot: 'base64str',
+      description: 'sample description',
+      source_url: 'http://localhost',
+      state_a_id: 'vs_01',
+      state_b_id: 'vs_02',
+      video_a_id: 'vid_01',
+      video_b_id: 'vid_02',
+      spec_id: 'spec_01',
+      name: 'test spec',
+      baseline_screenshot: 'base64',
+      baseline_file_path: '/path/baseline.png',
+      current_screenshot: 'base64',
+      current_file_path: '/path/current.png',
+      video_path: '/path/video.mp4',
+      task_id: 'task_01',
+      trace_id: 'trace_01',
+      query: 'search query',
+      limit: 5,
+      version: '1.0.0',
+      description_text: 'note',
+      snapshot_id: 'snap_01',
+      snapshot_a_id: 'snap_a',
+      snapshot_b_id: 'snap_b',
+      target_path: '/export.json',
+      source_path: '/import.json',
+    };
+
+    for (const legacyName of Object.keys(LEGACY_VISION_TOOL_MAP)) {
+      const res = translateLegacyVisionCall(legacyName, samplePayload);
+      expect(res.tool).toBeDefined();
+      expect(res.transformedArgs).toBeDefined();
+    }
+  });
 });

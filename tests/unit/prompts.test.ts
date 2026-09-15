@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NativeMcpServer as McpServer } from '../../src/transport/native-mcp.js';
 import { registerAllPrompts } from '../../src/tools/prompts.js';
 
 describe('MCP Prompts Module', () => {

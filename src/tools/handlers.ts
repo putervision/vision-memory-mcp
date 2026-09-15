@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
+import { z } from '../schema/schemas.js';
 import crypto from 'crypto';
+import { zodToJsonSchema } from '../transport/native-mcp.js';
 import { config, resolveProjectRoot } from '../config.js';
 import { storage, escapeSql } from '../core/storage.js';
 import { getCurrentBranch, memoryCache } from '../core/cache.js';
@@ -454,7 +454,48 @@ export async function handleCreateEvidencePack(params: {
   return pack;
 }
 
-export function registerAllTools(server: McpServer): void {
+export interface VisualToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export const toolDefinitions: VisualToolDefinition[] = [];
+
+export function getToolDefinitions(): VisualToolDefinition[] {
+  if (toolDefinitions.length === 0) {
+    registerAllTools({});
+  }
+  return toolDefinitions;
+}
+
+export function registerAllTools(server: any): void {
+  const originalRegisterTool = server?.registerTool?.bind(server);
+  if (server) {
+    server.registerTool = (name: string, metadata: any, handler: any) => {
+      if (metadata && metadata.inputSchema && !metadata.rawJsonSchema) {
+        metadata.rawJsonSchema = zodToJsonSchema(metadata.inputSchema);
+      }
+      if (
+        !toolDefinitions.some((t) => t.name === name) &&
+        !name.startsWith('v1_') &&
+        !LEGACY_VISION_TOOL_MAP[name]
+      ) {
+        toolDefinitions.push({
+          name,
+          description: metadata?.description || '',
+          inputSchema:
+            metadata?.rawJsonSchema ||
+            (metadata?.inputSchema
+              ? zodToJsonSchema(metadata.inputSchema)
+              : { type: 'object', properties: {} }),
+        });
+      }
+      if (originalRegisterTool) {
+        return originalRegisterTool(name, metadata, handler);
+      }
+    };
+  }
   // ═══════════════════════════════════════════════════════════════════════════
   // Tool 1: analyze_screenshot
   // Ingests a single screenshot OR a batch of screenshots (via `items` array).
@@ -526,7 +567,7 @@ export function registerAllTools(server: McpServer): void {
           ),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
         const branch = params.git_branch ?? getCurrentBranch();
@@ -770,7 +811,7 @@ export function registerAllTools(server: McpServer): void {
           .describe('Response format verbosity'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
         let imageB64: string | undefined;
@@ -874,7 +915,7 @@ export function registerAllTools(server: McpServer): void {
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
 
@@ -987,7 +1028,7 @@ export function registerAllTools(server: McpServer): void {
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
         let fromId = params.from_state_id;
@@ -1055,7 +1096,7 @@ export function registerAllTools(server: McpServer): void {
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
 
@@ -1161,7 +1202,7 @@ export function registerAllTools(server: McpServer): void {
         response_format: z.enum(['compact', 'full']).optional(),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const format = params.response_format ?? 'compact';
         const recentCount = params.include_recent ?? 5;
@@ -1281,7 +1322,7 @@ export function registerAllTools(server: McpServer): void {
           .describe('JSON string of exported SnapshotArchive (required for restore)'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         switch (params.action) {
           case 'save': {
@@ -1388,7 +1429,7 @@ export function registerAllTools(server: McpServer): void {
           ),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const type = params.type ?? 'any';
         const branch = getCurrentBranch();
@@ -1483,9 +1524,15 @@ export function registerAllTools(server: McpServer): void {
           .optional()
           .describe('Optional natural language goal description'),
         goal_state_id: z.string().optional().describe('Optional target visual state ID'),
+        detect_traps: z
+          .boolean()
+          .optional()
+          .describe(
+            'Whether to analyze state for modal backdrops, loops, and visual traps (default: true)'
+          ),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const currentState = await storage.getStateAll(params.current_state_id);
         if (!currentState) {
@@ -1497,6 +1544,45 @@ export function registerAllTools(server: McpServer): void {
           50
         );
 
+        const traps: Array<{
+          type: string;
+          description: string;
+          severity: string;
+          suggested_action?: string;
+        }> = [];
+        // Check for self-loop or high failure transitions
+        const selfLoops = transitions.filter(
+          (t) => t.from_state_id === t.to_state_id && t.failure_count > 0
+        );
+        if (selfLoops.length > 0) {
+          traps.push({
+            type: 'self_loop_failure',
+            description: `State has ${selfLoops.length} self-looping failed transition(s).`,
+            severity: 'high',
+            suggested_action:
+              'Avoid repeating previous failed action; select alternative selector or press Escape.',
+          });
+        }
+        // Check modal backdrop / overlay patterns in description or AX tree
+        const stateDesc = (currentState.description || '').toLowerCase();
+        const axTree = (currentState.accessibility_tree || '').toLowerCase();
+        if (
+          stateDesc.includes('cookie') ||
+          stateDesc.includes('modal') ||
+          stateDesc.includes('backdrop') ||
+          stateDesc.includes('dialog') ||
+          axTree.includes('"role":"dialog"') ||
+          axTree.includes('"role":"alertdialog"')
+        ) {
+          traps.push({
+            type: 'modal_overlay',
+            description: 'Modal or backdrop overlay detected on screen.',
+            severity: 'medium',
+            suggested_action:
+              'Dismiss modal dialog, accept/reject cookie banner, or click backdrop.',
+          });
+        }
+
         if (transitions.length === 0) {
           return {
             content: [
@@ -1506,6 +1592,7 @@ export function registerAllTools(server: McpServer): void {
                   predicted_action: null,
                   confidence_score: 0.0,
                   reasoning: 'No outbound transitions logged for current state.',
+                  traps_detected: traps,
                 }),
               },
             ],
@@ -1556,6 +1643,7 @@ export function registerAllTools(server: McpServer): void {
                 (bestTransition.success_count + bestTransition.failure_count)
               : 1.0,
           grounded_target: groundedTarget,
+          traps_detected: traps,
         };
 
         return {
@@ -1618,7 +1706,7 @@ export function registerAllTools(server: McpServer): void {
           .describe("Optional state-memory-mcp SDD requirement node ID for 'verify'"),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         if (params.action === 'set') {
           const specName = params.name || params.spec_name;
@@ -1687,7 +1775,7 @@ export function registerAllTools(server: McpServer): void {
         limit: z.number().optional().describe('Maximum number of states to export (default: 50)'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const exportFmt = params.format || 'json';
 
@@ -1857,7 +1945,7 @@ export function registerAllTools(server: McpServer): void {
         limit: z.number().optional().describe('Max search results (default: 20)'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         if (params.action === 'ingest') {
           const res = await handleIngestVideo({
@@ -1926,7 +2014,7 @@ export function registerAllTools(server: McpServer): void {
           .describe('State memory node IDs linked to this visual evidence pack'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const res = await handleCreateEvidencePack(params);
         const primaryTargetId =
@@ -2011,7 +2099,7 @@ export function registerAllTools(server: McpServer): void {
         state_id: z.string().describe('ID of visual state to purge'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         await storage.deleteState(params.state_id);
         memoryCache.clear();
@@ -2053,7 +2141,7 @@ export function registerAllTools(server: McpServer): void {
         poll_interval_ms: z.number().optional().describe('Polling interval in ms (default: 500)'),
       }),
     },
-    async (params) => {
+    async (params: any) => {
       try {
         const res = await handleWaitForVisualState({
           target_state_id: params.target_state_id,
@@ -2113,5 +2201,9 @@ export function registerAllTools(server: McpServer): void {
         }
       );
     }
+  }
+
+  if (originalRegisterTool) {
+    server.registerTool = originalRegisterTool;
   }
 }
