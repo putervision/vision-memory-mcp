@@ -81,6 +81,10 @@ export async function setVisualSpec(params: {
     ttl: 0,
   };
 
+  try {
+    await storage.deleteState(stateId);
+  } catch {}
+
   await storage.addState(state);
   logger.info(`Registered Visual Spec baseline "${params.name}" (ID: ${stateId})`);
 
@@ -113,15 +117,20 @@ export async function verifyVisualSpec(params: {
     throw new Error('Either screenshot base64 or filePath must be provided.');
   }
 
-  const allStates = await storage.listStatesAll();
-  const specState = allStates.find((s: VisualState) => {
-    try {
-      const meta = JSON.parse(s.structured_data || '{}');
-      return meta.is_visual_spec && meta.spec_name === params.specName;
-    } catch {
-      return false;
-    }
-  });
+  const stateId = `spec-${params.specName.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
+  let specState = await storage.getStateAll(stateId);
+
+  if (!specState) {
+    const allStates = await storage.listStatesAll(undefined, 10000);
+    specState = allStates.find((s: VisualState) => {
+      try {
+        const meta = JSON.parse(s.structured_data || '{}');
+        return meta.is_visual_spec && meta.spec_name === params.specName;
+      } catch {
+        return false;
+      }
+    });
+  }
 
   if (!specState) {
     throw new Error(`No visual spec baseline found with name: "${params.specName}"`);
@@ -235,7 +244,7 @@ export interface VisualSpecInfo {
  * Lists all registered Visual Spec baselines across the project.
  */
 export async function listVisualSpecs(): Promise<VisualSpecInfo[]> {
-  const allStates = await storage.listStatesAll();
+  const allStates = await storage.listStatesAll(undefined, 10000);
   const specs: VisualSpecInfo[] = [];
 
   for (const s of allStates) {
@@ -244,7 +253,7 @@ export async function listVisualSpecs(): Promise<VisualSpecInfo[]> {
       if (meta.is_visual_spec) {
         specs.push({
           id: s.id,
-          name: meta.spec_name || s.id.replace('spec-', ''),
+          name: meta.spec_name || s.id.replace(/^spec-/, ''),
           dhash: s.dhash,
           ahash: s.ahash,
           created_at: s.created_at,

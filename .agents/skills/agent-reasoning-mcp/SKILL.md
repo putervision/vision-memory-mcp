@@ -27,7 +27,7 @@ This skill provides step-by-step guidance and operational patterns for interacti
 
 ---
 
-## 3. Complete 10 Consolidated MCP Tools Reference
+## 3. Complete 15 Consolidated MCP Tools Reference
 
 | Tool Name | Key Actions | Key Parameters | Description |
 |---|---|---|---|
@@ -41,3 +41,8 @@ This skill provides step-by-step guidance and operational patterns for interacti
 | `manage_beliefs` | `set`, `get`, `decay`, `list` | `key`, `value`, `confidence`, `decay_rate` | Structured belief state with temporal exponential confidence decay. |
 | `manage_intentions` | `create`, `get`, `list`, `dispatch`, `cancel` | `goal_id`, `behavior_name`, `parameters` | Execution directives queue connecting strategic plans to runtime engines. |
 | `manage_reasoning_db` | `stats`, `audit`, `snapshot`, `restore`, `prune` | `action`, `name`, `description` | Database diagnostics, snapshots, and SHA-256 Merkle audit verification. |
+| `classify` | evaluation | `category`, `input`, `taxonomy`, `state_pack` | Zero-LLM deterministic classification against hierarchical taxonomy (<2ms SLA). |
+| `ask_noul` | evaluation | `condition`, `state_pack`, `threshold` | Fast binary (Yes/No/Abstain) heuristic gate evaluating conditions (<2ms SLA). |
+| `ask_choice` | evaluation | `choices`, `context`, `state_pack` | Deterministic multi-alternative selection ranking candidate choices (<2ms SLA). |
+| `ask_score` | evaluation | `target`, `metric`, `scale`, `state_pack` | Heuristic utility evaluation scoring target entities on a bounded scale (<2ms SLA). |
+| `gate_intention` | evaluation | `project`, `proposed_action`, `state_pack` | Fast-path safety & feasibility filter checking preconditions before execution (<1ms SLA). |

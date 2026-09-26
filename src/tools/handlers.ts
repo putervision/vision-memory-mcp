@@ -1199,18 +1199,60 @@ export function registerAllTools(server: any): void {
           .max(20)
           .optional()
           .describe('Count of frequent states'),
-        response_format: z.enum(['compact', 'full']).optional(),
+        response_format: z.enum(['compact', 'full', 'compact_slice']).optional(),
+        format: z.string().optional().describe('Response format override (compact, full, compact_slice)'),
+        include_centroids: z.boolean().optional().describe('Whether to export embedding centroids out-of-band'),
       }),
     },
     async (params: any) => {
       try {
-        const format = params.response_format ?? 'compact';
+        const format = params.format ?? params.response_format ?? 'compact';
         const recentCount = params.include_recent ?? 5;
         const frequentCount = params.include_frequent ?? 3;
         const branch = getCurrentBranch();
 
         const recentList = await storage.listStatesAll(`git_branch = '${escapeSql(branch)}'`, 100);
         recentList.sort((a, b) => b.created_at - a.created_at);
+
+        if (format === 'compact_slice') {
+          const latest = recentList[0];
+          const stateId = latest ? latest.id : 'none';
+          const layoutHash = latest
+            ? (latest.dhash || latest.ahash || crypto.createHash('sha256').update(latest.description || latest.id).digest('hex'))
+            : '0'.repeat(64);
+          const fullDesc = latest?.description || 'No visual states available';
+          const summary = fullDesc.length > 120 ? fullDesc.slice(0, 117) + '...' : fullDesc;
+
+          let elemCount = 0;
+          if (latest?.grounded_elements) {
+            try {
+              if (Array.isArray(latest.grounded_elements)) {
+                elemCount = latest.grounded_elements.length;
+              } else if (typeof latest.grounded_elements === 'string') {
+                const parsed = JSON.parse(latest.grounded_elements);
+                if (Array.isArray(parsed)) elemCount = parsed.length;
+              }
+            } catch {
+              elemCount = 0;
+            }
+          }
+
+          const visualSlice: any = {
+            state_id: stateId,
+            layout_hash: layoutHash,
+            description_summary: summary,
+            interactive_element_count: elemCount,
+            embedding_ref_ids: latest ? [latest.id] : [],
+          };
+
+          if (params.include_centroids) {
+            visualSlice.embedding_centroids = latest?.vector ? [latest.vector] : [[0]];
+          }
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify(visualSlice) }],
+          };
+        }
         const recent = recentList.slice(0, recentCount).map((s) => ({
           id: s.id,
           description: s.description,

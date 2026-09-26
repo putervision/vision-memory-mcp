@@ -69,7 +69,7 @@ export function validateFilter(filter?: string): void {
 
   // Ensure filter matches allowed column predicate pattern
   const allowedPattern =
-    /^(?:\s*\(?\s*(?:id|git_branch|from_state_id|to_state_id|source_url|name|dhash|ahash|created_at|ttl)\s*(?:=\s*'[^']*'|IN\s*\([^)]*\))\s*\)?\s*(?:AND|OR)?\s*)+$/i;
+    /^(?:\s*\(?\s*(?:id|git_branch|from_state_id|to_state_id|source_url|name|dhash|ahash|created_at|ttl|trace_id)\s*(?:=\s*'[^']*'|IN\s*\([^)]*\))\s*\)?\s*(?:AND|OR)?\s*)+$/i;
   if (!allowedPattern.test(str)) {
     throw new Error(`Unwhitelisted SQL filter predicate: "${filter}"`);
   }
@@ -116,6 +116,7 @@ export class StorageManager {
     string,
     { db: lancedb.Connection; statesTable: lancedb.Table | null }
   >();
+  private currentDbPath: string | null = null;
   private compactionFailures = 0;
   private circuitTrippedUntil = 0;
   private writeQueue: Promise<void> = Promise.resolve();
@@ -133,6 +134,7 @@ export class StorageManager {
 
   async init(customDbPath?: string): Promise<void> {
     const dbPath = customDbPath ?? config.LANCEDB_PATH;
+    this.currentDbPath = dbPath;
     logger.info(`Initializing LanceDB storage at: ${dbPath}`);
 
     // Create database directory if missing
@@ -164,7 +166,7 @@ export class StorageManager {
     try {
       const { discoverSubMemoryDatabases } = await import('../utils/workspace.js');
       const dbs = discoverSubMemoryDatabases(rootDir);
-      const primaryPath = path.resolve(config.LANCEDB_PATH);
+      const primaryPath = path.resolve(this.currentDbPath || config.LANCEDB_PATH);
 
       for (const d of dbs) {
         const resolvedPath = path.resolve(d.path);
@@ -388,7 +390,8 @@ export class StorageManager {
 
   async checkStorageSizeAndEvict(): Promise<void> {
     const maxBytes = config.MAX_LANCEDB_SIZE_MB * 1024 * 1024;
-    let estimatedCurrentSize = getCachedDirSize(config.LANCEDB_PATH, true);
+    const dbDir = this.currentDbPath || config.LANCEDB_PATH;
+    let estimatedCurrentSize = getCachedDirSize(dbDir, true);
     if (estimatedCurrentSize <= maxBytes) return;
 
     logger.warn(
@@ -449,8 +452,12 @@ export class StorageManager {
   async getState(id: string): Promise<VisualState | null> {
     if (!this.statesTable) throw new Error('States table not initialized.');
     const safeId = escapeSql(id);
-    const results = await this.statesTable.query().where(`id = '${safeId}'`).limit(1).toArray();
-    return results.length > 0 ? (results[0] as unknown as VisualState) : null;
+    const results = await this.statesTable.query().where(`id = '${safeId}'`).toArray();
+    if (results.length === 0) return null;
+    if (results.length > 1) {
+      results.sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0));
+    }
+    return results[0] as unknown as VisualState;
   }
 
   async getStateAll(id: string): Promise<VisualState | null> {
@@ -461,8 +468,11 @@ export class StorageManager {
     for (const aux of this.auxiliaryDbs.values()) {
       if (!aux.statesTable) continue;
       try {
-        const results = await aux.statesTable.query().where(`id = '${safeId}'`).limit(1).toArray();
+        const results = await aux.statesTable.query().where(`id = '${safeId}'`).toArray();
         if (results.length > 0) {
+          if (results.length > 1) {
+            results.sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0));
+          }
           return results[0] as unknown as VisualState;
         }
       } catch (err) {
