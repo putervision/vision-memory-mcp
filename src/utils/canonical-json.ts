@@ -1,6 +1,6 @@
 /**
  * Canonical JSON Serialization Utility
- * 
+ *
  * Complies strictly with PuterVision Pentad System One specification §10.1:
  * 1. Object keys are sorted lexicographically (recursive, including nested objects).
  * 2. No trailing commas. No comments.

@@ -1200,8 +1200,14 @@ export function registerAllTools(server: any): void {
           .optional()
           .describe('Count of frequent states'),
         response_format: z.enum(['compact', 'full', 'compact_slice']).optional(),
-        format: z.string().optional().describe('Response format override (compact, full, compact_slice)'),
-        include_centroids: z.boolean().optional().describe('Whether to export embedding centroids out-of-band'),
+        format: z
+          .string()
+          .optional()
+          .describe('Response format override (compact, full, compact_slice)'),
+        include_centroids: z
+          .boolean()
+          .optional()
+          .describe('Whether to export embedding centroids out-of-band'),
       }),
     },
     async (params: any) => {
@@ -1218,7 +1224,12 @@ export function registerAllTools(server: any): void {
           const latest = recentList[0];
           const stateId = latest ? latest.id : 'none';
           const layoutHash = latest
-            ? (latest.dhash || latest.ahash || crypto.createHash('sha256').update(latest.description || latest.id).digest('hex'))
+            ? latest.dhash ||
+              latest.ahash ||
+              crypto
+                .createHash('sha256')
+                .update(latest.description || latest.id)
+                .digest('hex')
             : '0'.repeat(64);
           const fullDesc = latest?.description || 'No visual states available';
           const summary = fullDesc.length > 120 ? fullDesc.slice(0, 117) + '...' : fullDesc;

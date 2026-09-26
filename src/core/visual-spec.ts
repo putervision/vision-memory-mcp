@@ -122,14 +122,15 @@ export async function verifyVisualSpec(params: {
 
   if (!specState) {
     const allStates = await storage.listStatesAll(undefined, 10000);
-    specState = allStates.find((s: VisualState) => {
-      try {
-        const meta = JSON.parse(s.structured_data || '{}');
-        return meta.is_visual_spec && meta.spec_name === params.specName;
-      } catch {
-        return false;
-      }
-    });
+    specState =
+      allStates.find((s: VisualState) => {
+        try {
+          const meta = JSON.parse(s.structured_data || '{}');
+          return meta.is_visual_spec && meta.spec_name === params.specName;
+        } catch {
+          return false;
+        }
+      }) || null;
   }
 
   if (!specState) {

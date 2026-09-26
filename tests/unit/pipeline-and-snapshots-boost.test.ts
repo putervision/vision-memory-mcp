@@ -165,7 +165,11 @@ describe('Vision-Memory Pipeline, Embeddings, Snapshots & Native MCP Boost', () 
       expect(resNull).toBeNull();
 
       // Missing version with id returns InvalidRequest error response
-      const resBadVer = await server.handleMessage({ jsonrpc: '1.0' as any, id: 1, method: 'ping' });
+      const resBadVer = await server.handleMessage({
+        jsonrpc: '1.0' as any,
+        id: 1,
+        method: 'ping',
+      });
       expect(resBadVer?.error?.code).toBe(ErrorCode.InvalidRequest);
 
       // Unknown method
@@ -238,11 +242,13 @@ describe('Vision-Memory Pipeline, Embeddings, Snapshots & Native MCP Boost', () 
     });
 
     it('exercises schemas toJsonSchema fallback branches and safeParse non-Error', async () => {
-      const { Schema, ArraySchema, RecordSchema, ObjectSchema } = await import(
-        '../../src/schema/schemas.js'
-      );
+      const { Schema, ArraySchema, RecordSchema, ObjectSchema } =
+        await import('../../src/schema/schemas.js');
 
       class StringThrowingSchema extends Schema<any> {
+        toJsonSchema(): Record<string, any> {
+          return {};
+        }
         parse(): any {
           throw 'simple string error';
         }

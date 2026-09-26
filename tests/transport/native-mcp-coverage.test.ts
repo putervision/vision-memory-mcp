@@ -31,20 +31,12 @@ describe('Vision-Memory Native Transport & Client Exhaustive Coverage', () => {
     );
 
     // Register a tool returning raw string
-    server.registerTool(
-      'string_tool',
-      { title: 'String tool' },
-      async () => 'raw string output'
-    );
+    server.registerTool('string_tool', { title: 'String tool' }, async () => 'raw string output');
 
     // Register a tool throwing generic error
-    server.registerTool(
-      'throw_tool',
-      { title: 'Throw tool' },
-      async () => {
-        throw new Error('boom');
-      }
-    );
+    server.registerTool('throw_tool', { title: 'Throw tool' }, async () => {
+      throw new Error('boom');
+    });
 
     // Register a prompt
     server.registerPrompt(
@@ -112,7 +104,10 @@ describe('Vision-Memory Native Transport & Client Exhaustive Coverage', () => {
     const prompts = await client.listPrompts();
     expect(prompts.prompts.some((p: any) => p.name === 'system_prompt')).toBe(true);
 
-    const promptRes = await client.getPrompt({ name: 'system_prompt', arguments: { role: 'tester' } });
+    const promptRes = await client.getPrompt({
+      name: 'system_prompt',
+      arguments: { role: 'tester' },
+    });
     expect(promptRes.messages[0].content.text).toBe('Role: tester');
     expect(server._registeredPrompts['system_prompt']).toBeDefined();
 
@@ -169,11 +164,7 @@ describe('Vision-Memory Native Transport & Client Exhaustive Coverage', () => {
         validateParams('tool', { properties: { o: { type: 'object' } } }, { o: ['arr'] })
       ).toThrow('expected object');
       expect(() =>
-        validateParams(
-          'tool',
-          { properties: { e: { enum: ['alpha', 'beta'] } } },
-          { e: 'gamma' }
-        )
+        validateParams('tool', { properties: { e: { enum: ['alpha', 'beta'] } } }, { e: 'gamma' })
       ).toThrow('expected one of');
     });
   });

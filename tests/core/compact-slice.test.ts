@@ -34,7 +34,8 @@ describe('Vision-Memory Compact Slice Export Contract', { timeout: 30000 }, () =
     const ingestHandler = getToolHandler(server, 'analyze_screenshot');
     await ingestHandler({
       screenshot: samplePng.toString('base64'),
-      description: 'HUD overview with target reticle and navigational waypoints active in primary viewport',
+      description:
+        'HUD overview with target reticle and navigational waypoints active in primary viewport',
       grounded_elements: [
         { id: 'hud_btn_1', role: 'button', label: 'Engage' },
         { id: 'hud_btn_2', role: 'button', label: 'Retreat' },
