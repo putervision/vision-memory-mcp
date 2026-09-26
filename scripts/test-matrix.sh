@@ -25,6 +25,7 @@ for VER in "${VERSIONS[@]}"; do
     echo "------------------------------------------"
     if command -v nvm >/dev/null 2>&1; then
         if nvm use "$VER" >/dev/null 2>&1; then
+            export PATH="$(dirname "$(nvm which "$VER")"):$PATH"
             echo "Using Node $(node -v) via NVM"
             if npm test; then
                 echo "✅ Node $VER tests passed!"
@@ -45,6 +46,7 @@ done
 # Restore original Node version
 if [ -n "$ORIGINAL_VER" ] && command -v nvm >/dev/null 2>&1; then
     nvm use "$ORIGINAL_VER" >/dev/null 2>&1 || true
+    export PATH="$(dirname "$(nvm which "$ORIGINAL_VER" 2>/dev/null || nvm which current)"):$PATH"
 fi
 
 echo ""

@@ -41,18 +41,12 @@
 - **Description**: Strategic BDI reasoning and decision intelligence engine for autonomous AI agents — goals, utility evaluation, and reactive replanning.
 - **Primary Capabilities**: Goal DAG decomposition, multi-attribute expected utility theory, exponential belief decay ($C = C_0 e^{-\lambda t}$), intention dispatch queue, explainable decision traces.
 
-### 6. PuterVision Harness (`@putervision/harness`)
-- **Website**: https://putervision.com
-- **Repository**: https://github.com/putervision/harness
-- **Description**: Supervisor orchestration, multi-server lifecycle management, automated OODA super-loop execution, and gaming HUD perception-action bridges.
-- **Primary Capabilities**: Child process supervision, MCP tool registry & gateway proxy, automated trace ID & project parameter injection, Bézier aim smoothing, HUD vital slicer, panic E-stop.
-
-### 7. ScreenChunk (`ScreenChunk`)
+### 6. ScreenChunk (`ScreenChunk`)
 - **Website**: https://screenchunk.com
 - **Repository**: https://github.com/putervision/screenchunk
 - **Description**: Ultra-fast live screen capture studio, 2D region cropping, and WebRTC screen recorder with client-side zero-knowledge AES-256-GCM chunk protection.
 
-### 8. BassMusic.AI (`BassMusic.AI`)
+### 7. BassMusic.AI (`BassMusic.AI`)
 - **Website**: https://bassmusic.ai
 - **Repository**: https://github.com/putervision/bassmusicai
 - **Description**: Free, 100% client-side AI electronic bass music and vocal stem generator running in-browser via WebGPU and WebAssembly SIMD neural models.

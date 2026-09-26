@@ -5,11 +5,15 @@ import path from 'path';
 import { storage } from '../../src/core/storage.js';
 import { saveSnapshot, diffSnapshots } from '../../src/core/snapshots.js';
 import { VisualState } from '../../src/types.js';
+import { config } from '../../src/config.js';
 
 const TEST_DB_PATH = path.resolve(process.cwd(), './data/test-snapshots-db');
+const origConfigPath = config.LANCEDB_PATH;
 
 describe('Snapshots Checkpointing and Diffing', () => {
   beforeAll(async () => {
+    config.LANCEDB_PATH = TEST_DB_PATH;
+    process.env.LANCEDB_PATH = TEST_DB_PATH;
     if (fs.existsSync(TEST_DB_PATH)) {
       fs.rmSync(TEST_DB_PATH, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }

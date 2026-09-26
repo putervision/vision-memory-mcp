@@ -1,7 +1,7 @@
 # @putervision/vision-memory-mcp
 
 [![npm version](https://img.shields.io/npm/v/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
-[![version](https://img.shields.io/badge/version-1.2.1-blue.svg)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.3.0-blue.svg)](./CHANGELOG.md)
 [![npm downloads](https://img.shields.io/npm/dm/@putervision/vision-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/vision-memory-mcp)
 [![CI](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/vision-memory-mcp/actions/workflows/ci.yml)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.18.0-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org)
@@ -87,7 +87,7 @@ vision-memory-mcp view
 
 ## 🌟 Key Highlights
 
-- **👁️ Perceptual Visual Caching**: Sub-5ms L1/L2 dHash zero-token fast-path layout recognition.
+- **👁️ Perceptual Visual Caching & Compact Slices**: Sub-5ms L1/L2 dHash zero-token fast-path layout recognition and sub-1KB `compact_slice` export for Pentad System 1 StatePack assembly.
 - **🎬 WebM & MP4 Video Ingestion**: Digest E2E test recordings & screen captures into searchable keyframe visual states & state transition graphs.
 - **⚡ 15 Core MCP Tools**: High-coherence consolidated toolset covering perception, video memory, evidence packs, trajectory comparison, semantic retrieval, element grounding, visual SDD, snapshots, and unified context & metrics.
 - **🔗 Dual-MCP Synergy & Immutable Evidence Packs**: Deeply bridges `@putervision/state-memory-mcp` task DAGs with visual state memory, generating cryptographically hashable evidence packs for compliance and audit trails.
@@ -103,7 +103,7 @@ vision-memory-mcp view
 
 `@putervision/vision-memory-mcp` provides **15 production-grade consolidated MCP tools** structured across 4 core visual perception & automation domains:
 
-- **Perception & Semantic Search**: `analyze_screenshot` (L1/L2 perceptual dHash & AX tree parsing, single/batch), `recall_memory` (text & image semantic vector search), `get_session_context` (aggregated cache hit metrics, recent states).
+- **Perception & Semantic Search**: `analyze_screenshot` (L1/L2 perceptual dHash & AX tree parsing, single/batch), `recall_memory` (text & image semantic vector search), `get_session_context` (aggregated cache hit metrics, recent states, and sub-1KB `compact_slice` export).
 - **Element Grounding & Navigation**: `predict_next_action` (deterministic CSS selectors & bounding coordinates), `record_outcome` (UI action transitions & visual blockers), `get_navigation_paths` (BFS shortest-path planner), `wait_for_visual_state` (polling for target UI state).
 - **Video Trajectories & Evidence Packs**: `manage_video` (WebM/MP4 keyframe ingestion, timeline search), `compare_states` (visual layout diffs & video trajectory comparison), `create_evidence_pack` (cryptographic audit proof linking video keyframes to state-memory DAGs), `export_trajectories` (multimodal fine-tuning datasets).
 - **Snapshots & Visual SDD**: `manage_visual_spec` (mockup baseline contracts & regression checks), `manage_snapshot` (checkpoints, export, restore), `undo_visual_mutation` (revert state ingestion), `forget_state` (privacy & PII purging).

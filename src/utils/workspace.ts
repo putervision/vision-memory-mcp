@@ -76,7 +76,7 @@ export function discoverSubGitRepos(rootDir: string = process.cwd()): Discovered
       })
         .toString()
         .trim();
-      return branch || 'main';
+      return branch ? branch.replace(/^heads\//, '') : 'main';
     } catch {
       return 'main';
     }

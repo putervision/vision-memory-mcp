@@ -12,6 +12,13 @@ const BRANCH_CHECK_INTERVAL_MS = 10000; // Cache branch name for 10s to avoid ex
  * Falls back to 'main' if git is not initialized or fails.
  */
 export function getCurrentBranch(): string {
+  if (process.env.GIT_BRANCH) {
+    return process.env.GIT_BRANCH;
+  }
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    return 'main';
+  }
+
   const now = Date.now();
   if (cachedBranch && now - lastBranchCheck < BRANCH_CHECK_INTERVAL_MS) {
     return cachedBranch;
@@ -23,7 +30,7 @@ export function getCurrentBranch(): string {
     })
       .toString()
       .trim();
-    cachedBranch = branch;
+    cachedBranch = branch.replace(/^heads\//, '');
   } catch (error) {
     if (cachedBranch !== 'main') {
       logger.debug('Failed to resolve git branch via rev-parse; defaulting to "main".');

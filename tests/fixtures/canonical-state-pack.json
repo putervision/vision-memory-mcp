@@ -1,0 +1,72 @@
+{
+  "pack_id": "01923456-789a-4def-9123-456789abcdef",
+  "project": "pentad-contract-test",
+  "session_id": "session-test-001",
+  "timestamp": "2026-09-25T12:00:00.000Z",
+  "visual": {
+    "state_id": "vs_canonical_001",
+    "layout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "description_summary": "PuterVision HUD view with active navigation canvas and status elements",
+    "interactive_element_count": 4,
+    "embedding_ref_ids": [
+      "emb_ref_001",
+      "emb_ref_002"
+    ]
+  },
+  "spatial": {
+    "observer_position": [
+      10.5,
+      0,
+      -5.25
+    ],
+    "nearby_entities": [
+      {
+        "id": "ent_hostile_01",
+        "type": "drone",
+        "distance": 3.75,
+        "status": "hostile"
+      },
+      {
+        "id": "ent_waypoint_02",
+        "type": "terminal",
+        "distance": 8.12,
+        "status": "neutral"
+      }
+    ]
+  },
+  "tasks": {
+    "active_goal": {
+      "id": "goal_nav_01",
+      "title": "Secure primary terminal",
+      "priority": 0.9,
+      "progress": 0.4
+    },
+    "active_blockers": [
+      {
+        "id": "blk_door_locked",
+        "description": "Security lockdown active on corridor B"
+      }
+    ],
+    "recent_decision_ids": [
+      "dec_01M3D001",
+      "dec_01M3D002"
+    ]
+  },
+  "vitals": {
+    "hp": 85.5,
+    "threat_level": 0.65,
+    "resources": {
+      "ammo": 30,
+      "battery": 92
+    }
+  },
+  "utility": {
+    "profile_name": "tactical_cautious",
+    "weights": {
+      "caution": 0.8,
+      "efficiency": 0.6,
+      "survival": 0.95
+    }
+  },
+  "pack_hash": "283cbb0c60496b6beca4237341fb3bb1ae76490628a81b54b46953058eb9bd21"
+}

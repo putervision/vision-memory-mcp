@@ -11,5 +11,6 @@ coverage
 .behavior-runtime-mcp
 .agent-reasoning-mcp
 .vision-memory
+plans/
+data/
 
-plans
