@@ -43,7 +43,6 @@
 
 ### 6. ScreenChunk (`ScreenChunk`)
 - **Website**: https://screenchunk.com
-- **Repository**: https://github.com/putervision/screenchunk
 - **Description**: Ultra-fast live screen capture studio, 2D region cropping, and WebRTC screen recorder with client-side zero-knowledge AES-256-GCM chunk protection.
 
 ### 7. BassMusic.AI (`BassMusic.AI`)
