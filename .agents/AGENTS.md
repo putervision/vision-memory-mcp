@@ -194,18 +194,3 @@ This project uses `behavior-mcp` with project slug "vision-memory-mcp" to execut
 - `manage_blackboard`: Read and write behavior tree blackboard state variables.
 - `manage_runtime_db`: Database maintenance, diagnostics, and SHA-256 Merkle audit verification.
 <!-- behavior-mcp:end -->
-
-<!-- putervision-harness:start -->
-# PuterVision MCP Cluster & Harness Rules
-
-Active Supervised MCP Servers:
-* `putervision-harness`: pv-harness start --project test_slug
-* `state-memory-mcp`: state-memory-mcp 
-* `vision-memory-mcp`: vision-memory-mcp 
-* `world-model-mcp`: world-model-mcp 
-* `agent-reasoning-mcp`: agent-reasoning-mcp 
-* `behavior-mcp`: behavior-mcp 
-* `test-custom`: npx -y @org/test-custom
-
-Always use `harness_start_loop` and supervise tasks via the PuterVision Harness.
-<!-- putervision-harness:end -->
