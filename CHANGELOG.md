@@ -5,6 +5,13 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-09-28
+
+### 🛠️ Glama TDQS Optimizations & MCP Annotations
+- Added explicit `destructiveHint` to `manage_snapshot` and preserved `idempotentHint` across tool definitions.
+- Enhanced tool descriptions with action enum definitions in the opening summary, routing guidance sentences ('Use X instead of Y when Z'), and standardized Returns blocks.
+- Synchronized package manifests, CLI runtime, and documentation across the Pentad.
+
 ## [1.2.0] - 2026-09-15
 
 ### 🚀 Zero-Dependency Native MCP Transport & Cross-Pentad Synchronization

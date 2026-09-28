@@ -514,7 +514,9 @@ export function registerAllTools(server: any): void {
         'Ingest screenshot(s) via base64 or file path, check the visual state cache, and return state details. ' +
         'On cache miss, generates perceptual hashes (dHash/aHash), CLIP embeddings, and persists a new visual state entry. ' +
         'Use this tool AFTER capturing a screenshot and BEFORE invoking vision LLMs to avoid redundant token spend. ' +
-        'For batch ingestion, pass an `items` array instead of a single screenshot/file_path.',
+        'Use analyze_screenshot instead of recall_memory when ingesting, indexing, and caching a visual capture rather than performing read-only search over historical states. ' +
+        'For batch ingestion, pass an `items` array instead of a single screenshot/file_path.\n\n' +
+        'Returns visual state ID, layout description, perceptual hashes, cache hit status (is_known), and grounded interactive elements.',
       inputSchema: z.object({
         screenshot: z.string().optional().describe('Base64-encoded image string (single mode)'),
         file_path: z
@@ -790,7 +792,8 @@ export function registerAllTools(server: any): void {
       },
       description:
         'Search visual state memory by screenshot image, text query, or accessibility tree. ' +
-        'Read-only — never creates or modifies states. Use analyze_screenshot to ingest new states.',
+        'Read-only — never creates or modifies states. Use recall_memory instead of analyze_screenshot when searching historical states by visual similarity or semantic text query without persisting new database records.\n\n' +
+        'Returns matching visual state records, similarity scores, layout descriptions, and grounded elements.',
       inputSchema: z.object({
         screenshot: z
           .string()
@@ -883,10 +886,12 @@ export function registerAllTools(server: any): void {
         idempotentHint: false,
       },
       description:
-        'Log an action transition between two visual states and update transition statistics. ' +
-        'Call this after every click/type/scroll/navigate action. ' +
+        'Log an action transition between two visual states or log a visual blocker (action_type: click, type, navigate, scroll, custom, blocker). ' +
+        'Call this after every UI interaction to update transition statistics and success rates. ' +
         'When action_type is "blocker", generates a structured visual blocker payload for state-memory-mcp ' +
-        'instead of recording a transition (from_state_id becomes the visual_state_id of the blocker).',
+        'instead of recording a transition (from_state_id becomes the visual_state_id of the blocker). ' +
+        'Use record_outcome instead of predict_next_action when persisting actual interaction results rather than predicting recommended next steps.\n\n' +
+        'Returns transition record, updated edge weights, or state-memory blocker payload.',
       inputSchema: z.object({
         from_state_id: z
           .string()
@@ -1016,7 +1021,9 @@ export function registerAllTools(server: any): void {
         idempotentHint: true,
       },
       description:
-        'Trace historical pathways from current state to a target state or state matching description via BFS over the transition graph.',
+        'Trace historical pathways from current state to a target state or state matching description via BFS over the transition graph. ' +
+        'Use get_navigation_paths instead of predict_next_action when planning multi-step navigation routes across known states rather than choosing the immediate next interaction.\n\n' +
+        'Returns shortest path state sequence, intermediate actions, and cumulative transition confidence.',
       inputSchema: z.object({
         from_state_id: z
           .string()
@@ -1087,7 +1094,9 @@ export function registerAllTools(server: any): void {
       description:
         'Compare two visual states structurally (dHash, CLIP vector, JSON diff, layout delta) or two video trajectories ' +
         '(keyframe similarity, divergence point). Provide state_a_id/state_b_id for state comparison, or ' +
-        'video_a_id/video_b_id for video trajectory comparison.',
+        'video_a_id/video_b_id for video trajectory comparison. ' +
+        'Use compare_states instead of manage_snapshot when computing direct visual/structural deltas between two states rather than saving or restoring checkpoints.\n\n' +
+        'Returns Hamming hash distance, cosine vector similarity, structural layout diff, and layout change flag.',
       inputSchema: z.object({
         state_a_id: z.string().optional().describe('ID of visual state A (state comparison mode)'),
         state_b_id: z.string().optional().describe('ID of visual state B (state comparison mode)'),
@@ -1183,7 +1192,9 @@ export function registerAllTools(server: any): void {
       },
       description:
         'Fetch aggregated visual context: recent states, frequently accessed states, active transitions, and memory stats. ' +
-        'Call this at session start to orient before performing UI actions.',
+        'Call this at session start to orient before performing UI actions. ' +
+        'Use get_session_context instead of recall_memory when initializing session awareness rather than searching for specific visual targets.\n\n' +
+        'Returns recent states list, frequent states, active transitions, cache hit telemetry, and database sizing.',
       inputSchema: z.object({
         include_recent: z
           .number()
@@ -1338,15 +1349,17 @@ export function registerAllTools(server: any): void {
       title: 'Manage Visual Snapshots',
       annotations: {
         readOnlyHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         idempotentHint: false,
       },
       description:
-        'Manage visual memory snapshots. Actions: ' +
+        'Manage visual memory snapshots (actions: save, diff, export, restore). ' +
         '"save" creates a named checkpoint of current states; ' +
         '"diff" compares two snapshots for visual drift/regression; ' +
         '"export" serializes a snapshot to a portable JSON archive; ' +
-        '"restore" imports a snapshot from an exported archive.',
+        '"restore" imports a snapshot from an exported archive. ' +
+        'Use manage_snapshot instead of undo_visual_mutation when creating or restoring named point-in-time visual checkpoints rather than rolling back the immediate previous mutation.\n\n' +
+        'Returns snapshot metadata, comparison diff, export archive, or restore confirmation.',
       inputSchema: z.object({
         action: z
           .enum(['save', 'diff', 'export', 'restore'])
@@ -1472,7 +1485,9 @@ export function registerAllTools(server: any): void {
         idempotentHint: false,
       },
       description:
-        'Revert the most recent visual state ingestion or transition edge addition on the current git branch.',
+        'Revert the most recent visual state ingestion or transition edge addition on the current git branch (types: state, transition, any). ' +
+        'Use undo_visual_mutation instead of manage_snapshot when rolling back the immediate previous mutation rather than restoring an entire snapshot.\n\n' +
+        'Returns reverted mutation type, deleted state/edge ID, and rollback status.',
       inputSchema: z.object({
         type: z
           .enum(['state', 'transition', 'any'])
@@ -1569,7 +1584,9 @@ export function registerAllTools(server: any): void {
       },
       description:
         'Predict the best next UI action from the current visual state based on transition success rates, ' +
-        'goal alignment, and grounded AX tree element targeting.',
+        'goal alignment, and grounded AX tree element targeting. ' +
+        'Use predict_next_action instead of get_navigation_paths when selecting the immediate next optimal UI interaction rather than computing full path routes.\n\n' +
+        'Returns recommended action, target element selector, coordinates, and confidence score.',
       inputSchema: z.object({
         current_state_id: z.string().describe('ID of current active visual state'),
         goal_description: z
@@ -1731,10 +1748,12 @@ export function registerAllTools(server: any): void {
         idempotentHint: false,
       },
       description:
-        'Manage Visual Spec baseline contracts (Visual SDD). Actions: ' +
-        '"set" registers a screenshot or design mockup as baseline, ' +
-        '"verify" tests a live UI screenshot against a baseline, ' +
-        '"list" returns all registered visual specs.',
+        'Manage Visual Spec baseline contracts for visual SDD (actions: set, verify, list). ' +
+        '"set" registers a screenshot or design mockup as baseline; ' +
+        '"verify" tests a live UI screenshot against a baseline; ' +
+        '"list" returns all registered visual specs. ' +
+        'Use manage_visual_spec instead of compare_states when verifying UI against approved design contracts rather than ad-hoc state comparisons.\n\n' +
+        'Returns baseline registration confirmation, visual verification score, or registered spec list.',
       inputSchema: z.object({
         action: z
           .enum(['set', 'verify', 'list'])
@@ -1812,9 +1831,11 @@ export function registerAllTools(server: any): void {
         idempotentHint: true,
       },
       description:
-        'Export visual state transition trajectories. ' +
+        'Export visual state transition trajectories (formats: json, llava, qwen2_vl, joint). ' +
         'Formats: "json" (raw state steps), "llava" / "qwen2_vl" (VLM fine-tuning datasets), ' +
-        '"joint" (interleaved workflow events correlated by session/trace ID for state-memory-mcp).',
+        '"joint" (interleaved workflow events correlated by session/trace ID for state-memory-mcp). ' +
+        'Use export_trajectories instead of create_evidence_pack when exporting training data or cross-server event logs rather than cryptographic compliance packs.\n\n' +
+        'Returns exported trajectory array, formatted VLM training records, or joint event stream.',
       inputSchema: z.object({
         format: z
           .enum(['json', 'llava', 'qwen2_vl', 'joint'])
@@ -1962,10 +1983,12 @@ export function registerAllTools(server: any): void {
         idempotentHint: false,
       },
       description:
-        'Manage WebM, MP4, and GIF video recordings in visual memory. Actions: ' +
+        'Manage WebM, MP4, and GIF video recordings in visual memory (actions: ingest, search, timeline). ' +
         '"ingest" extracts keyframes, deduplicates, and builds sequence transitions; ' +
         '"search" queries stored video recordings by keyword/category/tags; ' +
-        '"timeline" retrieves the chronological keyframe timeline for a specific video_id.',
+        '"timeline" retrieves the chronological keyframe timeline for a specific video_id. ' +
+        'Use manage_video instead of analyze_screenshot when processing full video recordings and extracting temporal keyframes rather than single screenshots.\n\n' +
+        'Returns ingested video metadata, keyframe indices, search matches, or timeline sequence.',
       inputSchema: z.object({
         action: z
           .enum(['ingest', 'search', 'timeline'])
@@ -2052,7 +2075,9 @@ export function registerAllTools(server: any): void {
       },
       description:
         'Package keyframe IDs, dHash/CLIP fingerprints, OCR snippets, and linked state-memory node IDs ' +
-        'into an immutable, cryptographically hashable evidence pack for compliance and audit trails.',
+        'into an immutable, cryptographically hashable evidence pack for compliance and audit trails. ' +
+        'Use create_evidence_pack instead of export_trajectories when generating tamper-proof cryptographic audit proofs for compliance rather than dumping training trajectories.\n\n' +
+        'Returns cryptographic evidence pack with SHA-256 payload hash, keyframe fingerprints, and state-memory links.',
       inputSchema: z.object({
         keyframe_state_ids: z.array(z.string()).describe('Array of keyframe visual state IDs'),
         source_video_id: z.string().optional().describe('Optional source video ID'),
@@ -2147,7 +2172,9 @@ export function registerAllTools(server: any): void {
         idempotentHint: false,
       },
       description:
-        'Purge a specific visual state, its vector embeddings, and perceptual hashes from storage for privacy or memory reset.',
+        'Purge a specific visual state, its vector embeddings, and perceptual hashes from storage for privacy or memory reset. ' +
+        'Use forget_state instead of undo_visual_mutation when permanently purging specific sensitive or obsolete states by ID rather than reverting the most recent action.\n\n' +
+        'Returns purge confirmation and deleted state ID.',
       inputSchema: z.object({
         state_id: z.string().describe('ID of visual state to purge'),
       }),
@@ -2187,7 +2214,9 @@ export function registerAllTools(server: any): void {
       },
       description:
         'Poll for a target visual state ID until it exists in memory or timeout occurs. ' +
-        'Use this to avoid agent spin-loops when waiting for asynchronous screenshots.',
+        'Use this to avoid agent spin-loops when waiting for asynchronous screenshots. ' +
+        'Use wait_for_visual_state instead of get_session_context when synchronizing with an asynchronous capture rather than inspecting existing memory state.\n\n' +
+        'Returns target visual state record or timeout error.',
       inputSchema: z.object({
         target_state_id: z.string().describe('Target visual state ID to wait for'),
         timeout_ms: z.number().optional().describe('Maximum timeout in ms (default: 10000)'),
