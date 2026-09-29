@@ -136,7 +136,7 @@ function parseConfig(env: Record<string, string | undefined>): Config {
     ),
     MAX_LANCEDB_SIZE_MB: parseNumber(
       env.MAX_LANCEDB_SIZE_MB,
-      1000,
+      500,
       'MAX_LANCEDB_SIZE_MB',
       10
     ),

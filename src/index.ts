@@ -17,7 +17,7 @@ async function shutdown(reason: string) {
   const forceExitTimer = setTimeout(() => {
     logger.warn('Shutdown timed out waiting for database optimization. Forcing exit...');
     process.exit(reason === 'uncaughtException' || reason === 'unhandledRejection' ? 1 : 0);
-  }, 1000);
+  }, 6000);
   forceExitTimer.unref();
 
   try {
@@ -30,7 +30,7 @@ async function shutdown(reason: string) {
   try {
     await Promise.race([
       storage.optimize(),
-      new Promise((resolve) => setTimeout(resolve, 800)),
+      new Promise((resolve) => setTimeout(resolve, 5000)),
     ]);
     logger.info('Database optimization check finished.');
   } catch (err) {

@@ -9,7 +9,13 @@ import { buildHtmlVisualizer } from './view.js';
 
 export async function runOptimize() {
   await storage.init();
-  await storage.optimize();
+  console.log('📦 Compacting database and pruning storage bloat...');
+  const { repairStorageHealth } = await import('../../core/storage-health.js');
+  const { freedBytes, report } = await repairStorageHealth(config.LANCEDB_PATH);
+  const { formatBytes } = await import('./doctor.js');
+  console.log(
+    `✅ LanceDB optimization complete: reclaimed ${formatBytes(freedBytes)} (current size: ${formatBytes(report.totalBytes)}).`
+  );
 }
 
 export async function runPrune(args: string[]) {
@@ -41,6 +47,14 @@ export async function runPrune(args: string[]) {
   console.log(
     `✅ Database pruned. Removed ${count} stale or low-access states on branch "${branch}".`
   );
+
+  console.log('📦 Compacting database and pruning storage bloat...');
+  const { repairStorageHealth } = await import('../../core/storage-health.js');
+  const { freedBytes } = await repairStorageHealth(config.LANCEDB_PATH);
+  if (freedBytes > 0) {
+    const { formatBytes } = await import('./doctor.js');
+    console.log(`🎉 Storage optimized: reclaimed ${formatBytes(freedBytes)}.`);
+  }
 }
 
 export async function runBackup(args: string[]) {

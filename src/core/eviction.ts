@@ -23,10 +23,13 @@ export class EvictionManager {
     }
   }
 
+  private sweepCount = 0;
+
   async runEvictionSweep(): Promise<{ expiredCount: number; evictedSizeCount: number }> {
     logger.debug('Running background TTL and LRU eviction sweep...');
     let expiredCount = 0;
     const now = Date.now();
+    this.sweepCount++;
 
     try {
       const allStates = await storage.listStatesAll(undefined, 5000);
@@ -41,6 +44,14 @@ export class EvictionManager {
 
       await storage.checkStorageSizeAndEvict();
       memoryCache.sweepExpired();
+
+      // Periodically run database compaction and index/manifest pruning (approx every 30 mins)
+      if (this.sweepCount % 6 === 0) {
+        logger.debug('Triggering periodic LanceDB optimization and version pruning...');
+        await storage
+          .optimize()
+          .catch((err) => logger.debug('Periodic compaction deferred error:', err));
+      }
 
       if (expiredCount > 0) {
         logger.info(`Eviction sweep complete: purged ${expiredCount} expired visual states.`);
