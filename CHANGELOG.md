@@ -5,6 +5,18 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-09-29
+
+### 🗄️ Storage Bloat Remediation & Global Health Auto-Repair
+- Added storage health analysis engine (`storage-health.ts`) providing zero-lock filesystem breakdown of data fragments, stale indices, old version manifests, and transaction logs.
+- Added `doctor --fix` to auto-repair storage bloat, compact fragments, prune old version manifests, and purge orphaned index directories.
+- Enhanced `doctor-global --fix` with cross-project scanning (`--scan <dir>`) to diagnose and auto-repair storage bloat across all registered and workspace projects in one command.
+- Prevented redundant index accumulation by checking `table.listIndices()` before creating scalar or vector indexes on startup.
+- Upgraded `storage.optimize()` with `cleanupOlderThan` and `deleteUnverified: true` to purge historical manifests and unreferenced index files.
+- Added recursive cleanup of empty `_indices/<uuid>` directory shells left behind by LanceDB optimization.
+- Added periodic background compaction every 6 eviction sweeps (~30 minutes) and extended graceful shutdown compaction timeout to 5,000ms.
+- Fixed storage eviction to run compaction before evicting visual states, and lowered default `MAX_LANCEDB_SIZE_MB` from 1,000 MB to 500 MB.
+
 ## [1.3.1] - 2026-09-28
 
 ### 🛠️ Glama TDQS Optimizations & MCP Annotations

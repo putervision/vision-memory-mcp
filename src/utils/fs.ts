@@ -45,3 +45,36 @@ export function getCachedDirSize(dirPath: string, force = false): number {
   lastSizeCalcTime = now;
   return cachedDirSize;
 }
+
+/**
+ * Clean up stale LanceDB lock files recursively.
+ */
+export function cleanupLockFiles(dir: string): void {
+  if (!fs.existsSync(dir)) return;
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      try {
+        if (entry.isDirectory()) {
+          cleanupLockFiles(fullPath);
+        } else if (
+          entry.name.includes('lock') ||
+          entry.name.endsWith('.lock') ||
+          entry.name.includes('write.lock')
+        ) {
+          try {
+            fs.unlinkSync(fullPath);
+            logger.debug(`Cleaned up stale lock file: ${fullPath}`);
+          } catch (err) {
+            logger.debug(`Could not remove lock file ${fullPath}:`, err);
+          }
+        }
+      } catch {
+        // file or directory removed concurrently
+      }
+    }
+  } catch {
+    // dir removed concurrently
+  }
+}

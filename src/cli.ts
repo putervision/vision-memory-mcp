@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.1';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2';
 
 function showHelp() {
   console.log(`
@@ -14,8 +14,8 @@ Commands:
   run                Start the MCP server on stdio transport (Default)
   init [-y|--yes]    Scaffold the workspace, .gitignore, .env, and Cursor rules
   init-global        Re-initialize across all projects registered in ~/.vision-memory-mcp/projects.json
-  doctor             Run environment health checks (LanceDB, sharp, git, Node)
-  doctor-global      Run health checks & output metrics across all registered projects in ~/.vision-memory-mcp/projects.json
+  doctor [--fix]     Run environment and storage health checks (auto-repair bloat with --fix)
+  doctor-global      Run health checks across registered projects (--fix to auto-repair, --scan <dir>)
   update             Check npm registry and update @putervision/vision-memory-mcp globally
   audit              Audit sub-directory Git repos and multi-database memory status
   inspect            Display an ASCII table of stored visual states and tags

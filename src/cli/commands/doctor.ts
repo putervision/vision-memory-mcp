@@ -5,9 +5,23 @@ import { execSync } from 'child_process';
 import { config } from '../../config.js';
 import { registerProject, getRegistry, unregisterProject } from '../../core/registry.js';
 import { getDirSize } from '../../utils/fs.js';
+import {
+  analyzeStorageHealth,
+  repairStorageHealth,
+  StorageHealthReport,
+} from '../../core/storage-health.js';
+
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 export async function runDoctor(args: string[] = []): Promise<void> {
   const isJson = args.includes('--json');
+  const doFix = args.includes('--fix');
   const checks: Array<{ label: string; passed: boolean; details: string }> = [];
 
   function reportCheck(label: string, passed: boolean, details: string) {
@@ -44,11 +58,14 @@ export async function runDoctor(args: string[] = []): Promise<void> {
     storageWritable = false;
   }
 
-  const { discoverSubMemoryDatabases, discoverSubGitRepos } = await import('../../utils/workspace.js');
+  const { discoverSubMemoryDatabases, discoverSubGitRepos } = await import(
+    '../../utils/workspace.js'
+  );
   const discoveredDbs = discoverSubMemoryDatabases();
-  const dbDetails = discoveredDbs.length > 1
-    ? `Writable at ${dbPath} (${discoveredDbs.length} database locations discovered across workspace)`
-    : `Writable at ${dbPath}`;
+  const dbDetails =
+    discoveredDbs.length > 1
+      ? `Writable at ${dbPath} (${discoveredDbs.length} database locations discovered across workspace)`
+      : `Writable at ${dbPath}`;
 
   reportCheck(
     'LanceDB Storage Writable',
@@ -118,6 +135,29 @@ export async function runDoctor(args: string[] = []): Promise<void> {
     'Sufficient disk space available for vector storage'
   );
 
+  // 7. Storage Health Analysis & Auto-Repair
+  let storageHealth = analyzeStorageHealth(dbPath);
+  let storageRepaired = false;
+  let freedBytes = 0;
+
+  if (doFix && storageHealth.exists && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
+    if (!isJson) console.log('\n🔧 Auto-repairing storage bloat (--fix enabled)...');
+    const repairRes = await repairStorageHealth(dbPath, {
+      onProgress: (msg) => {
+        if (!isJson) console.log(`   ${msg}`);
+      },
+    });
+    freedBytes = repairRes.freedBytes;
+    storageHealth = repairRes.report;
+    storageRepaired = true;
+  }
+
+  const storageDetails = storageHealth.exists
+    ? `Total: ${formatBytes(storageHealth.totalBytes)} | Data: ${formatBytes(storageHealth.dataBytes)} | Waste: ${formatBytes(storageHealth.wasteBytes)} (${(storageHealth.wasteRatio * 100).toFixed(1)}%) | Indexes: ${storageHealth.indexDirCount} dirs`
+    : 'No database found';
+
+  reportCheck('Storage Health & Compactness', storageHealth.isHealthy, storageDetails);
+
   const passCount = checks.filter((c) => c.passed).length;
   const totalCount = checks.length;
 
@@ -129,12 +169,56 @@ export async function runDoctor(args: string[] = []): Promise<void> {
           passCount,
           totalCount,
           checks,
+          storageHealth,
+          storageRepaired,
+          freedBytes,
         },
         null,
         2
       )
     );
   } else {
+    if (storageHealth.exists) {
+      console.log('\n🗄️  Storage Health Breakdown:');
+      console.log(`  Location:          ${storageHealth.dbPath}`);
+      console.log(`  Total Size:        ${formatBytes(storageHealth.totalBytes)}`);
+      const dataPct =
+        storageHealth.totalBytes > 0
+          ? ((storageHealth.dataBytes / storageHealth.totalBytes) * 100).toFixed(1)
+          : '0';
+      const idxPct =
+        storageHealth.totalBytes > 0
+          ? ((storageHealth.indexBytes / storageHealth.totalBytes) * 100).toFixed(1)
+          : '0';
+      const verPct =
+        storageHealth.totalBytes > 0
+          ? ((storageHealth.versionBytes / storageHealth.totalBytes) * 100).toFixed(1)
+          : '0';
+
+      console.log(`  ├── Actual Data:   ${formatBytes(storageHealth.dataBytes)} (${dataPct}%)`);
+      console.log(
+        `  ├── Stale Indexes: ${formatBytes(storageHealth.indexBytes)} (${idxPct}%) [${storageHealth.indexDirCount} index dirs]`
+      );
+      console.log(
+        `  ├── Old Versions:  ${formatBytes(storageHealth.versionBytes)} (${verPct}%) [${storageHealth.versionFileCount} version files]`
+      );
+      console.log(`  └── Txn Logs:      ${formatBytes(storageHealth.txnBytes)}`);
+      console.log(`  Data Fragments:    ${storageHealth.dataFragmentCount} files`);
+      console.log(
+        `  Waste Ratio:       ${(storageHealth.wasteRatio * 100).toFixed(1)}% (${storageHealth.isHealthy ? 'Healthy' : 'BLOAT DETECTED'})`
+      );
+
+      if (storageRepaired) {
+        console.log(
+          `\n  🎉 Repaired: Reclaimed ${formatBytes(freedBytes)}! New size: ${formatBytes(storageHealth.totalBytes)}`
+        );
+      } else if (!storageHealth.isHealthy) {
+        console.log(
+          `\n  💡 Tip: Run "vision-memory-mcp doctor --fix" to clean stale indexes, prune version manifests, and reclaim disk space.`
+        );
+      }
+    }
+
     console.log(`\n📋 Health Check Summary: ${passCount}/${totalCount} checks passed.`);
     if (passCount < totalCount) {
       console.log('⚠️  Some checks failed. Please address the warnings above.');
@@ -150,12 +234,14 @@ export async function runDoctor(args: string[] = []): Promise<void> {
 export async function runDoctorGlobal(args: string[] = []): Promise<void> {
   const isJson = args.includes('--json');
   const cleanStale = args.includes('--clean-stale');
+  const doFix = args.includes('--fix');
   const scanIndex = args.indexOf('--scan');
 
   if (scanIndex !== -1 && args[scanIndex + 1]) {
     const scanDir = path.resolve(args[scanIndex + 1]);
     if (fs.existsSync(scanDir)) {
-      if (!isJson) console.log(`🔎 Scanning directory "${scanDir}" for vision-memory-mcp projects...`);
+      if (!isJson)
+        console.log(`🔎 Scanning directory "${scanDir}" for vision-memory-mcp projects...`);
       try {
         const entries = fs.readdirSync(scanDir, { withFileTypes: true });
         for (const entry of entries) {
@@ -175,7 +261,9 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
   const entries = Object.entries(registry);
 
   if (!isJson) {
-    console.log('🌐 Running global health check across registered vision-memory-mcp projects...\n');
+    console.log(
+      '🌐 Running global health check across registered vision-memory-mcp projects...\n'
+    );
   }
 
   if (entries.length === 0) {
@@ -209,6 +297,11 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
     dbExists: boolean;
     storageSizeBytes: number;
     storageFormatted: string;
+    dataSizeBytes: number;
+    wasteSizeBytes: number;
+    wasteRatio: number;
+    repaired: boolean;
+    freedBytes: number;
     gitBranch: string;
     issues: string[];
   }> = [];
@@ -218,6 +311,8 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
   let healthyCount = 0;
   let unhealthyCount = 0;
   let totalGlobalStorageBytes = 0;
+  let totalGlobalWasteBytes = 0;
+  let totalGlobalFreedBytes = 0;
   let totalDiscoveredDbs = 0;
 
   for (const [name, projectPath] of entries) {
@@ -235,10 +330,15 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
         exists: false,
         healthy: false,
         checksPassed: 0,
-        totalChecks: 6,
+        totalChecks: 7,
         dbExists: false,
         storageSizeBytes: 0,
         storageFormatted: '0 B',
+        dataSizeBytes: 0,
+        wasteSizeBytes: 0,
+        wasteRatio: 0,
+        repaired: false,
+        freedBytes: 0,
         gitBranch: 'none',
         issues: ['Path no longer exists on disk'],
       });
@@ -250,15 +350,42 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
     const dbDir = path.join(resolvedPath, '.vision-memory-mcp');
     const dbExists = fs.existsSync(dbDir);
     let storageSizeBytes = 0;
+    let dataSizeBytes = 0;
+    let wasteSizeBytes = 0;
+    let wasteRatio = 0;
+    let repaired = false;
+    let freedBytes = 0;
+    let storageHealth: StorageHealthReport | null = null;
+
     if (dbExists) {
-      storageSizeBytes = getDirSize(dbDir);
+      storageHealth = analyzeStorageHealth(dbDir);
       totalDiscoveredDbs++;
+
+      if (doFix && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
+        if (!isJson) console.log(`  🔧 [${name}] Auto-repairing storage bloat...`);
+        const repairRes = await repairStorageHealth(dbDir, {
+          onProgress: (msg) => {
+            if (!isJson) console.log(`     ${msg}`);
+          },
+        });
+        freedBytes = repairRes.freedBytes;
+        storageHealth = repairRes.report;
+        repaired = true;
+        totalGlobalFreedBytes += freedBytes;
+      }
+
+      storageSizeBytes = storageHealth.totalBytes;
+      dataSizeBytes = storageHealth.dataBytes;
+      wasteSizeBytes = storageHealth.wasteBytes;
+      wasteRatio = storageHealth.wasteRatio;
     }
+
     totalGlobalStorageBytes += storageSizeBytes;
+    totalGlobalWasteBytes += wasteSizeBytes;
 
     const issues: string[] = [];
     let checksPassed = 0;
-    const totalChecks = 6;
+    const totalChecks = 7;
 
     const nodeMajor = parseInt(process.version.slice(1).split('.')[0], 10);
     if (nodeMajor >= 18) checksPassed++;
@@ -307,6 +434,15 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
 
     checksPassed++; // Disk availability
 
+    // Storage health check
+    if (!storageHealth || storageHealth.isHealthy) {
+      checksPassed++;
+    } else {
+      issues.push(
+        `Storage bloat: ${formatBytes(wasteSizeBytes)} waste (${(wasteRatio * 100).toFixed(0)}%)`
+      );
+    }
+
     const isHealthy = checksPassed === totalChecks;
     if (isHealthy) healthyCount++;
     else unhealthyCount++;
@@ -321,15 +457,27 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
       dbExists,
       storageSizeBytes,
       storageFormatted: formatBytes(storageSizeBytes),
+      dataSizeBytes,
+      wasteSizeBytes,
+      wasteRatio,
+      repaired,
+      freedBytes,
       gitBranch,
       issues,
     });
 
     if (!isJson) {
       const statusIcon = isHealthy ? '✅' : '⚠️';
-      const dbInfo = dbExists ? `DB: ${formatBytes(storageSizeBytes)}` : 'No local DB';
+      const dbInfo = dbExists
+        ? `Total: ${formatBytes(storageSizeBytes)} | Data: ${formatBytes(dataSizeBytes)} | Waste: ${formatBytes(wasteSizeBytes)}`
+        : 'No local DB';
       console.log(`  ${statusIcon} [${name}] ${resolvedPath}`);
-      console.log(`     Checks: ${checksPassed}/${totalChecks} passed | ${dbInfo} | Branch: ${gitBranch}`);
+      console.log(
+        `     Checks: ${checksPassed}/${totalChecks} passed | ${dbInfo} | Branch: ${gitBranch}`
+      );
+      if (repaired) {
+        console.log(`     🎉 Repaired: Freed ${formatBytes(freedBytes)}!`);
+      }
       if (issues.length > 0) {
         console.log(`     Warnings: ${issues.join(', ')}`);
       }
@@ -353,6 +501,10 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
           total_discovered_databases: totalDiscoveredDbs,
           total_storage_bytes: totalGlobalStorageBytes,
           total_storage_formatted: formatBytes(totalGlobalStorageBytes),
+          total_waste_bytes: totalGlobalWasteBytes,
+          total_waste_formatted: formatBytes(totalGlobalWasteBytes),
+          total_freed_bytes: totalGlobalFreedBytes,
+          total_freed_formatted: formatBytes(totalGlobalFreedBytes),
           projects: projectReports,
         },
         null,
@@ -369,19 +521,22 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
     );
     console.log(`  - Discovered Databases: ${totalDiscoveredDbs} database locations`);
     console.log(`  - Total Storage Footprint: ${formatBytes(totalGlobalStorageBytes)}`);
-    console.log(
-      staleCount > 0 && !cleanStale
-        ? '\n💡 Tip: Run "vision-memory-mcp doctor-global --clean-stale" to prune missing project paths.\n'
-        : '\n🎉 Global doctor check complete!\n'
-    );
+    console.log(`  - Total Storage Waste:     ${formatBytes(totalGlobalWasteBytes)}`);
+    if (totalGlobalFreedBytes > 0) {
+      console.log(
+        `  - Total Reclaimed Space:   ${formatBytes(totalGlobalFreedBytes)} 🎉`
+      );
+    }
+    if (totalGlobalWasteBytes > 50 * 1024 * 1024 && !doFix) {
+      console.log(
+        '\n💡 Tip: Run "vision-memory-mcp doctor-global --fix" to auto-repair storage bloat across all registered projects.\n'
+      );
+    } else if (staleCount > 0 && !cleanStale) {
+      console.log(
+        '\n💡 Tip: Run "vision-memory-mcp doctor-global --clean-stale" to prune missing project paths.\n'
+      );
+    } else {
+      console.log('\n🎉 Global doctor check complete!\n');
+    }
   }
 }
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-

@@ -12,6 +12,7 @@ import {
   VideoMemoryRecord,
   EvidencePack,
 } from '../types.js';
+import { cleanEmptyDirectories } from './storage-health.js';
 
 // Helper to clean up lock files recursively
 function cleanupLockFiles(dir: string): void {
@@ -357,34 +358,54 @@ export class StorageManager {
       logger.debug('Created and cleaned evidence_packs table.');
     }
 
-    // Create scalar indexes to speed up lookups
+    // Create scalar indexes to speed up lookups (only if not already created)
     try {
       if (this.statesTable) {
-        await (this.statesTable as any).createScalarIndex('dhash', {
-          indexType: 'btree',
-        });
-        await (this.statesTable as any).createScalarIndex('git_branch', {
-          indexType: 'bitmap',
-        });
+        const existing = await (this.statesTable as any).listIndices?.().catch(() => []);
+        const indexedCols = new Set(
+          Array.isArray(existing) ? existing.flatMap((i: any) => i.columns || []) : []
+        );
+
+        if (!indexedCols.has('dhash')) {
+          await (this.statesTable as any).createScalarIndex('dhash', {
+            indexType: 'btree',
+          });
+        }
+        if (!indexedCols.has('git_branch')) {
+          await (this.statesTable as any).createScalarIndex('git_branch', {
+            indexType: 'bitmap',
+          });
+        }
       }
     } catch (err) {
-      logger.debug('Scalar indexes for visual_states already exist or failed:', err);
+      logger.debug('Scalar indexes for visual_states check/create error:', err);
     }
 
     try {
       if (this.transitionsTable) {
-        await (this.transitionsTable as any).createScalarIndex('from_state_id', {
-          indexType: 'btree',
-        });
-        await (this.transitionsTable as any).createScalarIndex('to_state_id', {
-          indexType: 'btree',
-        });
-        await (this.transitionsTable as any).createScalarIndex('git_branch', {
-          indexType: 'bitmap',
-        });
+        const existing = await (this.transitionsTable as any).listIndices?.().catch(() => []);
+        const indexedCols = new Set(
+          Array.isArray(existing) ? existing.flatMap((i: any) => i.columns || []) : []
+        );
+
+        if (!indexedCols.has('from_state_id')) {
+          await (this.transitionsTable as any).createScalarIndex('from_state_id', {
+            indexType: 'btree',
+          });
+        }
+        if (!indexedCols.has('to_state_id')) {
+          await (this.transitionsTable as any).createScalarIndex('to_state_id', {
+            indexType: 'btree',
+          });
+        }
+        if (!indexedCols.has('git_branch')) {
+          await (this.transitionsTable as any).createScalarIndex('git_branch', {
+            indexType: 'bitmap',
+          });
+        }
       }
     } catch (err) {
-      logger.debug('Scalar indexes for state_transitions already exist or failed:', err);
+      logger.debug('Scalar indexes for state_transitions check/create error:', err);
     }
   }
 
@@ -395,9 +416,24 @@ export class StorageManager {
     if (estimatedCurrentSize <= maxBytes) return;
 
     logger.warn(
-      `Storage size (${(estimatedCurrentSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_LANCEDB_SIZE_MB}MB. Triggering LRU eviction...`
+      `Storage size (${(estimatedCurrentSize / 1024 / 1024).toFixed(2)}MB) exceeds maximum limit of ${config.MAX_LANCEDB_SIZE_MB}MB. Checking health and triggering optimization...`
     );
 
+    // Try optimizing and pruning old versions/indices first before deleting user states!
+    try {
+      await this.optimize();
+      estimatedCurrentSize = getCachedDirSize(dbDir, true);
+      if (estimatedCurrentSize <= maxBytes) {
+        logger.info(
+          `Compaction and index pruning reclaimed sufficient space (${(estimatedCurrentSize / 1024 / 1024).toFixed(2)}MB <= ${config.MAX_LANCEDB_SIZE_MB}MB). Skipped state eviction.`
+        );
+        return;
+      }
+    } catch (err) {
+      logger.debug('Pre-eviction optimization failed or skipped:', err);
+    }
+
+    logger.warn(`Storage still exceeds limit after compaction. Triggering LRU eviction...`);
     const targetBytes = maxBytes * 0.8;
     const states = await this.listStates(undefined, 10000);
     states.sort((a, b) => a.last_accessed - b.last_accessed);
@@ -1103,6 +1139,12 @@ export class StorageManager {
       return;
     }
 
+    const existing = await (this.statesTable as any).listIndices?.().catch(() => []);
+    if (Array.isArray(existing) && existing.some((i: any) => i.columns?.includes('vector'))) {
+      logger.debug('Vector index already exists, skipping creation.');
+      return;
+    }
+
     logger.info('Creating IVF_PQ vector index on visual_states...');
     try {
       await this.statesTable.createIndex('vector', {
@@ -1117,7 +1159,7 @@ export class StorageManager {
     }
   }
 
-  async optimize(): Promise<void> {
+  async optimize(options?: { cleanupOlderThan?: Date; deleteUnverified?: boolean }): Promise<void> {
     const now = Date.now();
     if (now < this.circuitTrippedUntil) {
       logger.debug('Compaction skipped: circuit breaker tripped.');
@@ -1126,10 +1168,17 @@ export class StorageManager {
 
     logger.info('Compacting LanceDB tables (running optimize with 30s timeout)...');
     try {
+      const optOptions = {
+        cleanupOlderThan: options?.cleanupOlderThan ?? new Date(Date.now() + 10000),
+        deleteUnverified: options?.deleteUnverified ?? true,
+      };
+
       const doOptimize = async () => {
-        if (this.statesTable) await this.statesTable.optimize();
-        if (this.transitionsTable) await this.transitionsTable.optimize();
-        if (this.snapshotsTable) await this.snapshotsTable.optimize();
+        if (this.statesTable) await this.statesTable.optimize(optOptions);
+        if (this.transitionsTable) await this.transitionsTable.optimize(optOptions);
+        if (this.snapshotsTable) await this.snapshotsTable.optimize(optOptions);
+        if (this.videosTable) await this.videosTable.optimize(optOptions);
+        if (this.evidenceTable) await this.evidenceTable.optimize(optOptions);
       };
 
       const timeoutPromise = new Promise<never>((_, reject) =>
@@ -1138,6 +1187,20 @@ export class StorageManager {
 
       await Promise.race([doOptimize(), timeoutPromise]);
       this.compactionFailures = 0;
+
+      // Clean empty index dirs
+      const dbDir = this.currentDbPath || config.LANCEDB_PATH;
+      for (const t of [
+        'visual_states',
+        'state_transitions',
+        'visual_snapshots',
+        'video_records',
+        'evidence_packs',
+      ]) {
+        const indDir = path.join(dbDir, `${t}.lance`, '_indices');
+        cleanEmptyDirectories(indDir);
+      }
+
       logger.info('LanceDB optimization completed successfully.');
     } catch (err: any) {
       this.compactionFailures++;
