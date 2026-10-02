@@ -1,8 +1,41 @@
-# 🚀 Migration Guide: v0.9 → v1.0
+# 🚀 Migration Guide: @putervision/vision-memory-mcp
 
-This guide explains how to migrate client integrations, custom agents, and tool callers from `@putervision/vision-memory-mcp` v0.9 to the consolidated **v1.0 API**.
+This guide explains how to migrate client integrations, custom agents, and tool callers across major and minor releases of `@putervision/vision-memory-mcp`.
 
 ---
+
+## ⚡️ Migrating to v1.4.0+
+
+`v1.4.0` introduces 3D spatial grounding coordinates, affordance bitmask tagging on visual detections, oriented 3D bounding boxes, and cross-server trajectory alignment with `world-model-mcp` and `state-memory-mcp`.
+
+### 1. 3D Spatial Grounding Coordinates
+Grounded UI elements and detected screen items now include spatial coordinates for camera-to-world unprojection:
+```json
+{
+  "element_id": "btn_launch",
+  "selector": "#launch-rocket",
+  "coords": { "x": 640, "y": 480 },
+  "spatial_x": 1.25,
+  "spatial_y": 0.50,
+  "spatial_z": -3.10,
+  "affordance_mask": 8 // INTERACTABLE
+}
+```
+
+### 2. Affordance Bitmask Tagging
+Visual detections now report physical affordances compatible with `world-model-mcp` and `behavior-mcp`:
+- `TRAVERSABLE`: `1`
+- `OCCLUDER`: `2`
+- `CONTAINER`: `4`
+- `INTERACTABLE`: `8`
+- `THREAT`: `16`
+
+### 3. Joint Multi-Modal Trajectory Alignment
+`export_trajectories(format: 'joint')` now includes synchronized 3D spatial transforms and state graph task IDs alongside visual hashes.
+
+---
+
+## ⚡️ Migrating: v0.9 → v1.0
 
 ## Overview of Changes
 
