@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 declare const __APP_VERSION__: string;
-const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2';
+const pkgVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.4.0';
 
 function showHelp() {
   console.log(`

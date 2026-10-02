@@ -5,6 +5,15 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-10-02
+
+### 🚀 Spatial Grounding Coordinates & Affordance Tagging
+- **Spatial Grounding Coordinates**: Added 3D spatial grounding coordinates (`spatial_x`, `spatial_y`, `spatial_z`) to `grounded_elements` in schemas, LanceDB storage, and state retrieval.
+- **Affordance Bitmask Tagging**: Added `affordance_mask` (`TRAVERSABLE: 1`, `OCCLUDER: 2`, `CONTAINER: 4`, `INTERACTABLE: 8`, `THREAT: 16`) to element detections and visual state records.
+- **Spatial Bounding Boxes**: Added 3D oriented bounding boxes (`spatial_box`) to grounded UI and spatial objects for direct unprojection and world model ingestion.
+- **Joint Trajectory Alignment**: Synchronized joint trajectory schema with spatial coordinates across state and vision logs.
+- **Manifest Synchronization**: Synchronized manifests, bumped version to 1.4.0, and updated tool documentation.
+
 ## [1.3.2] - 2026-09-29
 
 ### 🗄️ Storage Bloat Remediation & Global Health Auto-Repair
