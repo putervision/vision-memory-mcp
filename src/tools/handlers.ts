@@ -16,18 +16,24 @@ import { setVisualSpec, verifyVisualSpec, listVisualSpecs } from '../core/visual
 import { analyzeScreenshotWithLLM } from '../vision/analyzer.js';
 import { metricsCollector } from '../core/metrics.js';
 import { logger } from '../logger.js';
-import { parseAXTreeToGroundedElements, matchGroundedTarget } from '../core/grounding.js';
+import {
+  parseAXTreeToGroundedElements,
+  matchGroundedTarget,
+  exportObservationDetections,
+} from '../core/grounding.js';
 import { probeVideo, extractKeyframes } from '../core/video-pipeline.js';
 import { categorizeVideoFrames } from '../core/video-categorizer.js';
 import { getCachedDirSize } from '../utils/fs.js';
 import { redactUrl } from '../utils/redact.js';
 import { VERSION } from '../utils/version.js';
+import { assertVisualModality } from '../core/modality.js';
 import {
   VisualState,
   ResponseFormat,
   WaitForVisualStateResult,
   VideoMemoryRecord,
   EvidencePack,
+  RedactionRecord,
 } from '../types.js';
 import { LEGACY_VISION_TOOL_MAP, translateLegacyVisionCall } from './compat-shim.js';
 
@@ -550,6 +556,12 @@ export function registerAllTools(server: any): void {
           .describe(
             'Response verbosity. compact omits internal fields like hashes, vectors, AX trees. Default: compact'
           ),
+        export_detections: z
+          .boolean()
+          .optional()
+          .describe(
+            'Standardized perception bridge: export 3D observation detections for world-model-mcp'
+          ),
         items: z
           .array(
             z.object({
@@ -559,6 +571,7 @@ export function registerAllTools(server: any): void {
               accessibility_tree: z.string().optional(),
               source_url: z.string().optional(),
               tags: z.array(z.string()).optional(),
+              export_detections: z.boolean().optional(),
             })
           )
           .min(1)
@@ -593,6 +606,15 @@ export function registerAllTools(server: any): void {
               });
 
               if (retrieval.is_known && retrieval.state_id) {
+                if (
+                  item.export_detections ||
+                  params.export_detections ||
+                  params.include_detections
+                ) {
+                  const elements =
+                    retrieval.grounded_elements || parseAXTreeToGroundedElements(axTree);
+                  retrieval.observation_detections = exportObservationDetections(elements);
+                }
                 results.push(formatResponsePayload(retrieval, format));
                 continue;
               }
@@ -694,6 +716,10 @@ export function registerAllTools(server: any): void {
             });
             retrieval.description = params.description;
           }
+          if (params.export_detections || params.include_detections) {
+            const elements = retrieval.grounded_elements || parseAXTreeToGroundedElements(axTree);
+            retrieval.observation_detections = exportObservationDetections(elements);
+          }
           const formatted = formatResponsePayload(retrieval, format);
           return {
             content: [{ type: 'text', text: JSON.stringify(formatted) }],
@@ -745,7 +771,7 @@ export function registerAllTools(server: any): void {
         await storage.addState(newState);
         memoryCache.set(newState);
 
-        const resultObj = {
+        const resultObj: any = {
           state_id: newId,
           is_known: false,
           match_type: 'new',
@@ -757,6 +783,14 @@ export function registerAllTools(server: any): void {
             height: processed.originalHeight,
           },
         };
+
+        if (params.export_detections || params.include_detections) {
+          const elements = parseAXTreeToGroundedElements(axTree);
+          resultObj.observation_detections = exportObservationDetections(elements, {
+            viewport_width: processed.originalWidth,
+            viewport_height: processed.originalHeight,
+          });
+        }
 
         const formatted = formatResponsePayload(resultObj, format);
         return {
@@ -1136,6 +1170,8 @@ export function registerAllTools(server: any): void {
 
         if (!stateA) throw new Error(`State A (${params.state_a_id}) not found.`);
         if (!stateB) throw new Error(`State B (${params.state_b_id}) not found.`);
+        assertVisualModality(stateA, params.state_a_id);
+        assertVisualModality(stateB, params.state_b_id);
 
         const dist = hammingDistance(stateA.dhash, stateB.dhash);
         const similarity = cosineSimilarity(stateA.vector, stateB.vector);
@@ -1233,6 +1269,7 @@ export function registerAllTools(server: any): void {
 
         if (format === 'compact_slice') {
           const latest = recentList[0];
+          const previous = recentList[1];
           const stateId = latest ? latest.id : 'none';
           const layoutHash = latest
             ? latest.dhash ||
@@ -1245,25 +1282,85 @@ export function registerAllTools(server: any): void {
           const fullDesc = latest?.description || 'No visual states available';
           const summary = fullDesc.length > 120 ? fullDesc.slice(0, 117) + '...' : fullDesc;
 
-          let elemCount = 0;
+          const prevHash = previous ? previous.dhash || previous.ahash || '' : '';
+          const layoutChanged = previous
+            ? prevHash !== (latest?.dhash || latest?.ahash || '')
+            : false;
+
+          let rawElements: any[] = [];
           if (latest?.grounded_elements) {
             try {
               if (Array.isArray(latest.grounded_elements)) {
-                elemCount = latest.grounded_elements.length;
+                rawElements = latest.grounded_elements;
               } else if (typeof latest.grounded_elements === 'string') {
                 const parsed = JSON.parse(latest.grounded_elements);
-                if (Array.isArray(parsed)) elemCount = parsed.length;
+                if (Array.isArray(parsed)) rawElements = parsed;
               }
             } catch {
-              elemCount = 0;
+              rawElements = [];
             }
           }
+
+          let origW = 1920;
+          let origH = 1080;
+          if (latest?.original_dimensions) {
+            try {
+              const dims =
+                typeof latest.original_dimensions === 'string'
+                  ? JSON.parse(latest.original_dimensions)
+                  : latest.original_dimensions;
+              if (dims.width) origW = dims.width;
+              if (dims.height) origH = dims.height;
+            } catch {}
+          }
+
+          const screenCentroids = rawElements.slice(0, 10).map((elem) => ({
+            id: elem.id,
+            role: elem.role,
+            label:
+              elem.label && elem.label.length > 25
+                ? elem.label.slice(0, 22) + '...'
+                : elem.label || elem.role,
+            x: parseFloat(((elem.center?.[0] ?? 0) / origW).toFixed(3)),
+            y: parseFloat(((elem.center?.[1] ?? 0) / origH).toFixed(3)),
+          }));
+
+          let axSummary = 'empty';
+          if (latest?.accessibility_tree && latest.accessibility_tree !== '{}') {
+            try {
+              const ax =
+                typeof latest.accessibility_tree === 'string'
+                  ? JSON.parse(latest.accessibility_tree)
+                  : latest.accessibility_tree;
+              const roleCounts: Record<string, number> = {};
+              function countRoles(node: any) {
+                if (!node || typeof node !== 'object') return;
+                const r = node.role || node.type || 'other';
+                roleCounts[r] = (roleCounts[r] || 0) + 1;
+                if (Array.isArray(node.children)) node.children.forEach(countRoles);
+              }
+              if (Array.isArray(ax)) ax.forEach(countRoles);
+              else countRoles(ax);
+              axSummary = Object.entries(roleCounts)
+                .map(([r, c]) => `${r}:${c}`)
+                .slice(0, 5)
+                .join(', ');
+            } catch {
+              axSummary = 'parsed';
+            }
+          }
+
+          const cacheTier = params.cache_tier || (latest ? 'L1_exact' : 'L4_pending');
 
           const visualSlice: any = {
             state_id: stateId,
             layout_hash: layoutHash,
+            layout_changed: layoutChanged,
             description_summary: summary,
-            interactive_element_count: elemCount,
+            interactive_element_count: rawElements.length,
+            screen_centroids: screenCentroids,
+            ax_summary: axSummary,
+            cache_tier: cacheTier,
             embedding_ref_ids: latest ? [latest.id] : [],
           };
 
@@ -1608,6 +1705,7 @@ export function registerAllTools(server: any): void {
         if (!currentState) {
           throw new Error(`Current state ID "${params.current_state_id}" not found.`);
         }
+        assertVisualModality(currentState, params.current_state_id);
 
         const transitions = await storage.listTransitionsAll(
           `from_state_id = '${escapeSql(params.current_state_id)}' AND git_branch = '${escapeSql(currentState.git_branch)}'`,
@@ -2183,11 +2281,25 @@ export function registerAllTools(server: any): void {
       try {
         await storage.deleteState(params.state_id);
         memoryCache.clear();
+        const redactionRecord: RedactionRecord = {
+          event: 'state_purged',
+          state_id: params.state_id,
+          timestamp: Date.now(),
+          audit_trail_id: `audit_purge_${Date.now()}_${params.state_id.slice(0, 8)}`,
+          compliance_status: 'purged',
+        };
+        logger.info(
+          `State purged for compliance: ${params.state_id} (Audit: ${redactionRecord.audit_trail_id})`
+        );
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({ success: true, purged_state_id: params.state_id }),
+              text: JSON.stringify({
+                success: true,
+                purged_state_id: params.state_id,
+                redaction_record: redactionRecord,
+              }),
             },
           ],
         };

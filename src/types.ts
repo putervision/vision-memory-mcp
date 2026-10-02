@@ -32,6 +32,7 @@ export interface VisualState {
   window_title?: string; // OS window title
   monitor_id?: string; // Monitor/display identifier
   is_redacted?: number; // 1 = redacted, 0 = unredacted
+  modality?: string; // "visual" | "text" | "audio" | other (default: "visual")
   thumbnail: string; // Base64 WebP, 64x64px
   original_dimensions: string; // JSON string: { width: number, height: number }
   source_url: string; // URL or app path/identifier
@@ -85,6 +86,7 @@ export interface RetrievalResult {
   structured_data?: string;
   accessibility_tree?: string;
   grounded_elements?: GroundedElement[];
+  observation_detections?: ObservationDetection[];
   ocr_text?: string;
   tags?: string[];
   source_url?: string;
@@ -319,6 +321,53 @@ export interface VisualRiskSignal {
   details: string;
 }
 
+export interface ObservationDetection {
+  label: string;
+  class_name?: string;
+  bounding_box_2d?: { x: number; y: number; width: number; height: number };
+  bounding_box_3d?: {
+    center: { x: number; y: number; z: number };
+    size: { width: number; height: number; depth: number };
+  };
+  estimated_position?: { x: number; y: number; z: number };
+  confidence: number;
+  attributes?: Record<string, unknown>;
+}
 
+export interface VisualSlice {
+  state_id: string;
+  layout_hash: string;
+  layout_changed: boolean;
+  description_summary: string;
+  interactive_element_count: number;
+  screen_centroids?: Array<{
+    id: string;
+    role: string;
+    label: string;
+    x: number;
+    y: number;
+  }>;
+  ax_summary?: string;
+  cache_tier?: 'L1_exact' | 'L2_near' | 'L3_vector' | 'L4_pending';
+  embedding_ref_ids: string[];
+  embedding_centroids?: number[][];
+}
 
+export interface VisualSpecBlocker {
+  severity: 'error';
+  blocker_type: 'visual_regression';
+  code: 'VISUAL_SPEC_VIOLATION';
+  message: string;
+  spec_name: string;
+  dhash_distance: number;
+  tolerance_threshold: number;
+  similarity_score: number;
+}
 
+export interface RedactionRecord {
+  event: string;
+  state_id: string;
+  timestamp: number;
+  audit_trail_id: string;
+  compliance_status: 'purged' | 'redacted';
+}

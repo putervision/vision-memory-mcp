@@ -1,4 +1,4 @@
-import { GroundedElement, GroundedActionTarget } from '../types.js';
+import { GroundedElement, GroundedActionTarget, ObservationDetection } from '../types.js';
 import { logger } from '../logger.js';
 
 /**
@@ -186,4 +186,60 @@ export function matchGroundedTarget(
     element_label: bestMatch.label,
     element_role: bestMatch.role,
   };
+}
+
+/**
+ * Standardized Perception Bridge:
+ * Transforms 2D grounded UI interactive elements into 3D ObservationDetection records
+ * compatible with world-model-mcp:ingest_observation.
+ */
+export function exportObservationDetections(
+  elements: GroundedElement[],
+  options?: {
+    viewport_width?: number;
+    viewport_height?: number;
+    depth_estimate?: number;
+  }
+): ObservationDetection[] {
+  if (!elements || !Array.isArray(elements) || elements.length === 0) return [];
+
+  const width = options?.viewport_width || 1920;
+  const height = options?.viewport_height || 1080;
+  const depth = options?.depth_estimate ?? 1.0;
+
+  return elements.map((elem) => {
+    const [bx, by, bw, bh] = elem.bbox || [0, 0, 0, 0];
+    const centerX = elem.center?.[0] ?? bx + bw / 2;
+    const centerY = elem.center?.[1] ?? by + bh / 2;
+
+    // Normalize coordinates to [-1, 1] range for 3D camera frame projection
+    const normX = (centerX / width - 0.5) * 2;
+    const normY = (centerY / height - 0.5) * 2;
+
+    const confidence = elem.state === 'disabled' ? 0.7 : 0.95;
+
+    return {
+      label: elem.label || elem.role,
+      class_name: elem.role,
+      confidence,
+      bounding_box_2d: {
+        x: bx,
+        y: by,
+        width: bw,
+        height: bh,
+      },
+      estimated_position: {
+        x: parseFloat(normX.toFixed(4)),
+        y: parseFloat((-normY).toFixed(4)), // In camera frame, positive Y points upward
+        z: depth,
+      },
+      attributes: {
+        id: elem.id,
+        selector: elem.selector,
+        role: elem.role,
+        state: elem.state,
+        value: elem.value,
+      },
+    };
+  });
 }

@@ -1,6 +1,6 @@
 {
   "name": "@putervision/vision-memory-mcp",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Persistent visual cache for LLM-driven software development. Caches screenshots using perceptual hashing, vector search, and AX trees to prevent token overhead and visual hallucination loops.",
   "keywords": [
     "mcp",
