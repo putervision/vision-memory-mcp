@@ -209,12 +209,12 @@ export function exportObservationDetections(
 
   return elements.map((elem) => {
     const [bx, by, bw, bh] = elem.bbox || [0, 0, 0, 0];
-    const centerX = elem.center?.[0] ?? (bx + bw / 2);
-    const centerY = elem.center?.[1] ?? (by + bh / 2);
+    const centerX = elem.center?.[0] ?? bx + bw / 2;
+    const centerY = elem.center?.[1] ?? by + bh / 2;
 
     // Normalize coordinates to [-1, 1] range for 3D camera frame projection
-    const normX = ((centerX / width) - 0.5) * 2;
-    const normY = ((centerY / height) - 0.5) * 2;
+    const normX = (centerX / width - 0.5) * 2;
+    const normY = (centerY / height - 0.5) * 2;
 
     const confidence = elem.state === 'disabled' ? 0.7 : 0.95;
 
@@ -243,4 +243,3 @@ export function exportObservationDetections(
     };
   });
 }
-

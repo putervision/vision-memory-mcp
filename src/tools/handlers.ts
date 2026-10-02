@@ -606,7 +606,11 @@ export function registerAllTools(server: any): void {
               });
 
               if (retrieval.is_known && retrieval.state_id) {
-                if (item.export_detections || params.export_detections || params.include_detections) {
+                if (
+                  item.export_detections ||
+                  params.export_detections ||
+                  params.include_detections
+                ) {
                   const elements =
                     retrieval.grounded_elements || parseAXTreeToGroundedElements(axTree);
                   retrieval.observation_detections = exportObservationDetections(elements);
@@ -713,8 +717,7 @@ export function registerAllTools(server: any): void {
             retrieval.description = params.description;
           }
           if (params.export_detections || params.include_detections) {
-            const elements =
-              retrieval.grounded_elements || parseAXTreeToGroundedElements(axTree);
+            const elements = retrieval.grounded_elements || parseAXTreeToGroundedElements(axTree);
             retrieval.observation_detections = exportObservationDetections(elements);
           }
           const formatted = formatResponsePayload(retrieval, format);
@@ -1280,7 +1283,9 @@ export function registerAllTools(server: any): void {
           const summary = fullDesc.length > 120 ? fullDesc.slice(0, 117) + '...' : fullDesc;
 
           const prevHash = previous ? previous.dhash || previous.ahash || '' : '';
-          const layoutChanged = previous ? prevHash !== (latest?.dhash || latest?.ahash || '') : false;
+          const layoutChanged = previous
+            ? prevHash !== (latest?.dhash || latest?.ahash || '')
+            : false;
 
           let rawElements: any[] = [];
           if (latest?.grounded_elements) {
