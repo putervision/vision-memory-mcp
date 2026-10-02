@@ -10,7 +10,7 @@
       "id": "state-memory-mcp",
       "name": "State Memory MCP",
       "package": "@putervision/state-memory-mcp",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "command": "npx",
       "args": [
         "-y",
@@ -25,7 +25,9 @@
         "plans",
         "artifacts",
         "sdd",
-        "3d-visualizer"
+        "3d-visualizer",
+        "spatial-entities",
+        "affordances"
       ],
       "protocolVersion": "2024-11-05"
     },
@@ -33,7 +35,7 @@
       "id": "vision-memory-mcp",
       "name": "Visual Memory MCP",
       "package": "@putervision/vision-memory-mcp",
-      "version": "1.3.2",
+      "version": "1.4.0",
       "command": "npx",
       "args": [
         "-y",
@@ -46,7 +48,8 @@
         "clip-vector-search",
         "layout-drift-detection",
         "screenshot-caching",
-        "video-keyframe-timeline"
+        "video-keyframe-timeline",
+        "spatial-grounding"
       ],
       "protocolVersion": "2024-11-05"
     },
@@ -54,7 +57,7 @@
       "id": "world-model-mcp",
       "name": "Spatial World Model MCP",
       "package": "@putervision/world-model-mcp",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "command": "npx",
       "args": [
         "-y",
@@ -67,7 +70,10 @@
         "object-permanence",
         "collision-simulation",
         "frustum-culling",
-        "game-inputs"
+        "game-inputs",
+        "dynamic-velocity",
+        "affordance-bitmask",
+        "spatial-slices"
       ],
       "protocolVersion": "2024-11-05"
     },
@@ -75,7 +81,7 @@
       "id": "behavior-mcp",
       "name": "Behavior Runtime MCP",
       "package": "@putervision/behavior-mcp",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "command": "npx",
       "args": [
         "-y",
@@ -88,7 +94,9 @@
         "60hz-runtime",
         "reactive-triggers",
         "action-recordings",
-        "safety-stack"
+        "safety-stack",
+        "blackboard-projection",
+        "spatial-conditions"
       ],
       "protocolVersion": "2024-11-05"
     },
@@ -96,7 +104,7 @@
       "id": "agent-reasoning-mcp",
       "name": "Agent Reasoning MCP",
       "package": "@putervision/agent-reasoning-mcp",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "command": "npx",
       "args": [
         "-y",
@@ -110,7 +118,9 @@
         "utility-evaluation",
         "belief-decay",
         "replanning",
-        "decision-traces"
+        "decision-traces",
+        "spatial-utility",
+        "rollout-risk"
       ],
       "protocolVersion": "2024-11-05"
     }
