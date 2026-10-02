@@ -2,6 +2,7 @@ import { storage, transitionKey, escapeSql } from './storage.js';
 import { getCurrentBranch } from './cache.js';
 import { logger } from '../logger.js';
 import { StateTransition, NavigationPath, NavigationStep } from '../types.js';
+import { assertVisualModality } from './modality.js';
 
 /**
  * Record a state transition with success/failure counters.
@@ -29,10 +30,13 @@ export async function recordTransition(params: {
   if (!fromState) {
     throw new Error(`Starting state with ID "${params.fromStateId}" does not exist in storage.`);
   }
+  assertVisualModality(fromState, params.fromStateId);
+
   const toState = await storage.getStateAll(params.toStateId);
   if (!toState) {
     throw new Error(`Target state with ID "${params.toStateId}" does not exist in storage.`);
   }
+  assertVisualModality(toState, params.toStateId);
 
   // Check if transition already exists to update counters
   const existing = await storage.getTransition(id);

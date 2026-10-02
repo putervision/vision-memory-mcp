@@ -4,8 +4,9 @@ import { calculateDHash, calculateAHash, hammingDistance } from './hash.js';
 import { embeddings, cosineSimilarity } from './embeddings.js';
 import { processImage } from './image-pipeline.js';
 import { logger } from '../logger.js';
-import { VisualState } from '../types.js';
+import { VisualState, VisualSpecBlocker } from '../types.js';
 import { VERSION } from '../utils/version.js';
+import { assertVisualModality } from './modality.js';
 
 export interface VisualSpecResult {
   spec_name: string;
@@ -16,6 +17,7 @@ export interface VisualSpecResult {
   tolerance_threshold: number;
   message: string;
   sdd_requirement_id?: string;
+  blocker?: VisualSpecBlocker;
   state_memory_tool_calls?: {
     instruction: string;
     mcp_tool_call?: Record<string, unknown>;
@@ -136,6 +138,7 @@ export async function verifyVisualSpec(params: {
   if (!specState) {
     throw new Error(`No visual spec baseline found with name: "${params.specName}"`);
   }
+  assertVisualModality(specState, specState.id);
 
   const processed = await processImage(base64);
   const liveDhash = await calculateDHash(processed.normalizedBuffer);
@@ -164,6 +167,19 @@ export async function verifyVisualSpec(params: {
   const message = isCompliant
     ? `UI screenshot complies with visual spec "${params.specName}" (Hamming distance ${distance} <= ${threshold}).`
     : `Visual drift detected against spec "${params.specName}"! Hamming distance ${distance} > ${threshold} or similarity ${similarity.toFixed(2)} < 0.80.`;
+
+  const blocker: VisualSpecBlocker | undefined = !isCompliant
+    ? {
+        severity: 'error',
+        blocker_type: 'visual_regression',
+        code: 'VISUAL_SPEC_VIOLATION',
+        message,
+        spec_name: params.specName,
+        dhash_distance: distance,
+        tolerance_threshold: threshold,
+        similarity_score: similarity,
+      }
+    : undefined;
 
   let stateMemoryToolCalls: any = undefined;
   if (params.sddRequirementId) {
@@ -227,6 +243,7 @@ export async function verifyVisualSpec(params: {
     tolerance_threshold: threshold,
     message,
     sdd_requirement_id: params.sddRequirementId,
+    blocker,
     state_memory_tool_calls: stateMemoryToolCalls,
   };
 }
