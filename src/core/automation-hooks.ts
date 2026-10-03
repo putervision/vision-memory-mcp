@@ -7,6 +7,10 @@ export interface AutomationStep {
   value?: string;
 }
 
+function quoteJsString(str: string): string {
+  return `'${str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')}'`;
+}
+
 /**
  * Generates executable Playwright code snippets from grounded action targets.
  */
@@ -16,17 +20,21 @@ export function generatePlaywrightSnippet(target: GroundedActionTarget): string 
 
   if (action === 'click') {
     if (selector) {
-      return `await page.click('${selector}');`;
+      return `await page.click(${quoteJsString(selector)});`;
     } else if (target.target_coords) {
-      return `await page.mouse.click(${target.target_coords.x}, ${target.target_coords.y});`;
+      const x = Number(target.target_coords.x) || 0;
+      const y = Number(target.target_coords.y) || 0;
+      return `await page.mouse.click(${x}, ${y});`;
     }
     return `// Action: click target element`;
   } else if (action === 'type' || action === 'fill') {
     const val = target.suggested_input_value || 'example_text';
     if (selector) {
-      return `await page.fill('${selector}', '${val}');`;
+      return `await page.fill(${quoteJsString(selector)}, ${quoteJsString(val)});`;
     } else if (target.target_coords) {
-      return `await page.mouse.click(${target.target_coords.x}, ${target.target_coords.y});\nawait page.keyboard.type('${val}');`;
+      const x = Number(target.target_coords.x) || 0;
+      const y = Number(target.target_coords.y) || 0;
+      return `await page.mouse.click(${x}, ${y});\nawait page.keyboard.type(${quoteJsString(val)});`;
     }
     return `// Action: fill target input field`;
   }

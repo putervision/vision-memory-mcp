@@ -4,7 +4,7 @@
 
 When the user uploads or attaches screenshots/images directly in the chat:
 
-1. Locate the saved image files in the conversation's system-generated folder or artifact directory (e.g., `/home/beast/.gemini/antigravity/brain/<conversation-id>/media__*.png`).
+1. Locate the saved image files in the conversation's system-generated folder or artifact directory (e.g., `~/.gemini/antigravity/brain/<conversation-id>/media__*.png`).
 2. ALWAYS use the `vision-memory-mcp` tools or CLI (e.g., running `vision-memory-mcp query <path>`) to check the visual cache _before_ executing native vision analysis.
 3. If the cache returns a hit (`is_known: true`), rely on the cached description rather than querying native vision models.
 4. If there is a cache miss (`is_known: false`), inspect the image with native vision, describe the layout, and then immediately ingest the description to seed the cache (e.g., running `vision-memory-mcp ingest <path> "<description>"`).

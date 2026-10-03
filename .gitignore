@@ -3,6 +3,13 @@ dist
 coverage
 *.tsbuildinfo
 .env
+.env.*
+!.env.example
+*.db
+*.db*
+*.sqlite*
+viewer*.html
+scratch*
 
 .state-memory-mcp
 .vision-memory-mcp

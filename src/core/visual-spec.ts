@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { validatePath } from '../utils/path-validator.js';
 import { storage } from './storage.js';
 import { calculateDHash, calculateAHash, hammingDistance } from './hash.js';
 import { embeddings, cosineSimilarity } from './embeddings.js';
@@ -39,7 +40,8 @@ export async function setVisualSpec(params: {
     if (!fs.existsSync(params.filePath)) {
       throw new Error(`File does not exist: ${params.filePath}`);
     }
-    base64 = fs.readFileSync(params.filePath).toString('base64');
+    const validPath = validatePath(params.filePath, { mustExist: true });
+    base64 = fs.readFileSync(validPath).toString('base64');
   }
 
   if (!base64) {
@@ -112,7 +114,8 @@ export async function verifyVisualSpec(params: {
     if (!fs.existsSync(params.filePath)) {
       throw new Error(`File does not exist: ${params.filePath}`);
     }
-    base64 = fs.readFileSync(params.filePath).toString('base64');
+    const validPath = validatePath(params.filePath, { mustExist: true });
+    base64 = fs.readFileSync(validPath).toString('base64');
   }
 
   if (!base64) {

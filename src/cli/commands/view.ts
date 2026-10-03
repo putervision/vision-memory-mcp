@@ -4,6 +4,15 @@ import path from 'path';
 import { storage, escapeSql } from '../../core/storage.js';
 import { getCurrentBranch } from '../../core/cache.js';
 
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function buildHtmlVisualizer(
   branch: string,
   nodes: any[],
@@ -12,7 +21,10 @@ export function buildHtmlVisualizer(
   const safeJsonStringify = (val: any) => {
     return JSON.stringify(val)
       .replace(/</g, '\\u003c')
-      .replace(/>/g, '\\u003e');
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   };
 
   return `<!DOCTYPE html>
@@ -20,7 +32,7 @@ export function buildHtmlVisualizer(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vision Memory Visualizer - ${branch}</title>
+  <title>Vision Memory Visualizer - ${escapeHtml(branch)}</title>
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/3d-force-graph@1.72.0/dist/3d-force-graph.min.js"></script>
   <script src="https://unpkg.com/three-spritetext@1.8.2/dist/three-spritetext.min.js"></script>
@@ -611,15 +623,17 @@ export async function runView(args: string[] = []) {
 
   const outIdx =
     args.indexOf('--out') !== -1 ? args.indexOf('--out') : args.indexOf('-o');
-  let filename = 'viewer.html';
+  let htmlPath: string;
   if (outIdx !== -1 && args[outIdx + 1]) {
-    filename = args[outIdx + 1];
-  } else if (fs.existsSync(path.resolve(process.cwd(), './viewer.html'))) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    filename = `viewer-${timestamp}.html`;
+    htmlPath = path.resolve(process.cwd(), args[outIdx + 1]);
+  } else {
+    const outputDir = path.resolve(process.cwd(), '.vision-memory-mcp');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    htmlPath = path.join(outputDir, 'viewer.html');
   }
 
-  const htmlPath = path.resolve(process.cwd(), filename);
   fs.writeFileSync(htmlPath, htmlContent);
   console.log(`📊 Exported graph HTML to: ${htmlPath}`);
 

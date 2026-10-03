@@ -5,6 +5,15 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-10-03
+
+### 🔒 Security, Path Validation & Input Sanitization
+- **Path Validation Allowlisting**: Enforced directory allowlist boundaries and symlink resolution in visual spec ingestion and video processing pipelines.
+- **Video Payload Safety Limits**: Implemented strict payload and file size guardrails (`MAX_VIDEO_SIZE_MB`) to prevent resource exhaustion during keyframe extraction.
+- **Automation Selector Escaping**: Escaped automation targets and keyboard typing strings via `JSON.stringify` to mitigate script injection vulnerabilities.
+- **Viewer Template Hardening**: Hardened HTML visualization generation with entity encoding and default isolated output directories.
+- **Release Metadata Sync**: Synchronized manifests, documentation, and migration guidelines across 1.4.1 targets.
+
 ## [1.4.0] - 2026-10-02
 
 ### 🚀 Spatial Grounding Coordinates & Affordance Tagging
