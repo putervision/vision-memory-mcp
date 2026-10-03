@@ -35,7 +35,7 @@
       "id": "vision-memory-mcp",
       "name": "Visual Memory MCP",
       "package": "@putervision/vision-memory-mcp",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "command": "npx",
       "args": [
         "-y",

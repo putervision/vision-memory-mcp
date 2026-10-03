@@ -5,6 +5,10 @@ import path from 'path';
 import os from 'os';
 import { logger } from '../logger.js';
 import { ExtractedFrame, VideoIngestOptions, VideoMetadata } from '../types.js';
+import { validatePath } from '../utils/path-validator.js';
+
+export const MAX_VIDEO_SIZE_MB = Number(process.env.MAX_VIDEO_SIZE_MB) || 200;
+export const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +53,11 @@ export async function probeVideo(videoInput: string | Buffer): Promise<VideoMeta
     if (videoInput.startsWith('data:video/')) {
       const base64Data = videoInput.replace(/^data:video\/\w+;base64,/, '');
       buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length > MAX_VIDEO_SIZE_BYTES) {
+        throw new Error(
+          `Video payload size (${(buffer.length / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+        );
+      }
       tempFilePath = path.join(
         os.tmpdir(),
         `vmem_probe_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp`
@@ -56,11 +65,22 @@ export async function probeVideo(videoInput: string | Buffer): Promise<VideoMeta
       await fs.promises.writeFile(tempFilePath, buffer);
       filePath = tempFilePath;
     } else {
-      filePath = videoInput;
+      filePath = validatePath(videoInput, { mustExist: true });
+      const stat = await fs.promises.stat(filePath);
+      if (stat.size > MAX_VIDEO_SIZE_BYTES) {
+        throw new Error(
+          `Video file size (${(stat.size / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+        );
+      }
       buffer = await fs.promises.readFile(filePath);
     }
   } else {
     buffer = videoInput;
+    if (buffer.length > MAX_VIDEO_SIZE_BYTES) {
+      throw new Error(
+        `Video payload size (${(buffer.length / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+      );
+    }
     tempFilePath = path.join(
       os.tmpdir(),
       `vmem_probe_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp`
@@ -157,6 +177,11 @@ export async function extractKeyframes(
     if (videoInput.startsWith('data:video/')) {
       const base64Data = videoInput.replace(/^data:video\/\w+;base64,/, '');
       buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length > MAX_VIDEO_SIZE_BYTES) {
+        throw new Error(
+          `Video payload size (${(buffer.length / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+        );
+      }
       tempFilePath = path.join(
         os.tmpdir(),
         `vmem_extract_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp`
@@ -164,11 +189,22 @@ export async function extractKeyframes(
       await fs.promises.writeFile(tempFilePath, buffer);
       filePath = tempFilePath;
     } else {
-      filePath = videoInput;
+      filePath = validatePath(videoInput, { mustExist: true });
+      const stat = await fs.promises.stat(filePath);
+      if (stat.size > MAX_VIDEO_SIZE_BYTES) {
+        throw new Error(
+          `Video file size (${(stat.size / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+        );
+      }
       buffer = await fs.promises.readFile(filePath);
     }
   } else {
     buffer = videoInput;
+    if (buffer.length > MAX_VIDEO_SIZE_BYTES) {
+      throw new Error(
+        `Video payload size (${(buffer.length / 1024 / 1024).toFixed(2)} MB) exceeds maximum allowed size (${MAX_VIDEO_SIZE_MB} MB)`
+      );
+    }
     tempFilePath = path.join(
       os.tmpdir(),
       `vmem_extract_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp`

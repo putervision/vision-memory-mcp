@@ -203,11 +203,14 @@ export class RecordSchema<V> extends Schema<Record<string, V>> {
     if (typeof val !== 'object' || Array.isArray(val)) {
       throw new Error(`${path} must be an object`);
     }
-    const result: Record<string, V> = {};
+    const result: Record<string, V> = Object.create(null);
     for (const [key, propVal] of Object.entries(val as Record<string, unknown>)) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
       result[key] = this.valSchema.parse(propVal, `${path}.${key}`);
     }
-    return result;
+    return Object.assign({}, result);
   }
 
   toJsonSchema(): any {
@@ -303,5 +306,7 @@ export const z = {
   unknown: () => new UnknownSchema(),
   any: () => new UnknownSchema(),
 };
+
+export const s = z;
 
 export type Infer<T extends Schema<any>> = T extends Schema<infer U> ? U : never;
