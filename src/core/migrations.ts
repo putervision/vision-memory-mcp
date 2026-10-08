@@ -8,8 +8,10 @@ export const CURRENT_SCHEMA_VERSION = 2;
 /**
  * Checks and executes schema migrations for LanceDB / local cache stores.
  */
-export async function checkAndRunSchemaMigrations(): Promise<void> {
-  const versionFile = path.join(config.LANCEDB_PATH, 'schema_version.json');
+export async function checkAndRunSchemaMigrations(
+  dbPath: string = config.LANCEDB_PATH
+): Promise<void> {
+  const versionFile = path.join(dbPath, 'schema_version.json');
   let installedVersion = 1;
 
   if (fs.existsSync(versionFile)) {
@@ -32,7 +34,7 @@ export async function checkAndRunSchemaMigrations(): Promise<void> {
 
   // Migration v1 -> v2: Add grounded_elements, ocr_text, app_context fields
   try {
-    fs.mkdirSync(config.LANCEDB_PATH, { recursive: true });
+    fs.mkdirSync(dbPath, { recursive: true });
     fs.writeFileSync(
       versionFile,
       JSON.stringify({ version: CURRENT_SCHEMA_VERSION, updated_at: Date.now() }, null, 2),

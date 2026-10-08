@@ -16,6 +16,18 @@ export interface TableHealth {
   txnBytes: number;
 }
 
+export const REQUIRED_TABLES = [
+  'visual_states',
+  'state_transitions',
+  'visual_snapshots',
+  'video_records',
+  'evidence_packs',
+] as const;
+
+export interface StorageHealthOptions {
+  requireAllTables?: boolean;
+}
+
 export interface StorageHealthReport {
   dbPath: string;
   exists: boolean;
@@ -31,6 +43,8 @@ export interface StorageHealthReport {
   wasteRatio: number; // 0.0 to 1.0
   isHealthy: boolean;
   tables: TableHealth[];
+  missingTables?: string[];
+  recommendations?: string[];
 }
 
 /**
@@ -102,7 +116,10 @@ function getDirStats(dir: string): { size: number; files: number; dirs: number }
 /**
  * Synchronous non-locking filesystem analysis of LanceDB storage health.
  */
-export function analyzeStorageHealth(dbPath: string): StorageHealthReport {
+export function analyzeStorageHealth(
+  dbPath: string,
+  options: StorageHealthOptions = {}
+): StorageHealthReport {
   const resolved = path.resolve(dbPath);
   if (!fs.existsSync(resolved)) {
     return {
@@ -120,6 +137,8 @@ export function analyzeStorageHealth(dbPath: string): StorageHealthReport {
       wasteRatio: 0,
       isHealthy: true,
       tables: [],
+      missingTables: [],
+      recommendations: [],
     };
   }
 
@@ -197,9 +216,27 @@ export function analyzeStorageHealth(dbPath: string): StorageHealthReport {
   const wasteBytes = Math.max(0, totalBytes - totalDataBytes);
   const wasteRatio = totalBytes > 0 ? wasteBytes / totalBytes : 0;
 
+  const foundTableNames = tables.map((t) => t.name);
+  const missingTables = REQUIRED_TABLES.filter((t) => !foundTableNames.includes(t));
+  const requireAll = options.requireAllTables ?? true;
+
+  const recommendations: string[] = [];
+  if (missingTables.length > 0) {
+    recommendations.push(
+      `Missing LanceDB tables: ${missingTables.join(', ')}. Run 'vision-memory-mcp init' or 'doctor --fix'.`
+    );
+  }
+  if (wasteRatio >= 0.4 && totalBytes >= 50 * 1024 * 1024) {
+    recommendations.push(
+      `Storage bloat detected (${(wasteRatio * 100).toFixed(1)}% waste). Run 'vision-memory-mcp optimize' or 'doctor --fix'.`
+    );
+  }
+
   const isHealthy =
-    totalBytes < 50 * 1024 * 1024 ||
-    (wasteRatio < 0.4 && totalIndexDirs < 50 && totalDataFragments < 500);
+    tables.length > 0 &&
+    (!requireAll || missingTables.length === 0) &&
+    (totalBytes < 50 * 1024 * 1024 ||
+      (wasteRatio < 0.4 && totalIndexDirs < 50 && totalDataFragments < 500));
 
   return {
     dbPath: resolved,
@@ -216,6 +253,8 @@ export function analyzeStorageHealth(dbPath: string): StorageHealthReport {
     wasteRatio,
     isHealthy,
     tables,
+    missingTables,
+    recommendations,
   };
 }
 

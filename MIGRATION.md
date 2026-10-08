@@ -4,9 +4,9 @@ This guide explains how to migrate client integrations, custom agents, and tool 
 
 ---
 
-## ⚡️ Migrating to v1.4.1+
+## ⚡️ Migrating to v1.4.2+
 
-`v1.4.1` introduces 3D spatial grounding coordinates, affordance bitmask tagging on visual detections, oriented 3D bounding boxes, and cross-server trajectory alignment with `world-model-mcp` and `state-memory-mcp`.
+`v1.4.2` introduces 3D spatial grounding coordinates, affordance bitmask tagging on visual detections, oriented 3D bounding boxes, and cross-server trajectory alignment with `world-model-mcp` and `state-memory-mcp`.
 
 ### 1. 3D Spatial Grounding Coordinates
 Grounded UI elements and detected screen items now include spatial coordinates for camera-to-world unprojection:
