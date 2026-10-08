@@ -148,7 +148,7 @@ export class StorageManager {
 
     try {
       const { checkAndRunSchemaMigrations } = await import('./migrations.js');
-      await checkAndRunSchemaMigrations();
+      await checkAndRunSchemaMigrations(dbPath);
 
       this.db = await lancedb.connect(dbPath);
       await this.initTables();

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { registerProject, getRegistry, unregisterProject } from '../core/registry.js';
+import { logger } from '../logger.js';
 
 function getInstructionsTemplate(): string {
   return `
@@ -158,35 +159,63 @@ export async function runInit(args: string[] = [], targetRoot?: string) {
       '  ℹ️  Notice: init configures local workspace & global user rules (~/). Pass --yes to confirm.'
     );
   }
-  const root = targetRoot ? path.resolve(targetRoot) : process.cwd();
+
+  let resolvedTargetRoot = targetRoot;
+  if (!resolvedTargetRoot) {
+    const rootIdx = args.findIndex((a) => a === '--root' || a === '-r');
+    if (rootIdx !== -1 && args[rootIdx + 1]) {
+      resolvedTargetRoot = args[rootIdx + 1];
+    } else {
+      const positional = args.find((a) => !a.startsWith('-') && a !== 'init');
+      if (positional) {
+        resolvedTargetRoot = positional;
+      }
+    }
+  }
+
+  const root = resolvedTargetRoot ? path.resolve(resolvedTargetRoot) : process.cwd();
   const projectName = path.basename(root);
   registerProject(projectName, root);
 
-  // 1. Create data directory
+  // 1. Create data directory & initialize LanceDB tables
   const dataPath = path.resolve(root, '.vision-memory-mcp');
   if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true });
     console.log(`  ✅ Created database path: ${dataPath}`);
   }
 
+  try {
+    const { storage } = await import('../core/storage.js');
+    await storage.init(dataPath);
+    console.log(`  ✅ Initialized LanceDB database and tables at: ${dataPath}`);
+  } catch (err: any) {
+    console.error(`  ⚠️  Failed to initialize LanceDB storage: ${err?.message || String(err)}`);
+  }
+
   // 2. Append to gitignore
   const gitignorePath = path.resolve(root, '.gitignore');
-  const ignoreContent = '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n.env\n';
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf8');
+    let toAppend = '';
     if (!content.includes('.vision-memory-mcp')) {
-      fs.appendFileSync(gitignorePath, ignoreContent);
+      toAppend += '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n';
+    }
+    if (!content.includes('.env')) {
+      toAppend += (toAppend ? '' : '\n') + '.env\n';
+    }
+    if (toAppend) {
+      fs.appendFileSync(gitignorePath, toAppend);
       console.log('  ✅ Updated .gitignore');
     }
   } else {
+    const ignoreContent = '\n# vision-memory-mcp local database\n.vision-memory-mcp/\n.env\n';
     fs.writeFileSync(gitignorePath, ignoreContent);
     console.log('  ✅ Created .gitignore');
   }
 
-  // 3. Create .env config
+  // 3. Create or update .env config
   const envPath = path.resolve(root, '.env');
-  if (!fs.existsSync(envPath)) {
-    const envTemplate = `# === LanceDB ===
+  const envTemplate = `# === LanceDB ===
 LANCEDB_PATH=.vision-memory-mcp
 LANCEDB_CACHE_SIZE=100
 
@@ -211,8 +240,17 @@ TTL_DEFAULT_MS=604800000
 MAX_IMAGE_SIZE_MB=10
 THUMBNAIL_SIZE=64
 `;
+
+  if (!fs.existsSync(envPath)) {
     fs.writeFileSync(envPath, envTemplate);
     console.log('  ✅ Created .env configuration');
+  } else {
+    const existingEnv = fs.readFileSync(envPath, 'utf8');
+    if (!existingEnv.includes('LANCEDB_PATH')) {
+      const separator = existingEnv.endsWith('\n') ? '\n' : '\n\n';
+      fs.appendFileSync(envPath, `${separator}# vision-memory-mcp configuration\n${envTemplate}`);
+      console.log('  ✅ Appended vision-memory-mcp settings to existing .env');
+    }
   }
 
   // 4. Scaffold instructions for IDE agents
@@ -487,7 +525,11 @@ Run these commands in the terminal for management and analytics:
         const data = JSON.parse(raw);
         if (data.userSettings?.globalPermissionGrants?.allow) {
           let updated = false;
-          for (const perm of ['command(vision-memory-mcp)']) {
+          for (const perm of [
+            'command(vision-memory-mcp)',
+            'read_file(.*\\.gemini/antigravity/brain/.*)',
+            'write_file(.*\\.gemini/antigravity/brain/.*)',
+          ]) {
             if (!data.userSettings.globalPermissionGrants.allow.includes(perm)) {
               data.userSettings.globalPermissionGrants.allow.push(perm);
               updated = true;
@@ -496,7 +538,7 @@ Run these commands in the terminal for management and analytics:
           if (updated) {
             fs.writeFileSync(geminiConfigJson, JSON.stringify(data, null, 2) + '\n', 'utf-8');
             console.log(
-              '      ✅ Google Antigravity (config.json) — granted command(vision-memory-mcp)'
+              '      ✅ Google Antigravity (config.json) — granted command and brain read/write permissions'
             );
           }
         }
@@ -540,6 +582,19 @@ Run these commands in the terminal for management and analytics:
     }
   }
 
+  // 7. Verify storage health
+  try {
+    const { analyzeStorageHealth } = await import('../core/storage-health.js');
+    const health = analyzeStorageHealth(dataPath);
+    if (health.isHealthy) {
+      console.log(`  🏥 Storage health verified: ${health.tables.length} tables healthy.`);
+    } else {
+      console.log(`  ⚠️  Storage health warning: ${health.recommendations?.join(', ')}`);
+    }
+  } catch (err: any) {
+    logger.debug('Post-init storage health check skipped:', err);
+  }
+
   console.log(
     '\n🎉 Initialization complete! Restart or reload your IDE / Agent Manager for the new MCP server and rule configurations to take effect.'
   );
@@ -554,7 +609,7 @@ export async function runAutoInit(root: string = process.cwd()): Promise<void> {
   console.log = (...args) => console.error(...args);
 
   try {
-    await runInit(['--yes']);
+    await runInit(['--yes'], root);
   } catch (err: any) {
     console.error('Auto-initialization skipped:', err?.message || String(err));
   } finally {

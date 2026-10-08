@@ -118,4 +118,15 @@ describe('StorageHealth Module Unit Tests', () => {
     expect(result.freedBytes).toBe(0);
     expect(result.report.exists).toBe(false);
   });
+
+  it('analyzeStorageHealth should report uninitialized empty directory as unhealthy with missingTables', () => {
+    const emptyDbDir = path.join(tmpDir, 'empty-db');
+    fs.mkdirSync(emptyDbDir, { recursive: true });
+
+    const report = analyzeStorageHealth(emptyDbDir);
+    expect(report.exists).toBe(true);
+    expect(report.isHealthy).toBe(false);
+    expect(report.missingTables).toHaveLength(5);
+    expect(report.recommendations?.[0]).toContain('Missing LanceDB tables');
+  });
 });

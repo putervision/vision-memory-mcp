@@ -45,7 +45,18 @@ export async function runDoctor(args: string[] = []): Promise<void> {
   );
 
   // 2. Storage Directory Writable
-  const dbPath = config.LANCEDB_PATH;
+  const rootIdx = args.findIndex((a) => a === '--root' || a === '-r');
+  let targetRoot =
+    rootIdx !== -1 && args[rootIdx + 1] ? path.resolve(args[rootIdx + 1]) : process.cwd();
+  const positional = args.find((a) => !a.startsWith('-') && a !== 'doctor');
+  if (positional) {
+    targetRoot = path.resolve(positional);
+  }
+
+  const localDb = path.resolve(targetRoot, '.vision-memory-mcp');
+  const dbPath = fs.existsSync(localDb)
+    ? localDb
+    : path.resolve(targetRoot, config.LANCEDB_PATH);
   let storageWritable = false;
   try {
     const parentDir = path.dirname(path.resolve(dbPath));
@@ -140,8 +151,26 @@ export async function runDoctor(args: string[] = []): Promise<void> {
   let storageRepaired = false;
   let freedBytes = 0;
 
-  if (doFix && storageHealth.exists && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
-    if (!isJson) console.log('\n🔧 Auto-repairing storage bloat (--fix enabled)...');
+  if (
+    doFix &&
+    storageHealth.exists &&
+    (!storageHealth.isHealthy ||
+      storageHealth.wasteBytes > 0 ||
+      (storageHealth.missingTables && storageHealth.missingTables.length > 0))
+  ) {
+    if (storageHealth.missingTables && storageHealth.missingTables.length > 0) {
+      if (!isJson) console.log('\n🔧 Auto-initializing missing LanceDB tables (--fix enabled)...');
+      try {
+        const { storage } = await import('../../core/storage.js');
+        await storage.init(dbPath);
+        if (!isJson) console.log('   ✅ Initialized LanceDB tables successfully.');
+      } catch (err: any) {
+        if (!isJson) console.error(`   ❌ Failed to initialize tables: ${err?.message || err}`);
+      }
+    }
+    if (!isJson && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
+      console.log('\n🔧 Auto-repairing storage bloat (--fix enabled)...');
+    }
     const repairRes = await repairStorageHealth(dbPath, {
       onProgress: (msg) => {
         if (!isJson) console.log(`   ${msg}`);
@@ -152,9 +181,14 @@ export async function runDoctor(args: string[] = []): Promise<void> {
     storageRepaired = true;
   }
 
-  const storageDetails = storageHealth.exists
-    ? `Total: ${formatBytes(storageHealth.totalBytes)} | Data: ${formatBytes(storageHealth.dataBytes)} | Waste: ${formatBytes(storageHealth.wasteBytes)} (${(storageHealth.wasteRatio * 100).toFixed(1)}%) | Indexes: ${storageHealth.indexDirCount} dirs`
-    : 'No database found';
+  let storageDetails = 'No database found';
+  if (storageHealth.exists) {
+    if (storageHealth.missingTables && storageHealth.missingTables.length > 0) {
+      storageDetails = `Uninitialized tables: ${storageHealth.missingTables.join(', ')} (run 'vision-memory-mcp init' or 'doctor --fix')`;
+    } else {
+      storageDetails = `Total: ${formatBytes(storageHealth.totalBytes)} | Data: ${formatBytes(storageHealth.dataBytes)} | Waste: ${formatBytes(storageHealth.wasteBytes)} (${(storageHealth.wasteRatio * 100).toFixed(1)}%) | Indexes: ${storageHealth.indexDirCount} dirs`;
+    }
+  }
 
   reportCheck('Storage Health & Compactness', storageHealth.isHealthy, storageDetails);
 
@@ -361,8 +395,24 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
       storageHealth = analyzeStorageHealth(dbDir);
       totalDiscoveredDbs++;
 
-      if (doFix && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
-        if (!isJson) console.log(`  🔧 [${name}] Auto-repairing storage bloat...`);
+      if (
+        doFix &&
+        (!storageHealth.isHealthy ||
+          storageHealth.wasteBytes > 0 ||
+          (storageHealth.missingTables && storageHealth.missingTables.length > 0))
+      ) {
+        if (storageHealth.missingTables && storageHealth.missingTables.length > 0) {
+          if (!isJson) console.log(`  🔧 [${name}] Auto-initializing missing LanceDB tables...`);
+          try {
+            const { storage } = await import('../../core/storage.js');
+            await storage.init(dbDir);
+          } catch (err: any) {
+            if (!isJson) console.error(`  ⚠️  [${name}] Failed to init tables: ${err?.message || err}`);
+          }
+        }
+        if (!isJson && (!storageHealth.isHealthy || storageHealth.wasteBytes > 0)) {
+          console.log(`  🔧 [${name}] Auto-repairing storage bloat...`);
+        }
         const repairRes = await repairStorageHealth(dbDir, {
           onProgress: (msg) => {
             if (!isJson) console.log(`     ${msg}`);
@@ -438,9 +488,13 @@ export async function runDoctorGlobal(args: string[] = []): Promise<void> {
     if (!storageHealth || storageHealth.isHealthy) {
       checksPassed++;
     } else {
-      issues.push(
-        `Storage bloat: ${formatBytes(wasteSizeBytes)} waste (${(wasteRatio * 100).toFixed(0)}%)`
-      );
+      if (storageHealth.missingTables && storageHealth.missingTables.length > 0) {
+        issues.push(`Uninitialized tables: ${storageHealth.missingTables.join(', ')}`);
+      } else {
+        issues.push(
+          `Storage bloat: ${formatBytes(wasteSizeBytes)} waste (${(wasteRatio * 100).toFixed(0)}%)`
+        );
+      }
     }
 
     const isHealthy = checksPassed === totalChecks;

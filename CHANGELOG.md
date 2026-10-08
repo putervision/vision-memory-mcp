@@ -5,6 +5,17 @@ All notable changes to `@putervision/vision-memory-mcp` will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-10-08
+
+### 🛠️ LanceDB Project Initialization & Health Repair
+- **LanceDB Tables Scaffolding on `init`**: Automatically connects to and initializes all 5 core LanceDB tables (`visual_states`, `state_transitions`, `visual_snapshots`, `video_records`, `evidence_packs`) and schema migrations during workspace initialization.
+- **Migration Path Parameter Isolation**: Updated `checkAndRunSchemaMigrations` to accept explicit `dbPath` to prevent migration records from writing to global config paths when operating on isolated sub-projects.
+- **CLI Target Directory Resolution**: Enhanced `runInit` and `runDoctor` to parse positional directory arguments (`vision-memory-mcp init <path>`) and `--root` / `-r` flags.
+- **Auto-Init Root Forwarding**: Fixed `runAutoInit(root)` to properly pass the target root parameter to `runInit(['--yes'], root)`.
+- **Storage Health Missing Tables Detection**: Updated `analyzeStorageHealth` to detect uninitialized or missing tables, and upgraded `doctor --fix` / `doctor-global --fix` to auto-repair and initialize missing tables.
+- **Safe `.env` Appending**: Appends missing `vision-memory-mcp` configuration blocks to pre-existing `.env` files without overwriting existing environment variables.
+- **End-to-End Mock Scaffolding Tests**: Added `tests/cli/init.test.ts` testing fresh project creation, table presence, `.env` preservation, and doctor auto-repair.
+
 ## [1.4.1] - 2026-10-03
 
 ### 🔒 Security, Path Validation & Input Sanitization
