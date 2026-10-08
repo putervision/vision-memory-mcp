@@ -85,7 +85,7 @@
     "version:sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1"
+    "@huggingface/transformers": "^4.3.1"
   },
   "optionalDependencies": {
     "@lancedb/lancedb": "^0.13.0",
